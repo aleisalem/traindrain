@@ -1,0 +1,31 @@
+# Basic Claude Security PR Review Setup
+# Place this file in your repository at: .github/workflows/claude-security-pr-review.yaml
+
+name: Claude Security PR Review
+
+# Make that available for opened PRs
+on:
+  pull_request:
+    types: [review_requested]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read          # to read files for analysis
+  pull-requests: write    # to leave PR review comments
+  issues: write           # to leave PR comments
+  id-token: write         # needed for OIDC
+  actions: read           # needed to see CI/CD outcome
+
+jobs:
+  trigger-claude-review:
+    # Fire whenever the security-team is mentioned in a comment or listed as reviewers
+    if: |
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@grid-x/security-team')) ||
+      (github.event_name == 'pull_request' && github.event.requested_team.slug == 'security-team') ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.requested_teams.*.slug, 'security-team'))
+    uses: grid-x/.github/.github/workflows/claude-security-pr-review.yaml@main
+    secrets:
+      claude_app_id: ${{ secrets.CLAUDE_APP_ID }}
+      claude_app_private_key: ${{ secrets.CLAUDE_APP_PRIVATE_KEY }}
+      claude_aws_role_to_assume: ${{ secrets.CLAUDE_AWS_ROLE_TO_ASSUME }}

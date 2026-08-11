@@ -1,0 +1,29 @@
+# Basic Claude PR Review Setup
+# Place this file in your repository at: .github/workflows/claude-pr-review.yaml
+
+name: Claude PR Review
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read          # to read files for analysis
+  pull-requests: write    # to leave PR review comments
+  issues: write           # to leave PR comments
+  id-token: write         # needed for OIDC
+  actions: read           # needed to see CI/CD outcome
+
+jobs:
+  trigger-claude-review:
+    # Only run when someone mentions @claude in a PR review comment
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+    uses: grid-x/.github/.github/workflows/claude-pr-review.yaml@main
+    secrets:
+      claude_app_id: ${{ secrets.CLAUDE_APP_ID }}
+      claude_app_private_key: ${{ secrets.CLAUDE_APP_PRIVATE_KEY }}
+      claude_aws_role_to_assume: ${{ secrets.CLAUDE_AWS_ROLE_TO_ASSUME }}
