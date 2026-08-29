@@ -2,7 +2,7 @@ MANDATORY: Ask if you do not have enough context
 
 # Project Overview
 
-This project is a [WEB/MOBILE/..] application developed mainly using AI agents and LLMs, such as Claude Code or Ollama models.
+This project is a web application developed mainly using AI agents and LLMs, such as Claude Code or Ollama models.
 
 The directory where the application code is kept is @src. For web applications, keep the frontend stored under @src/frontend and a backend stored under @src/backend.
 
@@ -10,20 +10,21 @@ Regardless of the programming language or target platforms, the developed applic
 
 The applications should be built to be reliable, scalable, and extensible. We are expecting to receive feature requests to implement or modify existing features.
 
-## Usecase
+## App Description
 
-<!-- 
+This is a web-app meant to be a platform for elearning and awareness that can be customized for different topics, such as workplace safety, information security, programming, etc.
 
-Use this space to describe the actual project:
-- What is the main functionality and purpose of this application?
-    - E.g., this is a web application to help store and share cooking recipes.
-
-- What are the main features of the application?
-    - E.g., Allows users to submit complaints and track their statuses
-
-You can also include that under the `./docs` directory and link it here.
-
--->
+The following are the main functionalities of the app:
+1. Users with the necessary permissions can create learning campaigns that are basically a collection of learning modules targeting specific groups of users.
+2. Users with necessary permissions can create, edit, delete, and import learning modules, assign them to specific users and groups of users, add them and remove them from campaigns.
+3. Learning modules can be generated using AI by describing the content of the module in a chatbot. The chat continues to enhance and regenerated the content, until the user saves the module.
+4. Training modules can be configured to be graded and require passing a quiz at the end of the material.
+5. Users can also directly chat with an AI bot about various topics. The platform is an awareness platform not just a classical training platform. Whatever means necessary to educate users about a specific topic are legitimate.
+6. The system can be configured to connect to RSS feeds and different news outlets to retrieve recent news about a field, say information security, and generate and display "nuggets" of information via LLMs configured by the admin users.
+7. The system look and feel are configurable to fit the colors and motifs of different organizations and is configurable by users with the necessary permissions.
+8. The permissions model works using roles: Different actions within the system are accessible as "read-only", "read and write" or "none". Users with the role Administrator have "read and write" access to all functionalities and actions and can manage roles and members of those roles as individual users or user groups.
+9. Users can be imported into the system using HRIS systems, Google Workspace, or by invitation. Initially, we will focus on invitations to indviduals before adding more integrations.
+10. Progress of trainings and trainees can be viewed via dashboards by users with the necessary permissions. Dashboards can also be created using AI prompts.
 
 ## Documentation
 
@@ -44,7 +45,7 @@ Only store summaries of developed features in Markdown format under the @docs/ d
 Before implementing a feature, thoroughly plan it and interact with the user to gather as much information as possible about its technical details. 
 
 Adopt the following process, unless otherwise instructed by the user:
-1. Ask the user first whether they want to use @.claude/skills/wayfinder if they are not sure how to go about implementing a feature or the @.claude/skills/grill-me-with-docs skill to gather as much information as possible about the feature(s).
+1. Ask the user first whether they want to use @.claude/skills/wayfinder if they are not sure how to go about implementing a feature or the @.claude/skills/grilling skill to gather as much information as possible about the feature(s).
 2. Once done run the @.claude/skills/to-spec to create specs for your feature.
 3. Use @.claude/skills/to-tickets to break down the specs into digestable tickets to be implemented on at a time.
 4. Use @.claude/skills/implement to implement the generated tickets according to the instructions in @AGENTS.md
@@ -60,13 +61,7 @@ Whenever possible, design a feature to use a localized, simulated version of an 
 
 ### User Interface
 
-<!-- REMEMBER to upload/update those files -->
-In building the frontend, use the following resources for the overall theme of the app:
-1. Use the colors @content/colors/COLORS.md for the CSS and HTML elements,
-2. Use the font under @content/fonts/Onest for all text in the app,
-3. Use the image under @content/imgs/banner.png as a banner for the web app.
-
-Keep the user interface simple and lean with basic animations that enhance the user experience without being distracted.
+For this partivular project, make the system UI design interactive, modern, and responsive. This system is trying to make elearning fun not boring.
 
 ALWAYS offer a German and an English translations of the web application and its content.
 
