@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 export type Theme = "light" | "dark" | "colorblind";
 
@@ -22,9 +22,5 @@ export function useTheme() {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  const cycleTheme = useCallback(() => {
-    setTheme((current) => THEMES[(THEMES.indexOf(current) + 1) % THEMES.length]);
-  }, []);
-
-  return { theme, setTheme, cycleTheme, themes: THEMES };
+  return { theme, setTheme, themes: THEMES };
 }

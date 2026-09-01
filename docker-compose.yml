@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-traindrain}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-traindrain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env — copy .env.example to .env first}
       POSTGRES_DB: ${POSTGRES_DB:-traindrain}
     ports:
       - "${POSTGRES_HOST_PORT:-5433}:5432"
@@ -34,7 +34,7 @@ services:
   backend:
     build: ./src/backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-traindrain}:${POSTGRES_PASSWORD:-traindrain}@postgres:5432/${POSTGRES_DB:-traindrain}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-traindrain}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env — copy .env.example to .env first}@postgres:5432/${POSTGRES_DB:-traindrain}
       AWS_ENDPOINT_URL: http://localstack:4566
     ports:
       - "8000:8000"

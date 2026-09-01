@@ -38,7 +38,7 @@ docs/              Feature summaries and research notes
 Prerequisites: Docker and Docker Compose.
 
 ```bash
-cp .env.example .env   # fill in any values you want to override
+cp .env.example .env   # required — docker-compose needs POSTGRES_PASSWORD set
 docker-compose up
 ```
 
