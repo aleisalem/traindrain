@@ -1,8 +1,14 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    # Not EmailStr: this is matched against an existing stored email, not
+    # validated as a new, deliverable address (that belongs at invite time,
+    # ticket 5) — EmailStr would reject reserved-TLD addresses like the
+    # bootstrap admin's own default `admin@traindrain.local`, and login
+    # should fail with the same generic "invalid credentials" as any other
+    # non-matching value rather than a format-validation error.
+    email: str
     password: str
 
 

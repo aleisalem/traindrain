@@ -52,7 +52,13 @@ Implements ticket 3 of Release 0 (`.scratch/release-0-foundation/tickets.md`).
   which is explicitly admin-configurable.
 - No admin-shell UI or role checks yet (ticket 4) — today, every authenticated user (once past
   the forced-change gate) has access to the same placeholder dashboard.
-- `email-validator` was added as a new runtime dependency (`pydantic.EmailStr` needs it).
+- `LoginRequest.email` is a plain `str`, not `pydantic.EmailStr` — email format here is matched
+  against an existing stored value, not validated as a new address (that belongs at invite time,
+  ticket 5). `EmailStr` was tried first and rejects reserved-TLD addresses as "not a valid email
+  address," which broke login for the bootstrap admin's own default address,
+  `admin@traindrain.local` — `.local` is a reserved special-use domain per RFC 6762. Caught by
+  hand after the fact (not by the test suite, which never exercised the real `.local` default);
+  `email-validator` was dropped from the backend's dependencies since nothing else uses `EmailStr`.
 - Login, logout, and self password-change are deliberately **not** written to `audit_log`. The
   PRD's Audit logging section enumerates the actions that are: "invite sent, role granted/revoked,
   user disabled/enabled/erased, 2FA admin-reset, group created/deleted, group membership changed"

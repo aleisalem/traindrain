@@ -6,6 +6,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.dependencies import get_http_client
 from app.main import app
 from app.models import Session as SessionModel
@@ -74,6 +75,28 @@ async def test_login_rejects_unknown_email_with_the_same_generic_message(
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid email or password."
+
+
+async def test_login_accepts_the_bootstrap_admins_reserved_tld_domain(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    # admin@traindrain.local (the seeded bootstrap admin's default email) has
+    # a reserved special-use TLD (RFC 6762) — a validator like pydantic's
+    # EmailStr rejects it outright before the credential check ever runs,
+    # which would make the bootstrap admin permanently unable to log in.
+    admin_email = get_settings().bootstrap_admin_email
+    admin = (
+        await db_session.execute(select(User).where(User.email == admin_email))
+    ).scalar_one()
+    admin.password_hash = hash_password(KNOWN_PASSWORD)
+    await db_session.commit()
+
+    response = await client.post(
+        "/api/auth/login",
+        json={"email": admin_email, "password": KNOWN_PASSWORD},
+    )
+
+    assert response.status_code == 200
 
 
 async def test_login_email_matching_is_case_insensitive(
