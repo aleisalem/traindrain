@@ -13,15 +13,21 @@ Release 0 is in progress. So far:
 - Backend health-check endpoint (`GET /api/health`) with Alembic migrations wired to Postgres.
 - Frontend i18n (English/German via react-i18next) and a Tailwind CSS-variable theme system
   (light, dark, colorblind-friendly).
+- Core identity schema: `users`, `roles` (seeded with Administrator, Content Manager, Learner),
+  `user_roles`, `sessions`, and `audit_log` tables, plus a bootstrap Administrator account seeded
+  on first migration (its one-time random password is written to the backend's logs). Shared
+  Argon2id password hashing and a password-policy validator (12-char minimum, HIBP breach check)
+  live in `app.security` for reuse by the login/invite features that consume them next.
 
-No authentication, user management, or learning-content features exist yet.
+No login, invites, or learning-content features exist yet — the schema above has no endpoints in
+front of it until ticket 3.
 
 ## Project structure
 
 ```
 src/
   backend/         FastAPI app (Python, SQLAlchemy 2.0 async, Alembic)
-    app/           Application code (config, DB session, routes)
+    app/           Application code (config, DB session, models, security helpers, routes)
     alembic/       Database migrations
     tests/         pytest suite, run against a real Postgres instance
   frontend/        React + Vite SPA (TypeScript)
@@ -47,7 +53,9 @@ This starts:
 - Postgres on `localhost:5433` (mapped off the default 5432 to avoid clashing with a host-installed
   Postgres; override with `POSTGRES_HOST_PORT` in `.env`)
 - LocalStack (SES emulation) on `localhost:4566`
-- The backend API on `localhost:8000` (runs Alembic migrations on startup)
+- The backend API on `localhost:8000` (runs Alembic migrations on startup, which seeds a
+  bootstrap Administrator account — find its one-time password with
+  `docker-compose logs backend | grep traindrain.bootstrap`)
 - A prod-style static build of the frontend, served via nginx, on `localhost:8080`
 
 For day-to-day frontend development with hot-module-reload, run the Vite dev server natively on
@@ -71,8 +79,13 @@ Backend (requires a reachable Postgres — `docker-compose up postgres` is enoug
 cd src/backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-DATABASE_URL=postgresql+asyncpg://traindrain:traindrain@localhost:5433/traindrain pytest
+pytest   # defaults to postgresql+asyncpg://traindrain:traindrain@localhost:5433/traindrain;
+         # override with DATABASE_URL if your Postgres differs
 ```
+
+Tests run against a real Postgres database — the fixtures in `tests/conftest.py` apply Alembic
+migrations once per test session and wrap each test in a transaction that's rolled back
+afterwards, so tests can freely write data without polluting `docker-compose`'s dev database.
 
 Frontend:
 

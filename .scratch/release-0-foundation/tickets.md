@@ -23,12 +23,12 @@ Work the **frontier**: any ticket whose blockers are all done.
 
 **Blocked by:** 1
 
-- [ ] Migrations create `users`, `roles` (seeded with Administrator, Content Manager, Learner), `user_roles`, `sessions`, and `audit_log` tables
-- [ ] Bootstrap Administrator is seeded with a cryptographically random password (not env-configured), hashed with Argon2id, `must_change_password` flag set to true
-- [ ] The random password is written to application logs on seed and nowhere else in plaintext
-- [ ] Shared password-policy validator: rejects passwords under 12 characters and any password found via the HIBP Pwned Passwords API (k-anonymity, only first 5 SHA-1 hex chars sent) — unit-testable without any endpoint
-- [ ] `audit_log` helper function is callable and writes `actor_user_id`, `action`, `target_user_id`, `timestamp`, and a JSON detail blob
-- [ ] Tests verify: 3 roles seeded, bootstrap admin exists with a hashed (non-plaintext) password and `must_change_password = true`, password validator accepts/rejects correctly
+- [x] Migrations create `users`, `roles` (seeded with Administrator, Content Manager, Learner), `user_roles`, `sessions`, and `audit_log` tables
+- [x] Bootstrap Administrator is seeded with a cryptographically random password (not env-configured), hashed with Argon2id, `must_change_password` flag set to true
+- [x] The random password is written to application logs on seed and nowhere else in plaintext
+- [x] Shared password-policy validator: rejects passwords under 12 characters and any password found via the HIBP Pwned Passwords API (k-anonymity, only first 5 SHA-1 hex chars sent) — unit-testable without any endpoint
+- [x] `audit_log` helper function is callable and writes `actor_user_id`, `action`, `target_user_id`, `timestamp`, and a JSON detail blob
+- [x] Tests verify: 3 roles seeded, bootstrap admin exists with a hashed (non-plaintext) password and `must_change_password = true`, password validator accepts/rejects correctly
 
 ## 3. Login, logout, session lifecycle, forced first-login password change, rate limiting
 

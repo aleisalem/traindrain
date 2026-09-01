@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     environment: str = "development"
     database_url: str
+    bootstrap_admin_email: str = "admin@traindrain.local"
 
 
 @lru_cache

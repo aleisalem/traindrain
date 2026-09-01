@@ -11,13 +11,14 @@ dependencies = [
     "alembic>=1.13,<2.0",
     "pydantic>=2.9,<3.0",
     "pydantic-settings>=2.6,<3.0",
+    "httpx>=0.27,<1.0",
+    "argon2-cffi>=23.1,<24.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.3,<9.0",
     "pytest-asyncio>=0.24,<1.0",
-    "httpx>=0.27,<1.0",
     "ruff>=0.7,<1.0",
 ]
 
@@ -30,6 +31,9 @@ include = ["app*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# One shared event loop, so pooled asyncpg connections on app.db.engine aren't torn across loops.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 
 [tool.ruff]
