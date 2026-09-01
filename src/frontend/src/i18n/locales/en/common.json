@@ -1,0 +1,17 @@
+{
+  "app": {
+    "name": "TrainDrain"
+  },
+  "scaffold": {
+    "heading": "TrainDrain is up and running",
+    "description": "This placeholder page confirms the frontend, i18n, and theming infrastructure are wired together.",
+    "language_label": "Language",
+    "theme_label": "Theme",
+    "theme_light": "Light",
+    "theme_dark": "Dark",
+    "theme_colorblind": "Colorblind-friendly",
+    "backend_health_button": "Check backend health",
+    "backend_health_ok": "Backend reports: {{status}}",
+    "backend_health_error": "Could not reach the backend."
+  }
+}

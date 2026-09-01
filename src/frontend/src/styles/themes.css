@@ -1,0 +1,60 @@
+/*
+ * Raw theme tokens, selected by a `data-theme` attribute on <html>.
+ * `index.css` maps these into Tailwind's `@theme` namespace so components
+ * consume them as ordinary utility classes (e.g. `bg-bg`, `text-fg`) instead
+ * of re-deriving color values per screen.
+ */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #ffffff;
+  --bg-subtle: #f4f5f7;
+  --fg: #14161a;
+  --fg-muted: #52565e;
+  --border: #d8dbe0;
+  --primary: #1d4ed8;
+  --primary-fg: #ffffff;
+  --accent: #7c3aed;
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #b91c1c;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0f1115;
+  --bg-subtle: #1a1d23;
+  --fg: #f2f3f5;
+  --fg-muted: #a8adb8;
+  --border: #2c303a;
+  --primary: #60a5fa;
+  --primary-fg: #0f1115;
+  --accent: #a78bfa;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+}
+
+/*
+ * Okabe-Ito colorblind-safe palette. Success/warning/danger are chosen so
+ * they stay distinguishable under protanopia/deuteranopia/tritanopia —
+ * never rely on red-vs-green alone to convey meaning in this theme.
+ */
+[data-theme="colorblind"] {
+  color-scheme: light;
+
+  --bg: #ffffff;
+  --bg-subtle: #f4f5f7;
+  --fg: #14161a;
+  --fg-muted: #52565e;
+  --border: #d8dbe0;
+  --primary: #0072b2;
+  --primary-fg: #ffffff;
+  --accent: #cc79a7;
+  --success: #009e73;
+  --warning: #e69f00;
+  --danger: #d55e00;
+}

@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-traindrain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-traindrain}
+      POSTGRES_DB: ${POSTGRES_DB:-traindrain}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-traindrain}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  localstack:
+    image: localstack/localstack:3
+    environment:
+      SERVICES: ses
+      DEBUG: ${LOCALSTACK_DEBUG:-0}
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN:-}
+    ports:
+      - "4566:4566"
+    volumes:
+      - localstack_data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./src/backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-traindrain}:${POSTGRES_PASSWORD:-traindrain}@postgres:5432/${POSTGRES_DB:-traindrain}
+      AWS_ENDPOINT_URL: http://localstack:4566
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+  frontend:
+    build: ./src/frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  localstack_data:

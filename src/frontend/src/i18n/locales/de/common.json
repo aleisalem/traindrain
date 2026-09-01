@@ -1,0 +1,17 @@
+{
+  "app": {
+    "name": "TrainDrain"
+  },
+  "scaffold": {
+    "heading": "TrainDrain läuft",
+    "description": "Diese Platzhalterseite bestätigt, dass Frontend, i18n und Theming korrekt verbunden sind.",
+    "language_label": "Sprache",
+    "theme_label": "Thema",
+    "theme_light": "Hell",
+    "theme_dark": "Dunkel",
+    "theme_colorblind": "Farbenblindenfreundlich",
+    "backend_health_button": "Backend-Status prüfen",
+    "backend_health_ok": "Backend meldet: {{status}}",
+    "backend_health_error": "Backend konnte nicht erreicht werden."
+  }
+}
