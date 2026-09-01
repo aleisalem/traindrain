@@ -18,20 +18,34 @@ Release 0 is in progress. So far:
   on first migration (its one-time random password is written to the backend's logs). Shared
   Argon2id password hashing and a password-policy validator (12-char minimum, HIBP breach check)
   live in `app.security` for reuse by the login/invite features that consume them next.
+- Email+password login and logout, backed by server-side sessions (httpOnly/Secure/
+  SameSite=Strict cookie; 12h absolute / 30min idle expiry) — `POST /api/auth/login`,
+  `POST /api/auth/logout`, `GET /api/auth/me`. Repeated failed logins for an (email, ip) pair are
+  sliding-window rate-limited. A user with `must_change_password` set (the bootstrap admin, on
+  first login) gets a 403 from every endpoint but `/api/auth/logout` and
+  `POST /api/auth/change-password` until they set a new password; changing your password
+  invalidates your other active sessions. A minimal login / forced-password-change UI lives in
+  `src/frontend/src/features/auth/`.
 
-No login, invites, or learning-content features exist yet — the schema above has no endpoints in
-front of it until ticket 3.
+Invites and learning-content features don't exist yet, and there's no admin shell or role
+enforcement beyond the forced-password-change gate — those land in tickets 4–5.
 
 ## Project structure
 
 ```
 src/
   backend/         FastAPI app (Python, SQLAlchemy 2.0 async, Alembic)
-    app/           Application code (config, DB session, models, security helpers, routes)
+    app/           Application code
+      models/      SQLAlchemy models
+      routes/      API endpoints (FastAPI routers)
+      schemas/     Pydantic request/response models
+      security/    Passwords, sessions, tokens, rate limiting, audit logging
+      dependencies.py   Shared FastAPI dependencies (auth/session gates)
     alembic/       Database migrations
     tests/         pytest suite, run against a real Postgres instance
   frontend/        React + Vite SPA (TypeScript)
     src/
+      features/auth/   Login / forced-password-change UI and the auth state hook
       i18n/        react-i18next config and en/de locale files
       styles/      Tailwind CSS-variable theme definitions (light/dark/colorblind)
       theme/       Theme-selection hook

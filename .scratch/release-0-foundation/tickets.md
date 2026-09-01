@@ -36,14 +36,14 @@ Work the **frontier**: any ticket whose blockers are all done.
 
 **Blocked by:** 2
 
-- [ ] POST login endpoint: validates credentials, creates a server-side session row, sets httpOnly/Secure/SameSite=Strict cookie
-- [ ] POST logout endpoint: revokes the current session
-- [ ] Session expires at 12h absolute or 30min idle, whichever is first; expired session is rejected on next request
-- [ ] Sliding-window rate limit on (ip, email) pair, backed by a Postgres table; blocks further attempts temporarily without permanently locking the account
-- [ ] Bootstrap admin can log in with the logged random password; all endpoints other than "change my password" return a blocked/forced-change response until they set a new password
-- [ ] Setting the new password clears `must_change_password`, re-validates via the ticket 2 policy validator, and is Argon2id-hashed
-- [ ] Minimal login UI screen (uses i18n/theme infra from ticket 1)
-- [ ] Tests: login success/failure, logout, idle/absolute expiry, rate-limit triggering, forced-change gate blocking/unblocking access
+- [x] POST login endpoint: validates credentials, creates a server-side session row, sets httpOnly/Secure/SameSite=Strict cookie
+- [x] POST logout endpoint: revokes the current session
+- [x] Session expires at 12h absolute or 30min idle, whichever is first; expired session is rejected on next request
+- [x] Sliding-window rate limit on (ip, email) pair, backed by a Postgres table; blocks further attempts temporarily without permanently locking the account
+- [x] Bootstrap admin can log in with the logged random password; all endpoints other than "change my password" return a blocked/forced-change response until they set a new password
+- [x] Setting the new password clears `must_change_password`, re-validates via the ticket 2 policy validator, and is Argon2id-hashed
+- [x] Minimal login UI screen (uses i18n/theme infra from ticket 1)
+- [x] Tests: login success/failure, logout, idle/absolute expiry, rate-limit triggering, forced-change gate blocking/unblocking access
 
 ## 4. Admin shell UI & implicit-deny route guarding
 

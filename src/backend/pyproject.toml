@@ -11,6 +11,7 @@ dependencies = [
     "alembic>=1.13,<2.0",
     "pydantic>=2.9,<3.0",
     "pydantic-settings>=2.6,<3.0",
+    "email-validator>=2.2,<3.0",
     "httpx>=0.27,<1.0",
     "argon2-cffi>=23.1,<24.0",
 ]
@@ -39,3 +40,8 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's Depends()/Cookie()/Query() *are* meant to be called in argument
+# defaults — that's how the framework's dependency injection is spelled.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Cookie", "fastapi.Query", "fastapi.Path"]

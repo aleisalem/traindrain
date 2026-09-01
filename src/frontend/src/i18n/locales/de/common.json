@@ -13,5 +13,24 @@
     "backend_health_button": "Backend-Status prüfen",
     "backend_health_ok": "Backend meldet: {{status}}",
     "backend_health_error": "Backend konnte nicht erreicht werden."
+  },
+  "auth": {
+    "login_heading": "Anmelden",
+    "email_label": "E-Mail",
+    "password_label": "Passwort",
+    "login_submit": "Anmelden",
+    "login_error_invalid_credentials": "Ungültige E-Mail-Adresse oder ungültiges Passwort.",
+    "login_error_rate_limited": "Zu viele Versuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
+    "login_error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+    "forced_change_heading": "Neues Passwort festlegen",
+    "forced_change_description": "Sie müssen ein neues Passwort festlegen, bevor Sie fortfahren können.",
+    "current_password_label": "Aktuelles Passwort",
+    "new_password_label": "Neues Passwort",
+    "change_password_submit": "Neues Passwort festlegen",
+    "change_password_error_wrong_current_password": "Das aktuelle Passwort ist falsch.",
+    "change_password_error_policy_violation": "Dieses Passwort ist nicht zulässig — es muss mindestens 12 Zeichen lang sein und darf nicht in einem bekannten Datenleck vorkommen.",
+    "change_password_error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+    "logout": "Abmelden",
+    "welcome": "Angemeldet als {{email}}"
   }
 }

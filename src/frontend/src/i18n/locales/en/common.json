@@ -13,5 +13,24 @@
     "backend_health_button": "Check backend health",
     "backend_health_ok": "Backend reports: {{status}}",
     "backend_health_error": "Could not reach the backend."
+  },
+  "auth": {
+    "login_heading": "Sign in",
+    "email_label": "Email",
+    "password_label": "Password",
+    "login_submit": "Sign in",
+    "login_error_invalid_credentials": "Invalid email or password.",
+    "login_error_rate_limited": "Too many attempts. Please wait a few minutes and try again.",
+    "login_error_unknown": "Something went wrong. Please try again.",
+    "forced_change_heading": "Set a new password",
+    "forced_change_description": "You must set a new password before you can continue.",
+    "current_password_label": "Current password",
+    "new_password_label": "New password",
+    "change_password_submit": "Set new password",
+    "change_password_error_wrong_current_password": "Current password is incorrect.",
+    "change_password_error_policy_violation": "That password isn't allowed — it must be at least 12 characters and must not have appeared in a known data breach.",
+    "change_password_error_unknown": "Something went wrong. Please try again.",
+    "logout": "Log out",
+    "welcome": "Signed in as {{email}}"
   }
 }

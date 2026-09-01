@@ -10,6 +10,7 @@ from app.core.config import get_settings
 from app.db import Base
 from app.models import (  # noqa: F401 — registers models on Base.metadata
     AuditLog,
+    LoginAttempt,
     Role,
     Session,
     User,
