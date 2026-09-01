@@ -10,12 +10,12 @@ Work the **frontier**: any ticket whose blockers are all done.
 
 **Blocked by:** None — can start immediately.
 
-- [ ] `docker-compose up` starts Postgres, FastAPI, LocalStack (SES), and a prod-style frontend build with no bespoke setup steps
-- [ ] Vite dev server runs natively on the host for frontend HMR, per project convention
-- [ ] Backend has a health endpoint and Alembic is wired to the Postgres service
-- [ ] react-i18next is configured with EN and DE locale files (even if mostly placeholder strings) and a working `t()` call renders on a placeholder page
-- [ ] Tailwind CSS variables define dark, light, and colorblind-friendly themes; a placeholder page can switch between them
-- [ ] README updated with local run instructions per AGENTS.md documentation requirements
+- [x] `docker-compose up` starts Postgres, FastAPI, LocalStack (SES), and a prod-style frontend build with no bespoke setup steps
+- [x] Vite dev server runs natively on the host for frontend HMR, per project convention
+- [x] Backend has a health endpoint and Alembic is wired to the Postgres service
+- [x] react-i18next is configured with EN and DE locale files (even if mostly placeholder strings) and a working `t()` call renders on a placeholder page
+- [x] Tailwind CSS variables define dark, light, and colorblind-friendly themes; a placeholder page can switch between them
+- [x] README updated with local run instructions per AGENTS.md documentation requirements
 
 ## 2. Core identity schema: users, roles, sessions, audit log, bootstrap admin
 
