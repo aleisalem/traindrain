@@ -42,5 +42,31 @@
     "ping_button": "Admin-Zugriff prüfen",
     "ping_ok": "Admin-Zugriff bestätigt.",
     "ping_error": "Der Admin-Endpunkt konnte nicht erreicht werden."
+  },
+  "invites": {
+    "nav_link": "Benutzer einladen",
+    "create_heading": "Benutzer einladen",
+    "language_label": "Sprache der Einladung",
+    "language_en": "Englisch",
+    "language_de": "Deutsch",
+    "roles_label": "Zusätzliche Rollen",
+    "create_submit": "Einladung senden",
+    "create_success": "Einladung an {{email}} gesendet.",
+    "create_error_conflict": "Es existiert bereits ein Benutzer mit dieser E-Mail-Adresse.",
+    "create_error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+    "accept_loading": "Einladung wird geprüft…",
+    "accept_invalid_heading": "Diese Einladung ist nicht mehr gültig",
+    "accept_invalid_description": "Sie ist möglicherweise abgelaufen oder wurde bereits verwendet. Bitten Sie Ihre Administratorin oder Ihren Administrator um eine neue Einladung.",
+    "accept_heading": "Passwort festlegen",
+    "accept_description": "Sie richten das Konto für {{email}} ein.",
+    "new_password_label": "Neues Passwort",
+    "confirm_password_label": "Passwort bestätigen",
+    "accept_submit": "Konto erstellen",
+    "accept_error_password_mismatch": "Die Passwörter stimmen nicht überein.",
+    "accept_error_policy_violation": "Dieses Passwort ist nicht zulässig — es muss mindestens 12 Zeichen lang sein und darf nicht in einem bekannten Datenleck vorkommen.",
+    "accept_error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+    "accept_success_heading": "Konto erstellt",
+    "accept_success_description": "Ihr Konto ist bereit.",
+    "accept_success_login_link": "Zur Anmeldung"
   }
 }

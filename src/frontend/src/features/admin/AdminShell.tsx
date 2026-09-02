@@ -14,6 +14,9 @@ export function AdminShell({ onLogout }: Props) {
         <div className="flex items-center gap-6">
           <h1 className="text-lg font-semibold">{t("admin.shell_heading")}</h1>
           <nav className="flex gap-4 text-sm">
+            <Link to="/admin/invites" className="text-fg-muted hover:text-fg">
+              {t("invites.nav_link")}
+            </Link>
             <Link to="/" className="text-fg-muted hover:text-fg">
               {t("admin.back_to_dashboard")}
             </Link>

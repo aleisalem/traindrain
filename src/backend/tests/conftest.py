@@ -1,6 +1,7 @@
 import os
 from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest_asyncio
@@ -45,13 +46,31 @@ async def db_session() -> AsyncIterator[AsyncSession]:
             await trans.rollback()
 
 
+class FakeSESClient:
+    """Stands in for the boto3 SES client so tests never hit LocalStack/SES."""
+
+    def __init__(self, sent: list[dict[str, Any]]) -> None:
+        self._sent = sent
+
+    def send_email(self, **kwargs: Any) -> dict[str, str]:
+        self._sent.append(kwargs)
+        return {"MessageId": "fake-message-id"}
+
+
 @pytest_asyncio.fixture
-async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
+def sent_emails() -> list[dict[str, Any]]:
+    return []
+
+
+@pytest_asyncio.fixture
+async def client(
+    db_session: AsyncSession, sent_emails: list[dict[str, Any]]
+) -> AsyncIterator[AsyncClient]:
     # Routes run against the same in-transaction session as the test, so
     # writes a test makes through HTTP are visible to it and get rolled back
     # afterward like everything else db_session touches.
     from app.db import get_db
-    from app.dependencies import get_http_client
+    from app.dependencies import get_http_client, get_ses_client
     from app.main import app
 
     async def override_get_db() -> AsyncIterator[AsyncSession]:
@@ -64,8 +83,12 @@ async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
         async with httpx.AsyncClient(transport=transport) as mock_client:
             yield mock_client
 
+    def override_get_ses_client() -> FakeSESClient:
+        return FakeSESClient(sent_emails)
+
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_http_client] = override_get_http_client
+    app.dependency_overrides[get_ses_client] = override_get_ses_client
     try:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:

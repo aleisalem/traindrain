@@ -32,8 +32,18 @@ Release 0 is in progress. So far:
   `app/dependencies.py`), so a Learner or Content Manager gets a 403 even navigating there
   directly, not just a hidden nav item. Frontend routing uses React Router
   (`src/frontend/src/App.tsx`, `src/frontend/src/features/admin/`).
+- Admin-issued invites (`POST /api/admin/invites`, admin shell page at `/admin/invites`):
+  single-use, hashed tokens emailed via SES/LocalStack-SES in the admin's chosen language, with
+  optional role pre-assignment and an admin-configurable global expiry (`GET`/`PUT
+  /api/admin/settings/invite-expiry-days`, default 7 days). Re-inviting an email invalidates its
+  prior pending invite. `GET`/`POST /api/invites/{token}` (public — the invited user isn't a
+  session yet) let a visitor check an invite and set their initial password, auto-assigning the
+  Learner role plus anything the admin pre-assigned; an expired/used/superseded invite shows a
+  clear "no longer valid" message. All invite issuance is audit-logged. Frontend:
+  `src/frontend/src/features/admin/InviteUserPage.tsx` and
+  `src/frontend/src/features/invites/AcceptInvitePage.tsx`.
 
-Invites and learning-content features don't exist yet — those land starting with ticket 5.
+Learning-content features don't exist yet — those land starting with Release 1.
 
 ## Project structure
 
@@ -51,7 +61,8 @@ src/
   frontend/        React + Vite SPA (TypeScript)
     src/
       features/auth/   Login / forced-password-change UI and the auth state hook
-      features/admin/  Admin-only route tree (shell nav + stub overview page)
+      features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page)
+      features/invites/  Public accept-invite page (set password, no session required)
       i18n/        react-i18next config and en/de locale files
       styles/      Tailwind CSS-variable theme definitions (light/dark/colorblind)
       theme/       Theme-selection hook

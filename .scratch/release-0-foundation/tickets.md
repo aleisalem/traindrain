@@ -62,15 +62,15 @@ Work the **frontier**: any ticket whose blockers are all done.
 
 **Blocked by:** 3, 4
 
-- [ ] Admin-only endpoint + admin shell page: create invite (email, optional role pre-assignment, language)
-- [ ] Invite token is single-use, cryptographically random (`secrets.token_urlsafe`), stored hashed
-- [ ] Global invite-expiry setting is admin-configurable, defaults to 7 days
-- [ ] Invite email is sent via SES/LocalStack-SES in the invite's chosen language
-- [ ] Accept-invite flow: sets password (reusing ticket 2 validator), creates the user, auto-assigns Learner + pre-assigned roles
-- [ ] Expired or already-used invite shows a clear "no longer valid" message, not a generic error
-- [ ] Re-inviting the same email invalidates the prior pending invite and issues a fresh token
-- [ ] All invite issuance is audit-logged
-- [ ] Tests: issue, accept, expiry, reuse-rejection, re-invite invalidation, role pre-assignment on acceptance
+- [x] Admin-only endpoint + admin shell page: create invite (email, optional role pre-assignment, language)
+- [x] Invite token is single-use, cryptographically random (`secrets.token_urlsafe`), stored hashed
+- [x] Global invite-expiry setting is admin-configurable, defaults to 7 days
+- [x] Invite email is sent via SES/LocalStack-SES in the invite's chosen language
+- [x] Accept-invite flow: sets password (reusing ticket 2 validator), creates the user, auto-assigns Learner + pre-assigned roles
+- [x] Expired or already-used invite shows a clear "no longer valid" message, not a generic error
+- [x] Re-inviting the same email invalidates the prior pending invite and issues a fresh token
+- [x] All invite issuance is audit-logged
+- [x] Tests: issue, accept, expiry, reuse-rejection, re-invite invalidation, role pre-assignment on acceptance
 
 ## 6. Forgot-password flow
 

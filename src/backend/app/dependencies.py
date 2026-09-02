@@ -1,12 +1,15 @@
 from collections.abc import AsyncIterator
 
+import boto3
 import httpx
 from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.db import get_db
 from app.models import Session as SessionModel
 from app.models import User
+from app.security.mailer import SESClient
 from app.security.sessions import COOKIE_NAME, get_valid_session
 
 _NOT_AUTHENTICATED = HTTPException(
@@ -17,6 +20,14 @@ _NOT_AUTHENTICATED = HTTPException(
 async def get_http_client() -> AsyncIterator[httpx.AsyncClient]:
     async with httpx.AsyncClient(timeout=5.0) as client:
         yield client
+
+
+def get_ses_client() -> SESClient:
+    settings = get_settings()
+    client_kwargs: dict[str, str] = {"region_name": settings.aws_region}
+    if settings.aws_endpoint_url:
+        client_kwargs["endpoint_url"] = settings.aws_endpoint_url
+    return boto3.client("ses", **client_kwargs)
 
 
 async def get_current_session(

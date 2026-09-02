@@ -42,5 +42,31 @@
     "ping_button": "Check admin access",
     "ping_ok": "Admin access confirmed.",
     "ping_error": "Could not reach the admin endpoint."
+  },
+  "invites": {
+    "nav_link": "Invite user",
+    "create_heading": "Invite a user",
+    "language_label": "Invite language",
+    "language_en": "English",
+    "language_de": "German",
+    "roles_label": "Additional roles",
+    "create_submit": "Send invite",
+    "create_success": "Invite sent to {{email}}.",
+    "create_error_conflict": "A user with this email already exists.",
+    "create_error_unknown": "Something went wrong. Please try again.",
+    "accept_loading": "Checking your invite…",
+    "accept_invalid_heading": "This invite is no longer valid",
+    "accept_invalid_description": "It may have expired or already been used. Ask your administrator for a new invite.",
+    "accept_heading": "Set your password",
+    "accept_description": "You're setting up the account for {{email}}.",
+    "new_password_label": "New password",
+    "confirm_password_label": "Confirm password",
+    "accept_submit": "Create account",
+    "accept_error_password_mismatch": "Passwords don't match.",
+    "accept_error_policy_violation": "That password isn't allowed — it must be at least 12 characters and must not have appeared in a known data breach.",
+    "accept_error_unknown": "Something went wrong. Please try again.",
+    "accept_success_heading": "Account created",
+    "accept_success_description": "Your account is ready.",
+    "accept_success_login_link": "Go to sign in"
   }
 }

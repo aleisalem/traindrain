@@ -35,6 +35,11 @@ function mockBackend(user: unknown) {
       if (url === "/api/admin/ping") {
         return new Response(JSON.stringify({ status: "ok" }), { status: 200 });
       }
+      if (url === "/api/admin/roles") {
+        return new Response(JSON.stringify([{ id: "role-learner", name: "Learner" }]), {
+          status: 200,
+        });
+      }
       throw new Error(`No mocked response for ${url}`);
     }),
   );
@@ -61,6 +66,20 @@ describe("Admin shell routing", () => {
     await user.click(screen.getByRole("link", { name: "Admin area" }));
 
     expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
+  });
+
+  it("lets an Administrator navigate to the invite-user page", async () => {
+    const user = userEvent.setup();
+    mockBackend(ADMIN_USER);
+
+    render(<App />);
+    await screen.findByText("Signed in as admin@example.com");
+
+    await user.click(screen.getByRole("link", { name: "Admin area" }));
+    await screen.findByRole("heading", { name: "Overview" });
+    await user.click(screen.getByRole("link", { name: "Invite user" }));
+
+    expect(await screen.findByRole("heading", { name: "Invite a user" })).toBeInTheDocument();
   });
 
   it("hides the admin nav link for a Learner", async () => {

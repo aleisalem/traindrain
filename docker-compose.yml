@@ -36,6 +36,15 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-traindrain}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env — copy .env.example to .env first}@postgres:5432/${POSTGRES_DB:-traindrain}
       AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_REGION: eu-central-1
+      # LocalStack's SES emulation accepts any credentials — these aren't
+      # real AWS secrets, just what boto3 requires to be non-empty. In
+      # production (no AWS_ENDPOINT_URL set) boto3 uses the ECS task role
+      # instead, so these are never read there.
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SES_SENDER_EMAIL: no-reply@traindrain.local
+      FRONTEND_BASE_URL: http://localhost:8080
     ports:
       - "8000:8000"
     depends_on:
