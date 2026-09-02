@@ -33,12 +33,21 @@ def _migrated_database() -> None:
 
 @pytest_asyncio.fixture
 async def db_session() -> AsyncIterator[AsyncSession]:
-    # Rolled back after each test so tests can write freely without polluting the shared database.
+    # Rolled back after each test so tests can write freely without polluting
+    # the shared database. join_transaction_mode="create_savepoint" is what
+    # makes this actually hold: route code calls session.commit() same as in
+    # production, and without this the session would commit straight through
+    # the outer transaction started below, making trans.rollback() a no-op.
+    # SQLAlchemy issues a SAVEPOINT instead and re-issues one after each such
+    # commit, so only the outer transaction's rollback is what ever undoes
+    # anything against the real database.
     from app.db import engine
 
     async with engine.connect() as conn:
         trans = await conn.begin()
-        session = AsyncSession(bind=conn, expire_on_commit=False)
+        session = AsyncSession(
+            bind=conn, join_transaction_mode="create_savepoint", expire_on_commit=False
+        )
         try:
             yield session
         finally:

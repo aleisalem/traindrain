@@ -5,7 +5,9 @@ import { AdminOverview } from "./features/admin/AdminOverview";
 import { AdminShell } from "./features/admin/AdminShell";
 import { InviteUserPage } from "./features/admin/InviteUserPage";
 import { ForcedPasswordChangeForm } from "./features/auth/ForcedPasswordChangeForm";
+import { ForgotPasswordPage } from "./features/auth/ForgotPasswordPage";
 import { LoginForm } from "./features/auth/LoginForm";
+import { ResetPasswordPage } from "./features/auth/ResetPasswordPage";
 import type { AuthUser } from "./features/auth/useAuth";
 import { ADMINISTRATOR_ROLE, useAuth } from "./features/auth/useAuth";
 import { AcceptInvitePage } from "./features/invites/AcceptInvitePage";
@@ -30,12 +32,28 @@ function AuthenticatedRoutes({ user, onLogout }: { user: AuthUser; onLogout: () 
 function App() {
   const { state, login, logout, changePassword } = useAuth();
 
-  // An invite link is followed by a signed-out visitor — reachable regardless
-  // of session state, unlike every other route in the app.
+  // An invite or password-reset link is followed by a signed-out visitor —
+  // reachable regardless of session state, unlike every other route in the app.
   if (window.location.pathname === "/accept-invite") {
     return (
       <main className="min-h-screen bg-bg text-fg flex items-center justify-center p-8">
         <AcceptInvitePage />
+      </main>
+    );
+  }
+
+  if (window.location.pathname === "/forgot-password") {
+    return (
+      <main className="min-h-screen bg-bg text-fg flex items-center justify-center p-8">
+        <ForgotPasswordPage />
+      </main>
+    );
+  }
+
+  if (window.location.pathname === "/reset-password") {
+    return (
+      <main className="min-h-screen bg-bg text-fg flex items-center justify-center p-8">
+        <ResetPasswordPage />
       </main>
     );
   }

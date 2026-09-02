@@ -78,10 +78,10 @@ Work the **frontier**: any ticket whose blockers are all done.
 
 **Blocked by:** 3, 5
 
-- [ ] Request-reset endpoint: accepts an email, issues a hashed single-use token with 1h expiry, sends via SES/LocalStack-SES (no account-existence leak in the response)
-- [ ] Reset endpoint: validates token, enforces the ticket 2 password validator, sets the new password
-- [ ] Using the link invalidates the user's other active sessions
-- [ ] Tests: request, successful reset, expired token, reused token, session invalidation on reset
+- [x] Request-reset endpoint: accepts an email, issues a hashed single-use token with 1h expiry, sends via SES/LocalStack-SES (no account-existence leak in the response)
+- [x] Reset endpoint: validates token, enforces the ticket 2 password validator, sets the new password
+- [x] Using the link invalidates the user's other active sessions
+- [x] Tests: request, successful reset, expired token, reused token, session invalidation on reset
 
 ## 7. TOTP 2FA enrollment & login with 2FA
 

@@ -69,6 +69,10 @@ export function LoginForm({ onLogin }: Props) {
       >
         {t("auth.login_submit")}
       </button>
+
+      <a href="/forgot-password" className="text-center text-sm text-primary underline">
+        {t("auth.forgot_password_link")}
+      </a>
     </form>
   );
 }

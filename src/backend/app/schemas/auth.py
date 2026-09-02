@@ -28,3 +28,15 @@ class MeResponse(BaseModel):
     last_name: str | None
     must_change_password: bool
     roles: list[str]
+
+
+class ForgotPasswordRequest(BaseModel):
+    # Not EmailStr, for the same reason as LoginRequest.email — matched
+    # against an existing stored value, and an invalid format should get the
+    # same generic non-leaking response as any other unrecognized email.
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str

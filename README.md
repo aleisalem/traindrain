@@ -42,6 +42,14 @@ Release 0 is in progress. So far:
   clear "no longer valid" message. All invite issuance is audit-logged. Frontend:
   `src/frontend/src/features/admin/InviteUserPage.tsx` and
   `src/frontend/src/features/invites/AcceptInvitePage.tsx`.
+- Forgot-password flow: `POST /api/auth/forgot-password` (email in, always 204 out — the
+  response never leaks whether an account exists) emails a single-use, hashed, 1-hour-expiry
+  reset token via SES/LocalStack-SES; a fresh request supersedes any still-pending one.
+  `POST /api/auth/reset-password` validates the token, enforces the same password-policy
+  validator, sets the new password, and invalidates all of that user's other active sessions.
+  Frontend: `src/frontend/src/features/auth/ForgotPasswordPage.tsx` and
+  `ResetPasswordPage.tsx`, reachable at `/forgot-password` and `/reset-password` without a
+  session, plus a "Forgot your password?" link on the login form.
 
 Learning-content features don't exist yet — those land starting with Release 1.
 
@@ -60,7 +68,7 @@ src/
     tests/         pytest suite, run against a real Postgres instance
   frontend/        React + Vite SPA (TypeScript)
     src/
-      features/auth/   Login / forced-password-change UI and the auth state hook
+      features/auth/   Login / forced-password-change / forgot- and reset-password UI, auth state hook
       features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page)
       features/invites/  Public accept-invite page (set password, no session required)
       i18n/        react-i18next config and en/de locale files

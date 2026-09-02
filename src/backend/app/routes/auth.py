@@ -1,18 +1,30 @@
+from datetime import UTC, datetime, timedelta
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.db import get_db
 from app.dependencies import (
     get_current_session,
     get_current_user,
     get_http_client,
+    get_ses_client,
     require_active_user,
 )
+from app.models import PasswordResetToken, User
 from app.models import Session as SessionModel
-from app.models import User
-from app.schemas.auth import ChangePasswordRequest, LoginRequest, LoginResponse, MeResponse
+from app.schemas.auth import (
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
+    LoginRequest,
+    LoginResponse,
+    MeResponse,
+    ResetPasswordRequest,
+)
+from app.security.mailer import SESClient, send_password_reset_email
 from app.security.passwords import (
     PasswordPolicyError,
     hash_password,
@@ -27,12 +39,23 @@ from app.security.sessions import (
     revoke_session,
     set_session_cookie,
 )
-from app.security.tokens import generate_token
+from app.security.tokens import generate_token, hash_token
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 _INVALID_CREDENTIALS = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password."
+)
+
+# Shorter than the invite expiry (7 days) since this is a security-sensitive
+# action-in-progress rather than an onboarding grace period.
+RESET_TOKEN_LIFETIME = timedelta(hours=1)
+
+# Deliberately generic and identical for "never existed", "expired",
+# "already used", and "superseded by a later request" — a caller doesn't
+# need (or get) to distinguish those.
+_RESET_TOKEN_NO_LONGER_VALID = HTTPException(
+    status_code=status.HTTP_410_GONE, detail="This password reset link is no longer valid."
 )
 
 # Verified against on every "unknown email" login, so that path costs the same
@@ -132,3 +155,90 @@ async def change_password(
     await db.commit()
 
     return LoginResponse(must_change_password=False)
+
+
+@router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
+async def forgot_password(
+    payload: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    ses_client: SESClient = Depends(get_ses_client),
+) -> None:
+    # Always responds 204 regardless of whether the email matches an account
+    # — the response must never leak account existence.
+    user = (
+        await db.execute(
+            select(User).where(func.lower(User.email) == payload.email.strip().lower())
+        )
+    ).scalar_one_or_none()
+    if user is None:
+        return
+
+    now = datetime.now(UTC)
+
+    # A fresh request supersedes any still-pending one, the same way a
+    # re-invite supersedes a prior pending invite.
+    prior_tokens = (
+        await db.execute(
+            select(PasswordResetToken).where(
+                PasswordResetToken.user_id == user.id,
+                PasswordResetToken.used_at.is_(None),
+                PasswordResetToken.expires_at > now,
+            )
+        )
+    ).scalars()
+    for prior in prior_tokens:
+        prior.used_at = now
+
+    token = generate_token()
+    reset_token = PasswordResetToken(
+        user_id=user.id,
+        token_hash=hash_token(token),
+        expires_at=now + RESET_TOKEN_LIFETIME,
+    )
+    db.add(reset_token)
+
+    reset_url = f"{get_settings().frontend_base_url}/reset-password?token={token}"
+    await send_password_reset_email(
+        ses_client,
+        to_email=user.email,
+        language=user.preferred_language or "en",
+        reset_url=reset_url,
+    )
+
+    # Committed only after the email send succeeds, so a failed send leaves
+    # no half-issued token (and any prior token it would have superseded
+    # stays valid) — the caller can just retry.
+    await db.commit()
+
+
+@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+async def reset_password(
+    payload: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    http_client: httpx.AsyncClient = Depends(get_http_client),
+) -> None:
+    reset_token = (
+        await db.execute(
+            select(PasswordResetToken).where(
+                PasswordResetToken.token_hash == hash_token(payload.token)
+            )
+        )
+    ).scalar_one_or_none()
+    now = datetime.now(UTC)
+    if reset_token is None or reset_token.used_at is not None or reset_token.expires_at <= now:
+        raise _RESET_TOKEN_NO_LONGER_VALID
+
+    try:
+        await validate_password_policy(payload.password, http_client=http_client)
+    except PasswordPolicyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"reasons": exc.reasons}
+        ) from exc
+
+    user = (await db.execute(select(User).where(User.id == reset_token.user_id))).scalar_one()
+
+    user.password_hash = hash_password(payload.password)
+    user.must_change_password = False
+    reset_token.used_at = now
+    await revoke_other_sessions(db, user_id=user.id, keep_session_id=None)
+    await db.commit()
