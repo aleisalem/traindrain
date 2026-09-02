@@ -32,5 +32,15 @@
     "change_password_error_unknown": "Something went wrong. Please try again.",
     "logout": "Log out",
     "welcome": "Signed in as {{email}}"
+  },
+  "admin": {
+    "nav_link": "Admin area",
+    "shell_heading": "Admin",
+    "back_to_dashboard": "Back to dashboard",
+    "overview_heading": "Overview",
+    "overview_description": "This stub page proves the admin area and its backend are wired together and restricted to Administrators.",
+    "ping_button": "Check admin access",
+    "ping_ok": "Admin access confirmed.",
+    "ping_error": "Could not reach the admin endpoint."
   }
 }

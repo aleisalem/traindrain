@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
+import { ADMINISTRATOR_ROLE } from "./features/auth/useAuth";
 import type { AuthUser } from "./features/auth/useAuth";
 import { SUPPORTED_LANGUAGES } from "./i18n";
 import { useTheme } from "./theme/useTheme";
@@ -39,13 +41,23 @@ function Dashboard({ user, onLogout }: Props) {
         <p className="text-sm text-fg-muted">{t("auth.welcome", { email: user.email })}</p>
       </div>
 
-      <button
-        type="button"
-        onClick={onLogout}
-        className="rounded-md border border-border px-3 py-1.5 text-sm"
-      >
-        {t("auth.logout")}
-      </button>
+      <div className="flex gap-2">
+        {user.roles.includes(ADMINISTRATOR_ROLE) && (
+          <Link
+            to="/admin"
+            className="rounded-md border border-border px-3 py-1.5 text-sm"
+          >
+            {t("admin.nav_link")}
+          </Link>
+        )}
+        <button
+          type="button"
+          onClick={onLogout}
+          className="rounded-md border border-border px-3 py-1.5 text-sm"
+        >
+          {t("auth.logout")}
+        </button>
+      </div>
 
       <section className="flex flex-col items-center gap-2">
         <span className="text-sm text-fg-muted">{t("scaffold.language_label")}</span>

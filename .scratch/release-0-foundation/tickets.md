@@ -51,10 +51,10 @@ Work the **frontier**: any ticket whose blockers are all done.
 
 **Blocked by:** 3
 
-- [ ] Admin area exists as a separate route tree in the frontend, with nav only visible to Administrators
-- [ ] A stub admin-only backend endpoint enforces the Administrator role server-side (not just hidden client-side)
-- [ ] Test: Learner and Content Manager sessions get 403 on the stub endpoint even when navigating directly by URL
-- [ ] Test: Administrator session succeeds
+- [x] Admin area exists as a separate route tree in the frontend, with nav only visible to Administrators
+- [x] A stub admin-only backend endpoint enforces the Administrator role server-side (not just hidden client-side)
+- [x] Test: Learner and Content Manager sessions get 403 on the stub endpoint even when navigating directly by URL
+- [x] Test: Administrator session succeeds
 
 ## 5. Admin invites a user; invite acceptance sets password
 

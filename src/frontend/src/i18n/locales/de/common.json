@@ -32,5 +32,15 @@
     "change_password_error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
     "logout": "Abmelden",
     "welcome": "Angemeldet als {{email}}"
+  },
+  "admin": {
+    "nav_link": "Admin-Bereich",
+    "shell_heading": "Admin",
+    "back_to_dashboard": "Zurück zum Dashboard",
+    "overview_heading": "Übersicht",
+    "overview_description": "Diese Platzhalterseite bestätigt, dass der Admin-Bereich und sein Backend korrekt verbunden und auf Administratoren beschränkt sind.",
+    "ping_button": "Admin-Zugriff prüfen",
+    "ping_ok": "Admin-Zugriff bestätigt.",
+    "ping_error": "Der Admin-Endpunkt konnte nicht erreicht werden."
   }
 }

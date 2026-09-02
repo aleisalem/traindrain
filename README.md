@@ -26,9 +26,14 @@ Release 0 is in progress. So far:
   `POST /api/auth/change-password` until they set a new password; changing your password
   invalidates your other active sessions. A minimal login / forced-password-change UI lives in
   `src/frontend/src/features/auth/`.
+- An admin area (`/admin`), structurally separate from the learner-facing dashboard, with its own
+  navigation — visible only to users holding the Administrator role. A stub admin-only endpoint
+  (`GET /api/admin/ping`) enforces that role server-side (`require_administrator` in
+  `app/dependencies.py`), so a Learner or Content Manager gets a 403 even navigating there
+  directly, not just a hidden nav item. Frontend routing uses React Router
+  (`src/frontend/src/App.tsx`, `src/frontend/src/features/admin/`).
 
-Invites and learning-content features don't exist yet, and there's no admin shell or role
-enforcement beyond the forced-password-change gate — those land in tickets 4–5.
+Invites and learning-content features don't exist yet — those land starting with ticket 5.
 
 ## Project structure
 
@@ -46,6 +51,7 @@ src/
   frontend/        React + Vite SPA (TypeScript)
     src/
       features/auth/   Login / forced-password-change UI and the auth state hook
+      features/admin/  Admin-only route tree (shell nav + stub overview page)
       i18n/        react-i18next config and en/de locale files
       styles/      Tailwind CSS-variable theme definitions (light/dark/colorblind)
       theme/       Theme-selection hook

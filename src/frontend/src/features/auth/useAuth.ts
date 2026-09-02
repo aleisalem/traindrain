@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
+export const ADMINISTRATOR_ROLE = "Administrator";
+
 export type AuthUser = {
   id: string;
   email: string;

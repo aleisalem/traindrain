@@ -1,7 +1,28 @@
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+
 import Dashboard from "./Dashboard";
+import { AdminOverview } from "./features/admin/AdminOverview";
+import { AdminShell } from "./features/admin/AdminShell";
 import { ForcedPasswordChangeForm } from "./features/auth/ForcedPasswordChangeForm";
 import { LoginForm } from "./features/auth/LoginForm";
-import { useAuth } from "./features/auth/useAuth";
+import type { AuthUser } from "./features/auth/useAuth";
+import { ADMINISTRATOR_ROLE, useAuth } from "./features/auth/useAuth";
+
+function AuthenticatedRoutes({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
+  const isAdministrator = user.roles.includes(ADMINISTRATOR_ROLE);
+
+  return (
+    <Routes>
+      <Route path="/" element={<Dashboard user={user} onLogout={onLogout} />} />
+      {isAdministrator && (
+        <Route path="/admin" element={<AdminShell onLogout={onLogout} />}>
+          <Route index element={<AdminOverview />} />
+        </Route>
+      )}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
 
 function App() {
   const { state, login, logout, changePassword } = useAuth();
@@ -26,7 +47,11 @@ function App() {
     );
   }
 
-  return <Dashboard user={state.user} onLogout={() => void logout()} />;
+  return (
+    <BrowserRouter>
+      <AuthenticatedRoutes user={state.user} onLogout={() => void logout()} />
+    </BrowserRouter>
+  );
 }
 
 export default App;
