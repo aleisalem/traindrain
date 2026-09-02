@@ -48,6 +48,8 @@ describe("InviteUserPage", () => {
     const mock = createFetchMock();
     queue = mock.queue;
     vi.stubGlobal("fetch", mock.fetchMock);
+    // Fetched unconditionally on mount by the invite-expiry control.
+    queue("GET", "/api/admin/settings/invite-expiry-days", { status: 200, body: { days: 7 } });
   });
 
   afterEach(() => {
@@ -107,5 +109,28 @@ describe("InviteUserPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "A user with this email already exists.",
     );
+  });
+
+  it("lets an admin view and update the invite-link expiry", async () => {
+    const user = userEvent.setup();
+    queue("GET", "/api/admin/roles", { status: 200, body: ROLES });
+    queue("PUT", "/api/admin/settings/invite-expiry-days", { status: 200, body: { days: 3 } });
+
+    render(<InviteUserPage />);
+
+    const daysInput = await screen.findByLabelText("Days until an invite link expires");
+    expect(daysInput).toHaveValue(7);
+
+    await user.clear(daysInput);
+    await user.type(daysInput, "3");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Saved.")).toBeInTheDocument();
+    const call = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      (args: unknown[]) =>
+        args[0] === "/api/admin/settings/invite-expiry-days" &&
+        (args[1] as RequestInit | undefined)?.method === "PUT",
+    ) as [RequestInfo, RequestInit];
+    expect(JSON.parse(call[1].body as string)).toEqual({ days: 3 });
   });
 });

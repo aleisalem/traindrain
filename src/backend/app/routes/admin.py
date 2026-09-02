@@ -52,6 +52,7 @@ async def update_invite_expiry_setting(
     admin: User = Depends(require_administrator),
 ) -> InviteExpirySettingResponse:
     await set_invite_expiry_days(db, payload.days)
+    await db.commit()
     return InviteExpirySettingResponse(days=payload.days)
 
 

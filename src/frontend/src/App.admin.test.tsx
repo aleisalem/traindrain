@@ -40,6 +40,9 @@ function mockBackend(user: unknown) {
           status: 200,
         });
       }
+      if (url === "/api/admin/settings/invite-expiry-days") {
+        return new Response(JSON.stringify({ days: 7 }), { status: 200 });
+      }
       throw new Error(`No mocked response for ${url}`);
     }),
   );

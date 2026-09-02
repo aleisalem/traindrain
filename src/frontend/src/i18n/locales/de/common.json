@@ -45,6 +45,11 @@
   },
   "invites": {
     "nav_link": "Benutzer einladen",
+    "expiry_heading": "Gültigkeit von Einladungslinks",
+    "expiry_days_label": "Tage bis ein Einladungslink abläuft",
+    "expiry_save": "Speichern",
+    "expiry_saved": "Gespeichert.",
+    "expiry_error": "Die Gültigkeitsdauer konnte nicht aktualisiert werden.",
     "create_heading": "Benutzer einladen",
     "language_label": "Sprache der Einladung",
     "language_en": "Englisch",

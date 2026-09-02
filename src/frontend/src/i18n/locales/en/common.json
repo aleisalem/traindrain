@@ -45,6 +45,11 @@
   },
   "invites": {
     "nav_link": "Invite user",
+    "expiry_heading": "Invite link expiry",
+    "expiry_days_label": "Days until an invite link expires",
+    "expiry_save": "Save",
+    "expiry_saved": "Saved.",
+    "expiry_error": "Could not update the expiry.",
     "create_heading": "Invite a user",
     "language_label": "Invite language",
     "language_en": "English",
