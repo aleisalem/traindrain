@@ -13,7 +13,11 @@ class LoginRequest(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    must_change_password: bool
+    must_change_password: bool = False
+    # True when the password check passed but a second factor is still
+    # needed — no session cookie has been set yet in that case, only the
+    # short-lived 2FA challenge cookie.
+    two_factor_required: bool = False
 
 
 class ChangePasswordRequest(BaseModel):
@@ -28,6 +32,7 @@ class MeResponse(BaseModel):
     last_name: str | None
     must_change_password: bool
     roles: list[str]
+    two_factor_enabled: bool
 
 
 class ForgotPasswordRequest(BaseModel):

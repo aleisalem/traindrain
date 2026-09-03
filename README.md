@@ -50,6 +50,21 @@ Release 0 is in progress. So far:
   Frontend: `src/frontend/src/features/auth/ForgotPasswordPage.tsx` and
   `ResetPasswordPage.tsx`, reachable at `/forgot-password` and `/reset-password` without a
   session, plus a "Forgot your password?" link on the login form.
+- Opt-in TOTP two-factor authentication: `POST /api/auth/2fa/enroll` generates a TOTP secret
+  (envelope-encrypted with AES-256-GCM before storage, key from `TWO_FACTOR_ENCRYPTION_KEY`) and
+  returns a QR code plus setup key; `POST /api/auth/2fa/enable` confirms it with a real TOTP code
+  and returns ~10 Argon2id-hashed, single-use recovery codes shown once. Once enabled, a
+  password-only `POST /api/auth/login` no longer issues a session — it sets a short-lived (5min),
+  httpOnly `2FA challenge` cookie and returns `two_factor_required: true`; the real session is
+  only issued by `POST /api/auth/2fa/verify` after a valid TOTP or recovery code (rate-limited the
+  same way login is). `GET /api/auth/me` reports `two_factor_enabled`. A user can disable their
+  own 2FA (`POST /api/auth/2fa/disable`, confirmed with their current password), and an
+  Administrator can disable 2FA on a locked-out user's behalf after out-of-band identity
+  verification (`POST /api/admin/users/2fa/disable`, audit-logged as `two_factor_admin_disabled`).
+  Frontend: `src/frontend/src/features/auth/TwoFactorVerifyForm.tsx` (login-time second step),
+  `src/frontend/src/features/twoFactor/TwoFactorSettings.tsx` (self-service enroll/disable flow on
+  the dashboard), and `src/frontend/src/features/admin/AdminDisableTwoFactorPage.tsx`
+  (`/admin/two-factor`, admin recovery UI).
 
 Learning-content features don't exist yet — those land starting with Release 1.
 
@@ -68,9 +83,10 @@ src/
     tests/         pytest suite, run against a real Postgres instance
   frontend/        React + Vite SPA (TypeScript)
     src/
-      features/auth/   Login / forced-password-change / forgot- and reset-password UI, auth state hook
-      features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page)
+      features/auth/   Login / forced-password-change / forgot-, reset-password, and 2FA-verify UI, auth state hook
+      features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page, 2FA admin-disable page)
       features/invites/  Public accept-invite page (set password, no session required)
+      features/twoFactor/  Self-service TOTP enroll/disable UI (QR code, recovery codes)
       i18n/        react-i18next config and en/de locale files
       styles/      Tailwind CSS-variable theme definitions (light/dark/colorblind)
       theme/       Theme-selection hook
@@ -84,6 +100,8 @@ Prerequisites: Docker and Docker Compose.
 
 ```bash
 cp .env.example .env   # required — docker-compose needs POSTGRES_PASSWORD set
+# Generate your own TWO_FACTOR_ENCRYPTION_KEY in .env (needed for 2FA to work):
+python3 -c "import secrets, base64; print(base64.b64encode(secrets.token_bytes(32)).decode())"
 docker-compose up
 ```
 
@@ -119,7 +137,9 @@ cd src/backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 pytest   # defaults to postgresql+asyncpg://traindrain:traindrain@localhost:5433/traindrain;
-         # override with DATABASE_URL if your Postgres differs
+         # override with DATABASE_URL if your Postgres differs. Also needs
+         # TWO_FACTOR_ENCRYPTION_KEY set (any base64-encoded 32 bytes) — the
+         # conftest.py fixtures default one in for local runs.
 ```
 
 Tests run against a real Postgres database — the fixtures in `tests/conftest.py` apply Alembic

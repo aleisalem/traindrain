@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     # Base URL the frontend is served from — used to build the invite-accept link.
     frontend_base_url: str = "http://localhost:8080"
 
+    # Envelope-encryption key for TOTP secrets at rest (base64-encoded 32
+    # bytes, AES-256-GCM) — AWS Secrets Manager in production (injected into
+    # this env var by the ECS task definition), a local-only value in dev.
+    # No default: this is a real secret, never hardcoded per project policy.
+    two_factor_encryption_key: str
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -43,7 +43,7 @@ async def test_login_succeeds_and_sets_session_cookie(
     )
 
     assert response.status_code == 200
-    assert response.json() == {"must_change_password": False}
+    assert response.json() == {"must_change_password": False, "two_factor_required": False}
     assert COOKIE_NAME in response.cookies
     cookie_header = response.headers["set-cookie"]
     assert "HttpOnly" in cookie_header
@@ -173,7 +173,7 @@ async def test_forced_password_change_flow(
         json={"email": "must-change@example.com", "password": KNOWN_PASSWORD},
     )
     assert login.status_code == 200
-    assert login.json() == {"must_change_password": True}
+    assert login.json() == {"must_change_password": True, "two_factor_required": False}
     token = login.cookies[COOKIE_NAME]
     client.cookies.set(COOKIE_NAME, token)
 
@@ -189,7 +189,7 @@ async def test_forced_password_change_flow(
         json={"current_password": KNOWN_PASSWORD, "new_password": new_password},
     )
     assert changed.status_code == 200
-    assert changed.json() == {"must_change_password": False}
+    assert changed.json() == {"must_change_password": False, "two_factor_required": False}
 
     client.cookies.set(COOKIE_NAME, token)
     me_after = await client.get("/api/auth/me")
@@ -200,7 +200,7 @@ async def test_forced_password_change_flow(
         json={"email": "must-change@example.com", "password": new_password},
     )
     assert relogin.status_code == 200
-    assert relogin.json() == {"must_change_password": False}
+    assert relogin.json() == {"must_change_password": False, "two_factor_required": False}
 
 
 async def test_change_password_rejects_wrong_current_password(

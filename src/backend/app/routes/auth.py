@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -14,7 +15,7 @@ from app.dependencies import (
     get_ses_client,
     require_active_user,
 )
-from app.models import PasswordResetToken, User
+from app.models import PasswordResetToken, TwoFactorCredential, User
 from app.models import Session as SessionModel
 from app.schemas.auth import (
     ChangePasswordRequest,
@@ -35,8 +36,10 @@ from app.security.rate_limit import is_rate_limited, record_failed_login_attempt
 from app.security.sessions import (
     clear_session_cookie,
     create_session,
+    create_two_factor_challenge,
     revoke_other_sessions,
     revoke_session,
+    set_challenge_cookie,
     set_session_cookie,
 )
 from app.security.tokens import generate_token, hash_token
@@ -63,6 +66,18 @@ _RESET_TOKEN_NO_LONGER_VALID = HTTPException(
 # email would respond measurably faster, defeating the generic error message's
 # purpose of not letting a caller enumerate which emails have accounts.
 _DUMMY_PASSWORD_HASH = hash_password(generate_token())
+
+
+async def _has_enabled_two_factor(db: AsyncSession, *, user_id: uuid.UUID) -> bool:
+    credential = (
+        await db.execute(
+            select(TwoFactorCredential).where(
+                TwoFactorCredential.user_id == user_id,
+                TwoFactorCredential.enabled_at.is_not(None),
+            )
+        )
+    ).scalar_one_or_none()
+    return credential is not None
 
 
 def _client_ip(request: Request) -> str:
@@ -102,6 +117,13 @@ async def login(
         await record_failed_login_attempt(db, email=payload.email, ip_address=ip_address)
         raise _INVALID_CREDENTIALS
 
+    if await _has_enabled_two_factor(db, user_id=user.id):
+        # Password alone isn't enough — hold off on a real session until the
+        # second factor is verified via POST /api/auth/2fa/verify.
+        _challenge, challenge_token = await create_two_factor_challenge(db, user_id=user.id)
+        set_challenge_cookie(response, challenge_token)
+        return LoginResponse(two_factor_required=True)
+
     _session, token = await create_session(db, user_id=user.id)
     set_session_cookie(response, token)
     return LoginResponse(must_change_password=user.must_change_password)
@@ -118,7 +140,10 @@ async def logout(
 
 
 @router.get("/me", response_model=MeResponse)
-async def me(user: User = Depends(require_active_user)) -> MeResponse:
+async def me(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_active_user),
+) -> MeResponse:
     return MeResponse(
         id=str(user.id),
         email=user.email,
@@ -126,6 +151,7 @@ async def me(user: User = Depends(require_active_user)) -> MeResponse:
         last_name=user.last_name,
         must_change_password=user.must_change_password,
         roles=[role.name for role in user.roles],
+        two_factor_enabled=await _has_enabled_two_factor(db, user_id=user.id),
     )
 
 

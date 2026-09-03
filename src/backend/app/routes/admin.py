@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.db import get_db
 from app.dependencies import get_ses_client, require_administrator
-from app.models import Invite, Role, User
+from app.models import Invite, Role, TwoFactorCredential, User
 from app.schemas.invites import (
     InviteCreateRequest,
     InviteExpirySettingRequest,
@@ -15,10 +15,13 @@ from app.schemas.invites import (
     InviteResponse,
     RoleResponse,
 )
+from app.schemas.two_factor import AdminTwoFactorDisableRequest
 from app.security.audit import record_audit_log
 from app.security.mailer import SESClient, send_invite_email
+from app.security.sessions import revoke_other_sessions
 from app.security.system_settings import get_invite_expiry_days, set_invite_expiry_days
 from app.security.tokens import generate_token, hash_token
+from app.security.two_factor import delete_two_factor_credential
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -54,6 +57,44 @@ async def update_invite_expiry_setting(
     await set_invite_expiry_days(db, payload.days)
     await db.commit()
     return InviteExpirySettingResponse(days=payload.days)
+
+
+@router.post("/users/2fa/disable", status_code=status.HTTP_204_NO_CONTENT)
+async def admin_disable_two_factor(
+    payload: AdminTwoFactorDisableRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> None:
+    normalized_email = payload.email.strip().lower()
+    target = (
+        await db.execute(select(User).where(func.lower(User.email) == normalized_email))
+    ).scalar_one_or_none()
+    if target is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No user found with that email."
+        )
+
+    credential = await db.get(TwoFactorCredential, target.id)
+    if credential is None or credential.enabled_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Two-factor authentication is not enabled for this user.",
+        )
+
+    await delete_two_factor_credential(db, user_id=target.id)
+
+    # An out-of-band recovery, not the target acting for themselves — there's
+    # no "current session" of theirs to spare, unlike a self-service change.
+    await revoke_other_sessions(db, user_id=target.id, keep_session_id=None)
+
+    await record_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="two_factor_admin_disabled",
+        target_user_id=target.id,
+        detail={"email": target.email},
+    )
+    await db.commit()
 
 
 @router.post("/invites", response_model=InviteResponse, status_code=status.HTTP_201_CREATED)

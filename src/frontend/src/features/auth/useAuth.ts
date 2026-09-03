@@ -9,16 +9,19 @@ export type AuthUser = {
   lastName: string | null;
   mustChangePassword: boolean;
   roles: string[];
+  twoFactorEnabled: boolean;
 };
 
 export type AuthState =
   | { status: "loading" }
   | { status: "anonymous" }
+  | { status: "two_factor_required" }
   | { status: "forced_password_change" }
   | { status: "authenticated"; user: AuthUser };
 
 type LoginError = "invalid_credentials" | "rate_limited" | "unknown";
 type ChangePasswordError = "wrong_current_password" | "policy_violation" | "unknown";
+type TwoFactorVerifyError = "invalid_code" | "rate_limited" | "unknown";
 
 type ActionResult<E extends string> = { ok: true } | { ok: false; error: E };
 
@@ -29,6 +32,12 @@ type MeResponseBody = {
   last_name: string | null;
   must_change_password: boolean;
   roles: string[];
+  two_factor_enabled: boolean;
+};
+
+type LoginResponseBody = {
+  must_change_password: boolean;
+  two_factor_required: boolean;
 };
 
 function toAuthUser(body: MeResponseBody): AuthUser {
@@ -39,6 +48,7 @@ function toAuthUser(body: MeResponseBody): AuthUser {
     lastName: body.last_name,
     mustChangePassword: body.must_change_password,
     roles: body.roles,
+    twoFactorEnabled: body.two_factor_enabled,
   };
 }
 
@@ -77,6 +87,29 @@ export function useAuth() {
       if (response.status === 429) return { ok: false, error: "rate_limited" };
       if (!response.ok) return { ok: false, error: "unknown" };
 
+      const body = (await response.json()) as LoginResponseBody;
+      if (body.two_factor_required) {
+        setState({ status: "two_factor_required" });
+        return { ok: true };
+      }
+
+      await refresh();
+      return { ok: true };
+    },
+    [refresh],
+  );
+
+  const verifyTwoFactor = useCallback(
+    async (code: string): Promise<ActionResult<TwoFactorVerifyError>> => {
+      const response = await fetch("/api/auth/2fa/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      if (response.status === 401) return { ok: false, error: "invalid_code" };
+      if (response.status === 429) return { ok: false, error: "rate_limited" };
+      if (!response.ok) return { ok: false, error: "unknown" };
+
       await refresh();
       return { ok: true };
     },
@@ -108,5 +141,5 @@ export function useAuth() {
     [refresh],
   );
 
-  return { state, login, logout, changePassword };
+  return { state, login, logout, changePassword, verifyTwoFactor, refresh };
 }

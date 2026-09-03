@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import Dashboard from "./Dashboard";
+import { AdminDisableTwoFactorPage } from "./features/admin/AdminDisableTwoFactorPage";
 import { AdminOverview } from "./features/admin/AdminOverview";
 import { AdminShell } from "./features/admin/AdminShell";
 import { InviteUserPage } from "./features/admin/InviteUserPage";
@@ -8,20 +9,33 @@ import { ForcedPasswordChangeForm } from "./features/auth/ForcedPasswordChangeFo
 import { ForgotPasswordPage } from "./features/auth/ForgotPasswordPage";
 import { LoginForm } from "./features/auth/LoginForm";
 import { ResetPasswordPage } from "./features/auth/ResetPasswordPage";
+import { TwoFactorVerifyForm } from "./features/auth/TwoFactorVerifyForm";
 import type { AuthUser } from "./features/auth/useAuth";
 import { ADMINISTRATOR_ROLE, useAuth } from "./features/auth/useAuth";
 import { AcceptInvitePage } from "./features/invites/AcceptInvitePage";
 
-function AuthenticatedRoutes({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
+function AuthenticatedRoutes({
+  user,
+  onLogout,
+  onRefreshUser,
+}: {
+  user: AuthUser;
+  onLogout: () => void;
+  onRefreshUser: () => Promise<void>;
+}) {
   const isAdministrator = user.roles.includes(ADMINISTRATOR_ROLE);
 
   return (
     <Routes>
-      <Route path="/" element={<Dashboard user={user} onLogout={onLogout} />} />
+      <Route
+        path="/"
+        element={<Dashboard user={user} onLogout={onLogout} onRefreshUser={onRefreshUser} />}
+      />
       {isAdministrator && (
         <Route path="/admin" element={<AdminShell onLogout={onLogout} />}>
           <Route index element={<AdminOverview />} />
           <Route path="invites" element={<InviteUserPage />} />
+          <Route path="two-factor" element={<AdminDisableTwoFactorPage />} />
         </Route>
       )}
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -30,7 +44,7 @@ function AuthenticatedRoutes({ user, onLogout }: { user: AuthUser; onLogout: () 
 }
 
 function App() {
-  const { state, login, logout, changePassword } = useAuth();
+  const { state, login, logout, changePassword, verifyTwoFactor, refresh } = useAuth();
 
   // An invite or password-reset link is followed by a signed-out visitor —
   // reachable regardless of session state, unlike every other route in the app.
@@ -70,6 +84,14 @@ function App() {
     );
   }
 
+  if (state.status === "two_factor_required") {
+    return (
+      <main className="min-h-screen bg-bg text-fg flex items-center justify-center p-8">
+        <TwoFactorVerifyForm onVerify={verifyTwoFactor} />
+      </main>
+    );
+  }
+
   if (state.status === "forced_password_change") {
     return (
       <main className="min-h-screen bg-bg text-fg flex items-center justify-center p-8">
@@ -80,7 +102,11 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AuthenticatedRoutes user={state.user} onLogout={() => void logout()} />
+      <AuthenticatedRoutes
+        user={state.user}
+        onLogout={() => void logout()}
+        onRefreshUser={refresh}
+      />
     </BrowserRouter>
   );
 }

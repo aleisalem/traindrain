@@ -89,10 +89,10 @@ Work the **frontier**: any ticket whose blockers are all done.
 
 **Blocked by:** 3
 
-- [ ] Enrollment endpoint: generates a TOTP secret (encrypted at rest via envelope encryption, key from env var locally), returns a QR code / setup key
-- [ ] On enable, ~10 backup codes are generated, shown once, stored hashed, single-use
-- [ ] Login flow: if 2FA is enabled, password success leads to a second step requiring a valid TOTP or recovery code before a session is issued
-- [ ] Tests: enroll, login with valid TOTP, login with valid recovery code (code becomes unusable after), login rejected with bad code
+- [x] Enrollment endpoint: generates a TOTP secret (encrypted at rest via envelope encryption, key from env var locally), returns a QR code / setup key
+- [x] On enable, ~10 backup codes are generated, shown once, stored hashed, single-use
+- [x] Login flow: if 2FA is enabled, password success leads to a second step requiring a valid TOTP or recovery code before a session is issued
+- [x] Tests: enroll, login with valid TOTP, login with valid recovery code (code becomes unusable after), login rejected with bad code
 
 ## 8. 2FA recovery: self-disable and admin-disable
 
@@ -100,10 +100,10 @@ Work the **frontier**: any ticket whose blockers are all done.
 
 **Blocked by:** 7, 4
 
-- [ ] Self-service endpoint: authenticated user disables their own 2FA
-- [ ] Admin-only endpoint + admin shell UI: disable 2FA on a target user's account
-- [ ] Admin 2FA-disable action is audit-logged
-- [ ] Tests: self-disable, admin-disable, non-admin forbidden from disabling another user's 2FA
+- [x] Self-service endpoint: authenticated user disables their own 2FA
+- [x] Admin-only endpoint + admin shell UI: disable 2FA on a target user's account
+- [x] Admin 2FA-disable action is audit-logged
+- [x] Tests: self-disable, admin-disable, non-admin forbidden from disabling another user's 2FA
 
 ## 9. Admin user management: list, disable, enable, erase
 

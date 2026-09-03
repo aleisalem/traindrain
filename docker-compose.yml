@@ -45,6 +45,7 @@ services:
       AWS_SECRET_ACCESS_KEY: test
       SES_SENDER_EMAIL: no-reply@traindrain.local
       FRONTEND_BASE_URL: http://localhost:8080
+      TWO_FACTOR_ENCRYPTION_KEY: ${TWO_FACTOR_ENCRYPTION_KEY:?Set TWO_FACTOR_ENCRYPTION_KEY in .env — copy .env.example to .env first}
     ports:
       - "8000:8000"
     depends_on:

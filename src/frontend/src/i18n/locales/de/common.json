@@ -48,7 +48,14 @@
     "reset_password_invalid_heading": "Dieser Link ist nicht mehr gültig",
     "reset_password_invalid_description": "Er ist möglicherweise abgelaufen oder wurde bereits verwendet. Sie können einen neuen anfordern.",
     "reset_password_success_heading": "Passwort aktualisiert",
-    "reset_password_success_description": "Ihr Passwort wurde zurückgesetzt. Sie können sich jetzt mit Ihrem neuen Passwort anmelden."
+    "reset_password_success_description": "Ihr Passwort wurde zurückgesetzt. Sie können sich jetzt mit Ihrem neuen Passwort anmelden.",
+    "two_factor_code_label": "Authentifizierungs- oder Wiederherstellungscode",
+    "two_factor_verify_heading": "Geben Sie Ihren Authentifizierungscode ein",
+    "two_factor_verify_description": "Öffnen Sie Ihre Authentifizierungs-App oder verwenden Sie einen Ihrer Wiederherstellungscodes.",
+    "two_factor_verify_submit": "Bestätigen",
+    "two_factor_verify_error_invalid_code": "Dieser Code ist nicht gültig. Bitte versuchen Sie es erneut.",
+    "two_factor_verify_error_rate_limited": "Zu viele Versuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
+    "two_factor_verify_error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
   },
   "admin": {
     "nav_link": "Admin-Bereich",
@@ -90,5 +97,36 @@
     "accept_success_heading": "Konto erstellt",
     "accept_success_description": "Ihr Konto ist bereit.",
     "accept_success_login_link": "Zur Anmeldung"
+  },
+  "security": {
+    "heading": "Zwei-Faktor-Authentifizierung",
+    "two_factor_enabled_status": "Die Zwei-Faktor-Authentifizierung ist für Ihr Konto aktiviert.",
+    "two_factor_disabled_status": "Die Zwei-Faktor-Authentifizierung ist für Ihr Konto nicht aktiviert.",
+    "two_factor_enable_button": "Zwei-Faktor-Authentifizierung aktivieren",
+    "two_factor_enroll_error": "Die Zwei-Faktor-Einrichtung konnte nicht gestartet werden. Bitte versuchen Sie es erneut.",
+    "two_factor_setup_heading": "QR-Code scannen",
+    "two_factor_setup_description": "Scannen Sie diesen Code mit Ihrer Authentifizierungs-App oder geben Sie den Einrichtungsschlüssel manuell ein. Geben Sie anschließend den generierten Code zur Bestätigung ein.",
+    "two_factor_qr_alt": "QR-Code zur Einrichtung der Zwei-Faktor-Authentifizierung",
+    "two_factor_setup_key_label": "Einrichtungsschlüssel:",
+    "two_factor_confirm_submit": "Bestätigen und aktivieren",
+    "two_factor_enable_error_invalid_code": "Dieser Code ist nicht gültig. Bitte versuchen Sie es erneut.",
+    "two_factor_recovery_heading": "Speichern Sie Ihre Wiederherstellungscodes",
+    "two_factor_recovery_description": "Jeder Code kann einmal verwendet werden, falls Sie den Zugriff auf Ihre Authentifizierungs-App verlieren. Bewahren Sie sie sicher auf — sie werden nicht erneut angezeigt.",
+    "two_factor_recovery_done": "Ich habe diese Codes gespeichert",
+    "two_factor_disable_button": "Zwei-Faktor-Authentifizierung deaktivieren",
+    "two_factor_disable_confirm": "Deaktivieren",
+    "two_factor_disable_cancel": "Abbrechen",
+    "two_factor_disable_error_wrong_password": "Das aktuelle Passwort ist falsch."
+  },
+  "adminTwoFactor": {
+    "nav_link": "2FA eines Benutzers deaktivieren",
+    "heading": "Zwei-Faktor-Authentifizierung für einen Benutzer deaktivieren",
+    "description": "Verwenden Sie dies nur, nachdem Sie die Identität des Benutzers auf einem anderen Weg überprüft haben — zum Beispiel bei einem ausgesperrten Benutzer, der sowohl seine Authentifizierungs-App als auch seine Wiederherstellungscodes verloren hat.",
+    "email_label": "E-Mail-Adresse des Benutzers",
+    "submit": "2FA für diesen Benutzer deaktivieren",
+    "success": "Die Zwei-Faktor-Authentifizierung für {{email}} wurde deaktiviert.",
+    "error_not_found": "Es wurde kein Benutzer mit dieser E-Mail-Adresse gefunden.",
+    "error_not_enabled": "Die Zwei-Faktor-Authentifizierung ist für diesen Benutzer nicht aktiviert.",
+    "error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
   }
 }

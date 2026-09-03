@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 
 import { ADMINISTRATOR_ROLE } from "./features/auth/useAuth";
 import type { AuthUser } from "./features/auth/useAuth";
+import { TwoFactorSettings } from "./features/twoFactor/TwoFactorSettings";
 import { SUPPORTED_LANGUAGES } from "./i18n";
 import { useTheme } from "./theme/useTheme";
 
@@ -15,9 +16,10 @@ type HealthState =
 type Props = {
   user: AuthUser;
   onLogout: () => void;
+  onRefreshUser: () => Promise<void>;
 };
 
-function Dashboard({ user, onLogout }: Props) {
+function Dashboard({ user, onLogout, onRefreshUser }: Props) {
   const { t, i18n } = useTranslation();
   const { theme, setTheme, themes } = useTheme();
   const [health, setHealth] = useState<HealthState>({ status: "idle" });
@@ -92,6 +94,8 @@ function Dashboard({ user, onLogout }: Props) {
           ))}
         </div>
       </section>
+
+      <TwoFactorSettings enabled={user.twoFactorEnabled} onChanged={onRefreshUser} />
 
       <section className="flex flex-col items-center gap-2">
         <button

@@ -15,6 +15,12 @@ os.environ.setdefault(
     "DATABASE_URL",
     "postgresql+asyncpg://traindrain:traindrain@localhost:5433/traindrain",
 )
+# A fixed, obviously-dev-only base64 32-byte key — real deployments source
+# this from the environment (Secrets Manager in production), never a default.
+os.environ.setdefault(
+    "TWO_FACTOR_ENCRYPTION_KEY",
+    "Nqz/tZqDDv+NfanhqjunxZlBAgZgcfNj6seWxvk9bOU=",
+)
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 

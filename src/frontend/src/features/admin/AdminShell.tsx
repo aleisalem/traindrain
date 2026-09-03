@@ -17,6 +17,9 @@ export function AdminShell({ onLogout }: Props) {
             <Link to="/admin/invites" className="text-fg-muted hover:text-fg">
               {t("invites.nav_link")}
             </Link>
+            <Link to="/admin/two-factor" className="text-fg-muted hover:text-fg">
+              {t("adminTwoFactor.nav_link")}
+            </Link>
             <Link to="/" className="text-fg-muted hover:text-fg">
               {t("admin.back_to_dashboard")}
             </Link>

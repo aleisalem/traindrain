@@ -48,7 +48,14 @@
     "reset_password_invalid_heading": "This reset link is no longer valid",
     "reset_password_invalid_description": "It may have expired or already been used. You can request a new one.",
     "reset_password_success_heading": "Password updated",
-    "reset_password_success_description": "Your password has been reset. You can now sign in with your new password."
+    "reset_password_success_description": "Your password has been reset. You can now sign in with your new password.",
+    "two_factor_code_label": "Authentication or recovery code",
+    "two_factor_verify_heading": "Enter your authentication code",
+    "two_factor_verify_description": "Open your authenticator app, or use one of your recovery codes.",
+    "two_factor_verify_submit": "Verify",
+    "two_factor_verify_error_invalid_code": "That code isn't valid. Please try again.",
+    "two_factor_verify_error_rate_limited": "Too many attempts. Please wait a few minutes and try again.",
+    "two_factor_verify_error_unknown": "Something went wrong. Please try again."
   },
   "admin": {
     "nav_link": "Admin area",
@@ -90,5 +97,36 @@
     "accept_success_heading": "Account created",
     "accept_success_description": "Your account is ready.",
     "accept_success_login_link": "Go to sign in"
+  },
+  "security": {
+    "heading": "Two-factor authentication",
+    "two_factor_enabled_status": "Two-factor authentication is enabled on your account.",
+    "two_factor_disabled_status": "Two-factor authentication is not enabled on your account.",
+    "two_factor_enable_button": "Enable two-factor authentication",
+    "two_factor_enroll_error": "Could not start two-factor setup. Please try again.",
+    "two_factor_setup_heading": "Scan the QR code",
+    "two_factor_setup_description": "Scan this code with your authenticator app, or enter the setup key manually, then enter the code it generates to confirm.",
+    "two_factor_qr_alt": "QR code for two-factor authentication setup",
+    "two_factor_setup_key_label": "Setup key:",
+    "two_factor_confirm_submit": "Confirm and enable",
+    "two_factor_enable_error_invalid_code": "That code isn't valid. Please try again.",
+    "two_factor_recovery_heading": "Save your recovery codes",
+    "two_factor_recovery_description": "Each code can be used once if you lose access to your authenticator app. Store them somewhere safe — they won't be shown again.",
+    "two_factor_recovery_done": "I've saved these codes",
+    "two_factor_disable_button": "Disable two-factor authentication",
+    "two_factor_disable_confirm": "Disable",
+    "two_factor_disable_cancel": "Cancel",
+    "two_factor_disable_error_wrong_password": "Current password is incorrect."
+  },
+  "adminTwoFactor": {
+    "nav_link": "Disable a user's 2FA",
+    "heading": "Disable two-factor authentication for a user",
+    "description": "Use this only after verifying the user's identity out-of-band — for example, a locked-out user who has lost both their authenticator and their recovery codes.",
+    "email_label": "User's email",
+    "submit": "Disable 2FA for this user",
+    "success": "Two-factor authentication has been disabled for {{email}}.",
+    "error_not_found": "No user found with that email.",
+    "error_not_enabled": "Two-factor authentication isn't enabled for this user.",
+    "error_unknown": "Something went wrong. Please try again."
   }
 }
