@@ -113,7 +113,8 @@ async def login(
     ).scalar_one_or_none()
 
     password_hash = user.password_hash if user is not None else _DUMMY_PASSWORD_HASH
-    if user is None or not verify_password(payload.password, password_hash):
+    password_ok = verify_password(payload.password, password_hash)
+    if user is None or not password_ok or user.disabled_at is not None:
         await record_failed_login_attempt(db, email=payload.email, ip_address=ip_address)
         raise _INVALID_CREDENTIALS
 

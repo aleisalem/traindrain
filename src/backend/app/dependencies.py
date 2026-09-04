@@ -47,7 +47,7 @@ async def get_current_user(
     session: SessionModel = Depends(get_current_session),
 ) -> User:
     user = await db.get(User, session.user_id)
-    if user is None:
+    if user is None or user.disabled_at is not None:
         raise _NOT_AUTHENTICATED
     return user
 

@@ -4,6 +4,7 @@ import Dashboard from "./Dashboard";
 import { AdminDisableTwoFactorPage } from "./features/admin/AdminDisableTwoFactorPage";
 import { AdminOverview } from "./features/admin/AdminOverview";
 import { AdminShell } from "./features/admin/AdminShell";
+import { AdminUsersPage } from "./features/admin/AdminUsersPage";
 import { InviteUserPage } from "./features/admin/InviteUserPage";
 import { ForcedPasswordChangeForm } from "./features/auth/ForcedPasswordChangeForm";
 import { ForgotPasswordPage } from "./features/auth/ForgotPasswordPage";
@@ -34,6 +35,7 @@ function AuthenticatedRoutes({
       {isAdministrator && (
         <Route path="/admin" element={<AdminShell onLogout={onLogout} />}>
           <Route index element={<AdminOverview />} />
+          <Route path="users" element={<AdminUsersPage currentUserId={user.id} />} />
           <Route path="invites" element={<InviteUserPage />} />
           <Route path="two-factor" element={<AdminDisableTwoFactorPage />} />
         </Route>

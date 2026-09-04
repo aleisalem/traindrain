@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -16,14 +17,25 @@ from app.schemas.invites import (
     RoleResponse,
 )
 from app.schemas.two_factor import AdminTwoFactorDisableRequest
+from app.schemas.users import UserListItem
 from app.security.audit import record_audit_log
 from app.security.mailer import SESClient, send_invite_email
+from app.security.passwords import hash_password
 from app.security.sessions import revoke_other_sessions
 from app.security.system_settings import get_invite_expiry_days, set_invite_expiry_days
 from app.security.tokens import generate_token, hash_token
 from app.security.two_factor import delete_two_factor_credential
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+_USER_NOT_FOUND = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+
+async def _get_target_user(db: AsyncSession, user_id: uuid.UUID) -> User:
+    target = await db.get(User, user_id)
+    if target is None:
+        raise _USER_NOT_FOUND
+    return target
 
 
 @router.get("/ping")
@@ -38,6 +50,27 @@ async def list_roles(
 ) -> list[RoleResponse]:
     roles = (await db.execute(select(Role).order_by(Role.name))).scalars()
     return [RoleResponse(id=role.id, name=role.name) for role in roles]
+
+
+@router.get("/users", response_model=list[UserListItem])
+async def list_users(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> list[UserListItem]:
+    users = (await db.execute(select(User).order_by(User.created_at))).scalars()
+    return [
+        UserListItem(
+            id=user.id,
+            email=user.email,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            roles=[role.name for role in user.roles],
+            disabled_at=user.disabled_at,
+            erased_at=user.erased_at,
+            created_at=user.created_at,
+        )
+        for user in users
+    ]
 
 
 @router.get("/settings/invite-expiry-days", response_model=InviteExpirySettingResponse)
@@ -93,6 +126,113 @@ async def admin_disable_two_factor(
         action="two_factor_admin_disabled",
         target_user_id=target.id,
         detail={"email": target.email},
+    )
+    await db.commit()
+
+
+# Registered after the literal /users/2fa/disable route above — Starlette
+# matches path routes in registration order, and {user_id} would otherwise
+# swallow "2fa" as its value and fail UUID parsing before reaching it.
+@router.post("/users/{user_id}/disable", status_code=status.HTTP_204_NO_CONTENT)
+async def disable_user(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> None:
+    if user_id == admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="You cannot disable your own account."
+        )
+    target = await _get_target_user(db, user_id)
+    if target.disabled_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="This user is already disabled."
+        )
+
+    target.disabled_at = datetime.now(UTC)
+    await revoke_other_sessions(db, user_id=target.id, keep_session_id=None)
+
+    await record_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="user_disabled",
+        target_user_id=target.id,
+        detail={"email": target.email},
+    )
+    await db.commit()
+
+
+@router.post("/users/{user_id}/enable", status_code=status.HTTP_204_NO_CONTENT)
+async def enable_user(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> None:
+    target = await _get_target_user(db, user_id)
+    if target.erased_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="This user has been erased."
+        )
+    if target.disabled_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="This user is not disabled."
+        )
+
+    target.disabled_at = None
+
+    await record_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="user_enabled",
+        target_user_id=target.id,
+        detail={"email": target.email},
+    )
+    await db.commit()
+
+
+@router.post("/users/{user_id}/erase", status_code=status.HTTP_204_NO_CONTENT)
+async def erase_user(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> None:
+    if user_id == admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="You cannot erase your own account."
+        )
+    target = await _get_target_user(db, user_id)
+    if target.erased_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="This user has already been erased."
+        )
+
+    now = datetime.now(UTC)
+
+    # Keeps the row (a tombstone) so audit-log and future grading-record
+    # foreign keys still resolve, while removing the personal fields the
+    # right-to-erasure request covers. The email must stay unique — the
+    # user's own id guarantees that deterministically.
+    target.email = f"erased-user-{target.id}@erased.invalid"
+    target.first_name = None
+    target.last_name = None
+    # Replaces the password hash with one derived from a random, discarded
+    # value — this account is erased and disabled, so nothing should ever be
+    # able to authenticate as it again.
+    target.password_hash = hash_password(generate_token())
+    target.erased_at = now
+    target.disabled_at = now
+    await revoke_other_sessions(db, user_id=target.id, keep_session_id=None)
+
+    # No email in the detail blob, unlike the disable/enable log entries —
+    # logging the erased personal data right back into a permanent audit
+    # record would defeat the point of a right-to-erasure request.
+    # target_user_id alone is enough to trace the action against the
+    # tombstone row.
+    await record_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="user_erased",
+        target_user_id=target.id,
     )
     await db.commit()
 

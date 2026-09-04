@@ -205,3 +205,328 @@ async def test_non_admin_is_forbidden_from_disabling_another_users_two_factor(
     )
 
     assert response.status_code == 403
+
+
+async def test_admin_can_list_users(client: AsyncClient, db_session: AsyncSession) -> None:
+    await _make_user_with_role(db_session, email="admin-list@example.com", role_name="Administrator")
+    target = await _make_user_with_role(
+        db_session, email="listed-learner@example.com", role_name="Learner"
+    )
+    await _login(client, email="admin-list@example.com")
+
+    response = await client.get("/api/admin/users")
+
+    assert response.status_code == 200
+    emails = {row["email"]: row for row in response.json()}
+    assert "listed-learner@example.com" in emails
+    listed = emails["listed-learner@example.com"]
+    assert listed["id"] == str(target.id)
+    assert listed["roles"] == ["Learner"]
+    assert listed["disabled_at"] is None
+    assert listed["erased_at"] is None
+
+
+async def test_learner_is_forbidden_from_listing_users(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(db_session, email="learner-list@example.com", role_name="Learner")
+    await _login(client, email="learner-list@example.com")
+
+    response = await client.get("/api/admin/users")
+
+    assert response.status_code == 403
+
+
+async def test_admin_can_disable_a_user(client: AsyncClient, db_session: AsyncSession) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-disable@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-disable@example.com", role_name="Learner"
+    )
+    await _login(client, email="admin-disable@example.com")
+
+    response = await client.post(f"/api/admin/users/{target.id}/disable")
+
+    assert response.status_code == 204
+    assert target.disabled_at is not None
+
+    login_attempt = await client.post(
+        "/api/auth/login",
+        json={"email": "target-disable@example.com", "password": KNOWN_PASSWORD},
+    )
+    assert login_attempt.status_code == 401
+
+    audit_entry = (
+        await db_session.execute(select(AuditLog).where(AuditLog.action == "user_disabled"))
+    ).scalar_one()
+    assert audit_entry.target_user_id == target.id
+    assert audit_entry.detail["email"] == "target-disable@example.com"
+
+
+async def test_admin_disable_revokes_the_targets_active_sessions(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-disable-session@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-disable-session@example.com", role_name="Learner"
+    )
+    login_response = await client.post(
+        "/api/auth/login",
+        json={"email": "target-disable-session@example.com", "password": KNOWN_PASSWORD},
+    )
+    target_token = login_response.cookies[COOKIE_NAME]
+    client.cookies.delete(COOKIE_NAME)
+
+    await _login(client, email="admin-disable-session@example.com")
+    response = await client.post(f"/api/admin/users/{target.id}/disable")
+    assert response.status_code == 204
+
+    client.cookies.set(COOKIE_NAME, target_token)
+    now_invalid = await client.get("/api/auth/me")
+    assert now_invalid.status_code == 401
+
+
+async def test_disabling_an_already_disabled_user_is_a_conflict(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-double-disable@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-double-disable@example.com", role_name="Learner"
+    )
+    await _login(client, email="admin-double-disable@example.com")
+    await client.post(f"/api/admin/users/{target.id}/disable")
+
+    response = await client.post(f"/api/admin/users/{target.id}/disable")
+
+    assert response.status_code == 409
+
+
+async def test_admin_cannot_disable_their_own_account(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    admin = await _make_user_with_role(
+        db_session, email="admin-self-disable@example.com", role_name="Administrator"
+    )
+    await _login(client, email="admin-self-disable@example.com")
+
+    response = await client.post(f"/api/admin/users/{admin.id}/disable")
+
+    assert response.status_code == 409
+    assert admin.disabled_at is None
+
+
+async def test_disabling_an_unknown_user_is_not_found(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-disable-unknown@example.com", role_name="Administrator"
+    )
+    await _login(client, email="admin-disable-unknown@example.com")
+
+    response = await client.post(f"/api/admin/users/{uuid.uuid4()}/disable")
+
+    assert response.status_code == 404
+
+
+async def test_non_admin_is_forbidden_from_disabling_a_user(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="learner-disable@example.com", role_name="Learner"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-forbidden-disable@example.com", role_name="Learner"
+    )
+    await _login(client, email="learner-disable@example.com")
+
+    response = await client.post(f"/api/admin/users/{target.id}/disable")
+
+    assert response.status_code == 403
+
+
+async def test_admin_can_re_enable_a_disabled_user(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-enable@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-enable@example.com", role_name="Learner"
+    )
+    await _login(client, email="admin-enable@example.com")
+    await client.post(f"/api/admin/users/{target.id}/disable")
+
+    response = await client.post(f"/api/admin/users/{target.id}/enable")
+
+    assert response.status_code == 204
+    assert target.disabled_at is None
+
+    login_attempt = await client.post(
+        "/api/auth/login",
+        json={"email": "target-enable@example.com", "password": KNOWN_PASSWORD},
+    )
+    assert login_attempt.status_code == 200
+
+    audit_entry = (
+        await db_session.execute(select(AuditLog).where(AuditLog.action == "user_enabled"))
+    ).scalar_one()
+    assert audit_entry.target_user_id == target.id
+
+
+async def test_enabling_a_user_that_is_not_disabled_is_a_conflict(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-enable-not-disabled@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-not-disabled@example.com", role_name="Learner"
+    )
+    await _login(client, email="admin-enable-not-disabled@example.com")
+
+    response = await client.post(f"/api/admin/users/{target.id}/enable")
+
+    assert response.status_code == 409
+
+
+async def test_enabling_an_erased_user_is_a_conflict(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-enable-erased@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-erased-enable@example.com", role_name="Learner"
+    )
+    await _login(client, email="admin-enable-erased@example.com")
+    await client.post(f"/api/admin/users/{target.id}/erase")
+
+    response = await client.post(f"/api/admin/users/{target.id}/enable")
+
+    assert response.status_code == 409
+
+
+async def test_admin_can_erase_a_user(client: AsyncClient, db_session: AsyncSession) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-erase@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-erase@example.com", role_name="Learner"
+    )
+    target.first_name = "Erasable"
+    target.last_name = "Learner"
+    await db_session.commit()
+    target_id = target.id
+    await _login(client, email="admin-erase@example.com")
+
+    response = await client.post(f"/api/admin/users/{target_id}/erase")
+
+    assert response.status_code == 204
+    assert target.email == f"erased-user-{target_id}@erased.invalid"
+    assert target.first_name is None
+    assert target.last_name is None
+    assert target.erased_at is not None
+    assert target.disabled_at is not None
+
+    # The tombstone row still resolves the audit-log foreign key, and the
+    # erased personal data isn't re-logged into the (permanent) audit detail.
+    audit_entry = (
+        await db_session.execute(select(AuditLog).where(AuditLog.action == "user_erased"))
+    ).scalar_one()
+    assert audit_entry.target_user_id == target_id
+    assert "email" not in audit_entry.detail
+    assert "target-erase@example.com" not in str(audit_entry.detail)
+
+    login_attempt = await client.post(
+        "/api/auth/login",
+        json={"email": "target-erase@example.com", "password": KNOWN_PASSWORD},
+    )
+    assert login_attempt.status_code == 401
+
+
+async def test_erase_revokes_the_targets_active_sessions(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-erase-session@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-erase-session@example.com", role_name="Learner"
+    )
+    login_response = await client.post(
+        "/api/auth/login",
+        json={"email": "target-erase-session@example.com", "password": KNOWN_PASSWORD},
+    )
+    target_token = login_response.cookies[COOKIE_NAME]
+    client.cookies.delete(COOKIE_NAME)
+
+    await _login(client, email="admin-erase-session@example.com")
+    response = await client.post(f"/api/admin/users/{target.id}/erase")
+    assert response.status_code == 204
+
+    client.cookies.set(COOKIE_NAME, target_token)
+    now_invalid = await client.get("/api/auth/me")
+    assert now_invalid.status_code == 401
+
+
+async def test_erasing_an_already_erased_user_is_a_conflict(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-double-erase@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-double-erase@example.com", role_name="Learner"
+    )
+    await _login(client, email="admin-double-erase@example.com")
+    await client.post(f"/api/admin/users/{target.id}/erase")
+
+    response = await client.post(f"/api/admin/users/{target.id}/erase")
+
+    assert response.status_code == 409
+
+
+async def test_admin_cannot_erase_their_own_account(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    admin = await _make_user_with_role(
+        db_session, email="admin-self-erase@example.com", role_name="Administrator"
+    )
+    await _login(client, email="admin-self-erase@example.com")
+
+    response = await client.post(f"/api/admin/users/{admin.id}/erase")
+
+    assert response.status_code == 409
+    assert admin.erased_at is None
+
+
+async def test_erasing_an_unknown_user_is_not_found(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-erase-unknown@example.com", role_name="Administrator"
+    )
+    await _login(client, email="admin-erase-unknown@example.com")
+
+    response = await client.post(f"/api/admin/users/{uuid.uuid4()}/erase")
+
+    assert response.status_code == 404
+
+
+async def test_non_admin_is_forbidden_from_erasing_a_user(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(db_session, email="learner-erase@example.com", role_name="Learner")
+    target = await _make_user_with_role(
+        db_session, email="target-forbidden-erase@example.com", role_name="Learner"
+    )
+    await _login(client, email="learner-erase@example.com")
+
+    response = await client.post(f"/api/admin/users/{target.id}/erase")
+
+    assert response.status_code == 403

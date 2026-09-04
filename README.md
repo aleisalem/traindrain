@@ -65,6 +65,15 @@ Release 0 is in progress. So far:
   `src/frontend/src/features/twoFactor/TwoFactorSettings.tsx` (self-service enroll/disable flow on
   the dashboard), and `src/frontend/src/features/admin/AdminDisableTwoFactorPage.tsx`
   (`/admin/two-factor`, admin recovery UI).
+- Admin user management: `GET /api/admin/users` lists every user with their roles and
+  disabled/erased status. `POST /api/admin/users/{id}/disable` blocks an account's login and
+  revokes its active sessions without deleting anything (reversible via
+  `POST /api/admin/users/{id}/enable`); `POST /api/admin/users/{id}/erase` is the permanent,
+  GDPR right-to-erasure action — it anonymizes the account's email and name (replacing the
+  password with an unusable one and revoking sessions) while keeping a tombstone row so the audit
+  log's foreign keys keep resolving. All three mutating actions are audit-logged; an admin can't
+  disable or erase their own account. Frontend: `src/frontend/src/features/admin/AdminUsersPage.tsx`
+  (`/admin/users`).
 
 Learning-content features don't exist yet — those land starting with Release 1.
 
@@ -84,7 +93,7 @@ src/
   frontend/        React + Vite SPA (TypeScript)
     src/
       features/auth/   Login / forced-password-change / forgot-, reset-password, and 2FA-verify UI, auth state hook
-      features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page, 2FA admin-disable page)
+      features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page, 2FA admin-disable page, user management page)
       features/invites/  Public accept-invite page (set password, no session required)
       features/twoFactor/  Self-service TOTP enroll/disable UI (QR code, recovery codes)
       i18n/        react-i18next config and en/de locale files

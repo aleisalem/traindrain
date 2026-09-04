@@ -159,7 +159,12 @@ async def verify(
 
     user = await db.get(User, challenge.user_id)
     credential = await db.get(TwoFactorCredential, challenge.user_id)
-    if user is None or credential is None or credential.enabled_at is None:
+    if (
+        user is None
+        or user.disabled_at is not None
+        or credential is None
+        or credential.enabled_at is None
+    ):
         raise _INVALID_CODE
 
     ip_address = _client_ip(request)
