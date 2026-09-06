@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-traindrain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env — copy .env.example to .env first}
+      POSTGRES_DB: ${POSTGRES_DB:-traindrain}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-traindrain}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  localstack:
+    image: localstack/localstack:3
+    environment:
+      SERVICES: ses
+      DEBUG: ${LOCALSTACK_DEBUG:-0}
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN:-}
+    ports:
+      - "4566:4566"
+    volumes:
+      - localstack_data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./src/backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-traindrain}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env — copy .env.example to .env first}@postgres:5432/${POSTGRES_DB:-traindrain}
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_REGION: eu-central-1
+      # LocalStack's SES emulation accepts any credentials — these aren't
+      # real AWS secrets, just what boto3 requires to be non-empty. In
+      # production (no AWS_ENDPOINT_URL set) boto3 uses the ECS task role
+      # instead, so these are never read there.
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SES_SENDER_EMAIL: no-reply@traindrain.local
+      FRONTEND_BASE_URL: http://localhost:8080
+      TWO_FACTOR_ENCRYPTION_KEY: ${TWO_FACTOR_ENCRYPTION_KEY:?Set TWO_FACTOR_ENCRYPTION_KEY in .env — copy .env.example to .env first}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+  frontend:
+    build: ./src/frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  localstack_data:
