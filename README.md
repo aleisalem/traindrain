@@ -74,6 +74,14 @@ Release 0 is in progress. So far:
   log's foreign keys keep resolving. All three mutating actions are audit-logged; an admin can't
   disable or erase their own account. Frontend: `src/frontend/src/features/admin/AdminUsersPage.tsx`
   (`/admin/users`).
+- Role assignment: `GET /api/admin/roles/{role_id}/members` lists who holds a role.
+  `POST`/`DELETE /api/admin/users/{id}/roles/{role_id}` assign or remove a role from a user (404
+  unknown user/role, 409 already-held/not-held; assigning to an erased account is also a
+  conflict, removal isn't). Changing a user's roles revokes their other active sessions
+  immediately — except when an admin changes their own roles, where the session performing the
+  action is kept alive. All three actions are audit-logged. Frontend:
+  `src/frontend/src/features/admin/AdminRolesPage.tsx` (`/admin/roles`), one card per role listing
+  its members with assign/remove controls.
 
 Learning-content features don't exist yet — those land starting with Release 1.
 
@@ -93,7 +101,7 @@ src/
   frontend/        React + Vite SPA (TypeScript)
     src/
       features/auth/   Login / forced-password-change / forgot-, reset-password, and 2FA-verify UI, auth state hook
-      features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page, 2FA admin-disable page, user management page)
+      features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page)
       features/invites/  Public accept-invite page (set password, no session required)
       features/twoFactor/  Self-service TOTP enroll/disable UI (QR code, recovery codes)
       i18n/        react-i18next config and en/de locale files

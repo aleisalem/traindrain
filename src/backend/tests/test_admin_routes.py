@@ -530,3 +530,305 @@ async def test_non_admin_is_forbidden_from_erasing_a_user(
     response = await client.post(f"/api/admin/users/{target.id}/erase")
 
     assert response.status_code == 403
+
+
+async def _get_role_id(db_session: AsyncSession, role_name: str) -> uuid.UUID:
+    role = (await db_session.execute(select(Role).where(Role.name == role_name))).scalar_one()
+    return role.id
+
+
+async def test_admin_can_view_a_roles_members(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-view-role-members@example.com", role_name="Administrator"
+    )
+    member = await _make_user_with_role(
+        db_session, email="member-view-role@example.com", role_name="Learner"
+    )
+    await _make_user_with_role(
+        db_session, email="non-member-view-role@example.com", role_name="Content Manager"
+    )
+    learner_id = await _get_role_id(db_session, "Learner")
+    await _login(client, email="admin-view-role-members@example.com")
+
+    response = await client.get(f"/api/admin/roles/{learner_id}/members")
+
+    assert response.status_code == 200
+    emails = {row["email"] for row in response.json()}
+    assert "member-view-role@example.com" in emails
+    assert "non-member-view-role@example.com" not in emails
+    listed = next(row for row in response.json() if row["email"] == member.email)
+    assert listed["id"] == str(member.id)
+
+
+async def test_viewing_members_of_an_unknown_role_is_not_found(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-view-unknown-role@example.com", role_name="Administrator"
+    )
+    await _login(client, email="admin-view-unknown-role@example.com")
+
+    response = await client.get(f"/api/admin/roles/{uuid.uuid4()}/members")
+
+    assert response.status_code == 404
+
+
+async def test_non_admin_is_forbidden_from_viewing_role_members(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="learner-view-role-members@example.com", role_name="Learner"
+    )
+    learner_id = await _get_role_id(db_session, "Learner")
+    await _login(client, email="learner-view-role-members@example.com")
+
+    response = await client.get(f"/api/admin/roles/{learner_id}/members")
+
+    assert response.status_code == 403
+
+
+async def test_admin_can_remove_a_role_from_an_erased_user(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-remove-erased-role@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-remove-erased-role@example.com", role_name="Learner"
+    )
+    learner_id = await _get_role_id(db_session, "Learner")
+    await _login(client, email="admin-remove-erased-role@example.com")
+    await client.post(f"/api/admin/users/{target.id}/erase")
+
+    response = await client.delete(f"/api/admin/users/{target.id}/roles/{learner_id}")
+
+    assert response.status_code == 204
+    await db_session.refresh(target, attribute_names=["roles"])
+    assert target.roles == []
+
+
+async def test_admin_can_assign_a_role_to_a_user(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-assign-role@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-assign-role@example.com", role_name="Learner"
+    )
+    content_manager_id = await _get_role_id(db_session, "Content Manager")
+    await _login(client, email="admin-assign-role@example.com")
+
+    response = await client.post(f"/api/admin/users/{target.id}/roles/{content_manager_id}")
+
+    assert response.status_code == 204
+    await db_session.refresh(target, attribute_names=["roles"])
+    assert {role.name for role in target.roles} == {"Learner", "Content Manager"}
+
+    audit_entry = (
+        await db_session.execute(select(AuditLog).where(AuditLog.action == "role_assigned"))
+    ).scalar_one()
+    assert audit_entry.target_user_id == target.id
+    assert audit_entry.detail["role"] == "Content Manager"
+
+
+async def test_assigning_an_already_held_role_is_a_conflict(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-assign-dup@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-assign-dup@example.com", role_name="Learner"
+    )
+    learner_id = await _get_role_id(db_session, "Learner")
+    await _login(client, email="admin-assign-dup@example.com")
+
+    response = await client.post(f"/api/admin/users/{target.id}/roles/{learner_id}")
+
+    assert response.status_code == 409
+
+
+async def test_assigning_an_unknown_role_is_not_found(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-assign-unknown-role@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-assign-unknown-role@example.com", role_name="Learner"
+    )
+    await _login(client, email="admin-assign-unknown-role@example.com")
+
+    response = await client.post(f"/api/admin/users/{target.id}/roles/{uuid.uuid4()}")
+
+    assert response.status_code == 404
+
+
+async def test_assigning_a_role_to_an_unknown_user_is_not_found(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-assign-unknown-user@example.com", role_name="Administrator"
+    )
+    learner_id = await _get_role_id(db_session, "Learner")
+    await _login(client, email="admin-assign-unknown-user@example.com")
+
+    response = await client.post(f"/api/admin/users/{uuid.uuid4()}/roles/{learner_id}")
+
+    assert response.status_code == 404
+
+
+async def test_assigning_a_role_to_an_erased_user_is_a_conflict(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-assign-erased@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-assign-erased@example.com", role_name="Learner"
+    )
+    content_manager_id = await _get_role_id(db_session, "Content Manager")
+    await _login(client, email="admin-assign-erased@example.com")
+    await client.post(f"/api/admin/users/{target.id}/erase")
+
+    response = await client.post(f"/api/admin/users/{target.id}/roles/{content_manager_id}")
+
+    assert response.status_code == 409
+
+
+async def test_non_admin_is_forbidden_from_assigning_a_role(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="learner-assign-role@example.com", role_name="Learner"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-forbidden-assign@example.com", role_name="Learner"
+    )
+    content_manager_id = await _get_role_id(db_session, "Content Manager")
+    await _login(client, email="learner-assign-role@example.com")
+
+    response = await client.post(f"/api/admin/users/{target.id}/roles/{content_manager_id}")
+
+    assert response.status_code == 403
+
+
+async def test_admin_can_remove_a_role_from_a_user(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-remove-role@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-remove-role@example.com", role_name="Learner"
+    )
+    learner_id = await _get_role_id(db_session, "Learner")
+    await _login(client, email="admin-remove-role@example.com")
+
+    response = await client.delete(f"/api/admin/users/{target.id}/roles/{learner_id}")
+
+    assert response.status_code == 204
+    await db_session.refresh(target, attribute_names=["roles"])
+    assert target.roles == []
+
+    audit_entry = (
+        await db_session.execute(select(AuditLog).where(AuditLog.action == "role_removed"))
+    ).scalar_one()
+    assert audit_entry.target_user_id == target.id
+    assert audit_entry.detail["role"] == "Learner"
+
+
+async def test_removing_a_role_the_user_does_not_have_is_a_conflict(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-remove-missing@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-remove-missing@example.com", role_name="Learner"
+    )
+    content_manager_id = await _get_role_id(db_session, "Content Manager")
+    await _login(client, email="admin-remove-missing@example.com")
+
+    response = await client.delete(f"/api/admin/users/{target.id}/roles/{content_manager_id}")
+
+    assert response.status_code == 409
+
+
+async def test_removing_an_unknown_role_is_not_found(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-remove-unknown-role@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-remove-unknown-role@example.com", role_name="Learner"
+    )
+    await _login(client, email="admin-remove-unknown-role@example.com")
+
+    response = await client.delete(f"/api/admin/users/{target.id}/roles/{uuid.uuid4()}")
+
+    assert response.status_code == 404
+
+
+async def test_non_admin_is_forbidden_from_removing_a_role(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="learner-remove-role@example.com", role_name="Learner"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-forbidden-remove@example.com", role_name="Learner"
+    )
+    learner_id = await _get_role_id(db_session, "Learner")
+    await _login(client, email="learner-remove-role@example.com")
+
+    response = await client.delete(f"/api/admin/users/{target.id}/roles/{learner_id}")
+
+    assert response.status_code == 403
+
+
+async def test_role_change_invalidates_the_targets_other_active_sessions(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="admin-role-session@example.com", role_name="Administrator"
+    )
+    target = await _make_user_with_role(
+        db_session, email="target-role-session@example.com", role_name="Learner"
+    )
+    content_manager_id = await _get_role_id(db_session, "Content Manager")
+
+    login_response = await client.post(
+        "/api/auth/login",
+        json={"email": "target-role-session@example.com", "password": KNOWN_PASSWORD},
+    )
+    target_token = login_response.cookies[COOKIE_NAME]
+    client.cookies.delete(COOKIE_NAME)
+
+    await _login(client, email="admin-role-session@example.com")
+    response = await client.post(f"/api/admin/users/{target.id}/roles/{content_manager_id}")
+    assert response.status_code == 204
+
+    client.cookies.set(COOKIE_NAME, target_token)
+    now_invalid = await client.get("/api/auth/me")
+    assert now_invalid.status_code == 401
+
+
+async def test_admin_changing_their_own_roles_keeps_their_current_session_alive(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    admin = await _make_user_with_role(
+        db_session, email="admin-self-role@example.com", role_name="Administrator"
+    )
+    content_manager_id = await _get_role_id(db_session, "Content Manager")
+    await _login(client, email="admin-self-role@example.com")
+
+    response = await client.post(f"/api/admin/users/{admin.id}/roles/{content_manager_id}")
+
+    assert response.status_code == 204
+    still_valid = await client.get("/api/auth/me")
+    assert still_valid.status_code == 200

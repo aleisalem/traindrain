@@ -142,6 +142,20 @@
     "error_conflict_erase": "Dieser Benutzer wurde bereits gelöscht.",
     "error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
   },
+  "adminRoles": {
+    "nav_link": "Rollen verwalten",
+    "heading": "Rollen",
+    "description": "Weisen Sie Rollen zu oder entziehen Sie sie, um den Zugriff eines Benutzers zu ändern. Eine Änderung der Rollen eines Benutzers meldet ihn sofort aus allen anderen aktiven Sitzungen ab.",
+    "load_error": "Die Rollen konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
+    "no_members": "Dieser Rolle sind noch keine Benutzer zugewiesen.",
+    "remove_button": "Entfernen",
+    "assign_label": "Benutzer hinzufügen:",
+    "assign_placeholder": "Benutzer auswählen…",
+    "assign_button": "Zuweisen",
+    "error_conflict_assign": "Dieser Benutzer hat diese Rolle bereits.",
+    "error_conflict_remove": "Dieser Benutzer hat diese Rolle nicht.",
+    "error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
+  },
   "adminTwoFactor": {
     "nav_link": "2FA eines Benutzers deaktivieren",
     "heading": "Zwei-Faktor-Authentifizierung für einen Benutzer deaktivieren",

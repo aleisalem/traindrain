@@ -142,6 +142,20 @@
     "error_conflict_erase": "This user has already been erased.",
     "error_unknown": "Something went wrong. Please try again."
   },
+  "adminRoles": {
+    "nav_link": "Manage roles",
+    "heading": "Roles",
+    "description": "Assign or remove roles to change what a user can access. Changing a user's roles signs them out of every other active session immediately.",
+    "load_error": "Could not load roles. Please try again.",
+    "no_members": "No users hold this role yet.",
+    "remove_button": "Remove",
+    "assign_label": "Add user:",
+    "assign_placeholder": "Select a user…",
+    "assign_button": "Assign",
+    "error_conflict_assign": "This user already has this role.",
+    "error_conflict_remove": "This user does not have this role.",
+    "error_unknown": "Something went wrong. Please try again."
+  },
   "adminTwoFactor": {
     "nav_link": "Disable a user's 2FA",
     "heading": "Disable two-factor authentication for a user",

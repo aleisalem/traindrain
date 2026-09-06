@@ -7,8 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.db import get_db
-from app.dependencies import get_ses_client, require_administrator
+from app.dependencies import get_current_session, get_ses_client, require_administrator
 from app.models import Invite, Role, TwoFactorCredential, User
+from app.models import Session as SessionModel
 from app.schemas.invites import (
     InviteCreateRequest,
     InviteExpirySettingRequest,
@@ -233,6 +234,107 @@ async def erase_user(
         actor_user_id=admin.id,
         action="user_erased",
         target_user_id=target.id,
+    )
+    await db.commit()
+
+
+async def _get_target_role(db: AsyncSession, role_id: uuid.UUID) -> Role:
+    role = await db.get(Role, role_id)
+    if role is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found.")
+    return role
+
+
+@router.get("/roles/{role_id}/members", response_model=list[UserListItem])
+async def list_role_members(
+    role_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> list[UserListItem]:
+    role = await _get_target_role(db, role_id)
+    users = (await db.execute(select(User).order_by(User.created_at))).scalars()
+    return [
+        UserListItem(
+            id=user.id,
+            email=user.email,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            roles=[r.name for r in user.roles],
+            disabled_at=user.disabled_at,
+            erased_at=user.erased_at,
+            created_at=user.created_at,
+        )
+        for user in users
+        if role in user.roles
+    ]
+
+
+@router.post("/users/{user_id}/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def assign_role(
+    user_id: uuid.UUID,
+    role_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+    session: SessionModel = Depends(get_current_session),
+) -> None:
+    target = await _get_target_user(db, user_id)
+    role = await _get_target_role(db, role_id)
+    if target.erased_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="This user has been erased."
+        )
+    if role in target.roles:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="This user already has this role."
+        )
+
+    target.roles.append(role)
+    # An admin changing their own roles keeps their current session — every
+    # other active session for the target (including all of a different
+    # user's) is revoked, so the access change takes effect immediately.
+    await revoke_other_sessions(
+        db, user_id=target.id, keep_session_id=session.id if target.id == admin.id else None
+    )
+
+    await record_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="role_assigned",
+        target_user_id=target.id,
+        detail={"role": role.name},
+    )
+    await db.commit()
+
+
+@router.delete("/users/{user_id}/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_role(
+    user_id: uuid.UUID,
+    role_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+    session: SessionModel = Depends(get_current_session),
+) -> None:
+    target = await _get_target_user(db, user_id)
+    role = await _get_target_role(db, role_id)
+    # No erased-account guard here (unlike assign_role): erasure never clears
+    # role membership, and stripping a stale role from a tombstone is exactly
+    # the kind of cleanup this endpoint should allow rather than block.
+    if role not in target.roles:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="This user does not have this role."
+        )
+
+    target.roles.remove(role)
+    await revoke_other_sessions(
+        db, user_id=target.id, keep_session_id=session.id if target.id == admin.id else None
+    )
+
+    await record_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="role_removed",
+        target_user_id=target.id,
+        detail={"role": role.name},
     )
     await db.commit()
 

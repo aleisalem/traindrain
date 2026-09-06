@@ -111,12 +111,12 @@ Work the **frontier**: any ticket whose blockers are all done.
 
 **Blocked by:** 5, 4
 
-- [ ] Admin shell page + endpoint: list all users
-- [ ] Disable endpoint: revokes active sessions, blocks future login, retains the record
-- [ ] Enable endpoint: restores login ability
-- [ ] Erase endpoint: anonymizes/removes personal fields, leaves a tombstone row that audit-log foreign keys still resolve against
-- [ ] All four actions are audit-logged
-- [ ] Tests: list, disable blocks login + kills sessions, enable restores, erase anonymizes but preserves referential integrity
+- [x] Admin shell page + endpoint: list all users
+- [x] Disable endpoint: revokes active sessions, blocks future login, retains the record
+- [x] Enable endpoint: restores login ability
+- [x] Erase endpoint: anonymizes/removes personal fields, leaves a tombstone row that audit-log foreign keys still resolve against
+- [x] All four actions are audit-logged
+- [x] Tests: list, disable blocks login + kills sessions, enable restores, erase anonymizes but preserves referential integrity
 
 ## 10. Role assignment management + session invalidation on role change
 
@@ -124,10 +124,10 @@ Work the **frontier**: any ticket whose blockers are all done.
 
 **Blocked by:** 5, 4
 
-- [ ] Admin shell page + endpoints: assign role to user, remove role from user, view roles with their members
-- [ ] Changing a user's roles invalidates their other active sessions (not the session performing the action, if it's their own)
-- [ ] Action is audit-logged
-- [ ] Tests: assign, remove, view, session invalidation on change, non-admin forbidden
+- [x] Admin shell page + endpoints: assign role to user, remove role from user, view roles with their members
+- [x] Changing a user's roles invalidates their other active sessions (not the session performing the action, if it's their own)
+- [x] Action is audit-logged
+- [x] Tests: assign, remove, view, session invalidation on change, non-admin forbidden
 
 ## 11. Groups: CRUD, membership, invite group pre-assignment
 

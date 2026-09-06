@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Dashboard from "./Dashboard";
 import { AdminDisableTwoFactorPage } from "./features/admin/AdminDisableTwoFactorPage";
 import { AdminOverview } from "./features/admin/AdminOverview";
+import { AdminRolesPage } from "./features/admin/AdminRolesPage";
 import { AdminShell } from "./features/admin/AdminShell";
 import { AdminUsersPage } from "./features/admin/AdminUsersPage";
 import { InviteUserPage } from "./features/admin/InviteUserPage";
@@ -36,6 +37,7 @@ function AuthenticatedRoutes({
         <Route path="/admin" element={<AdminShell onLogout={onLogout} />}>
           <Route index element={<AdminOverview />} />
           <Route path="users" element={<AdminUsersPage currentUserId={user.id} />} />
+          <Route path="roles" element={<AdminRolesPage />} />
           <Route path="invites" element={<InviteUserPage />} />
           <Route path="two-factor" element={<AdminDisableTwoFactorPage />} />
         </Route>
