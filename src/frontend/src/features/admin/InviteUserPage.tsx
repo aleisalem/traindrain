@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 type RoleOption = { id: string; name: string };
+type GroupOption = { id: string; name: string };
 
 type Result = { kind: "idle" } | { kind: "success"; email: string } | { kind: "error"; message: string };
 
@@ -84,9 +85,11 @@ function InviteExpirySettings() {
 export function InviteUserPage() {
   const { t } = useTranslation();
   const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [groups, setGroups] = useState<GroupOption[]>([]);
   const [email, setEmail] = useState("");
   const [language, setLanguage] = useState<"en" | "de">("en");
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [result, setResult] = useState<Result>({ kind: "idle" });
   const [submitting, setSubmitting] = useState(false);
 
@@ -101,9 +104,25 @@ export function InviteUserPage() {
     void loadRoles();
   }, []);
 
+  useEffect(() => {
+    async function loadGroups() {
+      const response = await fetch("/api/admin/groups");
+      if (!response.ok) return;
+      const body: GroupOption[] = await response.json();
+      setGroups(body);
+    }
+    void loadGroups();
+  }, []);
+
   function toggleRole(roleId: string) {
     setSelectedRoleIds((current) =>
       current.includes(roleId) ? current.filter((id) => id !== roleId) : [...current, roleId],
+    );
+  }
+
+  function toggleGroup(groupId: string) {
+    setSelectedGroupIds((current) =>
+      current.includes(groupId) ? current.filter((id) => id !== groupId) : [...current, groupId],
     );
   }
 
@@ -115,7 +134,12 @@ export function InviteUserPage() {
     const response = await fetch("/api/admin/invites", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, language, role_ids: selectedRoleIds }),
+      body: JSON.stringify({
+        email,
+        language,
+        role_ids: selectedRoleIds,
+        group_ids: selectedGroupIds,
+      }),
     });
     setSubmitting(false);
 
@@ -123,6 +147,7 @@ export function InviteUserPage() {
       setResult({ kind: "success", email });
       setEmail("");
       setSelectedRoleIds([]);
+      setSelectedGroupIds([]);
       return;
     }
     if (response.status === 409) {
@@ -177,6 +202,22 @@ export function InviteUserPage() {
                     onChange={() => toggleRole(role.id)}
                   />
                   {role.name}
+                </label>
+              ))}
+            </fieldset>
+          )}
+
+          {groups.length > 0 && (
+            <fieldset className="flex flex-col gap-2 text-sm">
+              <legend>{t("invites.groups_label")}</legend>
+              {groups.map((group) => (
+                <label key={group.id} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedGroupIds.includes(group.id)}
+                    onChange={() => toggleGroup(group.id)}
+                  />
+                  {group.name}
                 </label>
               ))}
             </fieldset>

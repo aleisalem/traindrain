@@ -8,8 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.db import get_db
 from app.dependencies import get_current_session, get_ses_client, require_administrator
-from app.models import Invite, Role, TwoFactorCredential, User
+from app.models import Group, Invite, Role, TwoFactorCredential, User
 from app.models import Session as SessionModel
+from app.schemas.groups import GroupCreateRequest, GroupResponse, GroupUpdateRequest
 from app.schemas.invites import (
     InviteCreateRequest,
     InviteExpirySettingRequest,
@@ -33,7 +34,13 @@ _USER_NOT_FOUND = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="U
 
 
 async def _get_target_user(db: AsyncSession, user_id: uuid.UUID) -> User:
-    target = await db.get(User, user_id)
+    # A select(), not db.get() — db.get() short-circuits on an
+    # already-identity-mapped row without applying the mapper's selectin
+    # eager loads, which can leave a lazy="selectin" collection (like
+    # `groups`) unloaded and unable to lazy-load in an async context.
+    target = (
+        await db.execute(select(User).where(User.id == user_id))
+    ).scalar_one_or_none()
     if target is None:
         raise _USER_NOT_FOUND
     return target
@@ -339,6 +346,191 @@ async def remove_role(
     await db.commit()
 
 
+async def _get_target_group(db: AsyncSession, group_id: uuid.UUID) -> Group:
+    group = await db.get(Group, group_id)
+    if group is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found.")
+    return group
+
+
+def _to_group_response(group: Group) -> GroupResponse:
+    return GroupResponse(
+        id=group.id, name=group.name, description=group.description, created_at=group.created_at
+    )
+
+
+@router.get("/groups", response_model=list[GroupResponse])
+async def list_groups(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> list[GroupResponse]:
+    groups = (await db.execute(select(Group).order_by(Group.name))).scalars()
+    return [_to_group_response(group) for group in groups]
+
+
+@router.post("/groups", response_model=GroupResponse, status_code=status.HTTP_201_CREATED)
+async def create_group(
+    payload: GroupCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> GroupResponse:
+    existing = (
+        await db.execute(select(Group).where(func.lower(Group.name) == payload.name.strip().lower()))
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="A group with this name already exists."
+        )
+
+    group = Group(name=payload.name.strip(), description=payload.description)
+    db.add(group)
+    await db.flush()
+
+    await record_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="group_created",
+        detail={"group_id": str(group.id), "name": group.name},
+    )
+    await db.commit()
+    return _to_group_response(group)
+
+
+@router.put("/groups/{group_id}", response_model=GroupResponse)
+async def update_group(
+    group_id: uuid.UUID,
+    payload: GroupUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> GroupResponse:
+    group = await _get_target_group(db, group_id)
+    existing = (
+        await db.execute(
+            select(Group).where(
+                func.lower(Group.name) == payload.name.strip().lower(), Group.id != group_id
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="A group with this name already exists."
+        )
+
+    group.name = payload.name.strip()
+    group.description = payload.description
+
+    await record_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="group_updated",
+        detail={"group_id": str(group.id), "name": group.name},
+    )
+    await db.commit()
+    return _to_group_response(group)
+
+
+@router.delete("/groups/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_group(
+    group_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> None:
+    group = await _get_target_group(db, group_id)
+    name = group.name
+    await db.delete(group)
+
+    await record_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="group_deleted",
+        detail={"group_id": str(group_id), "name": name},
+    )
+    await db.commit()
+
+
+@router.get("/groups/{group_id}/members", response_model=list[UserListItem])
+async def list_group_members(
+    group_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> list[UserListItem]:
+    group = await _get_target_group(db, group_id)
+    users = (await db.execute(select(User).order_by(User.created_at))).scalars()
+    return [
+        UserListItem(
+            id=user.id,
+            email=user.email,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            roles=[role.name for role in user.roles],
+            disabled_at=user.disabled_at,
+            erased_at=user.erased_at,
+            created_at=user.created_at,
+        )
+        for user in users
+        if group in user.groups
+    ]
+
+
+@router.post("/groups/{group_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def add_group_member(
+    group_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> None:
+    group = await _get_target_group(db, group_id)
+    target = await _get_target_user(db, user_id)
+    if target.erased_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="This user has been erased."
+        )
+    if group in target.groups:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="This user is already a member of this group."
+        )
+
+    target.groups.append(group)
+
+    await record_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="group_member_added",
+        target_user_id=target.id,
+        detail={"group_id": str(group.id), "group_name": group.name},
+    )
+    await db.commit()
+
+
+@router.delete("/groups/{group_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_group_member(
+    group_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> None:
+    group = await _get_target_group(db, group_id)
+    target = await _get_target_user(db, user_id)
+    # No erased-account guard here (unlike add_group_member): erasure never
+    # clears group membership, and stripping a stale membership from a
+    # tombstone is exactly the kind of cleanup this endpoint should allow.
+    if group not in target.groups:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="This user is not a member of this group."
+        )
+
+    target.groups.remove(group)
+
+    await record_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="group_member_removed",
+        target_user_id=target.id,
+        detail={"group_id": str(group.id), "group_name": group.name},
+    )
+    await db.commit()
+
+
 @router.post("/invites", response_model=InviteResponse, status_code=status.HTTP_201_CREATED)
 async def create_invite(
     payload: InviteCreateRequest,
@@ -368,6 +560,17 @@ async def create_invite(
                 detail="One or more role ids are invalid.",
             )
 
+    groups: list[Group] = []
+    if payload.group_ids:
+        groups = list(
+            (await db.execute(select(Group).where(Group.id.in_(payload.group_ids)))).scalars()
+        )
+        if len(groups) != len(set(payload.group_ids)):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="One or more group ids are invalid.",
+            )
+
     now = datetime.now(UTC)
 
     # Re-inviting the same email invalidates any prior pending invite to it.
@@ -392,6 +595,7 @@ async def create_invite(
         invited_by_user_id=admin.id,
         expires_at=now + timedelta(days=expiry_days),
         roles=roles,
+        groups=groups,
     )
     db.add(invite)
     await db.flush()
@@ -404,6 +608,7 @@ async def create_invite(
             "email": invite.email,
             "language": invite.language,
             "roles": sorted(role.name for role in roles),
+            "groups": sorted(group.name for group in groups),
         },
     )
 
@@ -423,4 +628,5 @@ async def create_invite(
         language=invite.language,
         expires_at=invite.expires_at,
         roles=[role.name for role in roles],
+        groups=[group.name for group in groups],
     )

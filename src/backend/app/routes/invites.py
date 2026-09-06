@@ -67,6 +67,7 @@ async def accept_invite(
         password_hash=hash_password(payload.password),
         preferred_language=invite.language,
         roles=list(roles_by_id.values()),
+        groups=list(invite.groups),
     )
     db.add(user)
     invite.accepted_at = datetime.now(UTC)

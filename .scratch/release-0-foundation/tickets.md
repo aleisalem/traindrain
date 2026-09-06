@@ -135,10 +135,10 @@ Work the **frontier**: any ticket whose blockers are all done.
 
 **Blocked by:** 5, 4
 
-- [ ] Admin shell pages + endpoints: group CRUD, add/remove member, view members
-- [ ] Invite-creation endpoint/UI extended with optional group pre-assignment, applied on invite acceptance
-- [ ] Group CRUD and membership changes are audit-logged
-- [ ] Tests: CRUD, membership add/remove, member listing, invite-time group pre-assignment on acceptance, non-admin forbidden
+- [x] Admin shell pages + endpoints: group CRUD, add/remove member, view members
+- [x] Invite-creation endpoint/UI extended with optional group pre-assignment, applied on invite acceptance
+- [x] Group CRUD and membership changes are audit-logged
+- [x] Tests: CRUD, membership add/remove, member listing, invite-time group pre-assignment on acceptance, non-admin forbidden
 
 ## 12. User profile self-service: name, password change, language/theme preference
 

@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+from app.models.group import Group
 from app.models.role import Role
 
 invite_roles = Table(
@@ -13,6 +14,18 @@ invite_roles = Table(
     Base.metadata,
     Column("invite_id", UUID(as_uuid=True), ForeignKey("invites.id"), primary_key=True),
     Column("role_id", UUID(as_uuid=True), ForeignKey("roles.id"), primary_key=True),
+)
+
+invite_groups = Table(
+    "invite_groups",
+    Base.metadata,
+    Column("invite_id", UUID(as_uuid=True), ForeignKey("invites.id"), primary_key=True),
+    Column(
+        "group_id",
+        UUID(as_uuid=True),
+        ForeignKey("groups.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
 )
 
 
@@ -37,3 +50,4 @@ class Invite(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     roles: Mapped[list[Role]] = relationship(secondary=invite_roles, lazy="selectin")
+    groups: Mapped[list[Group]] = relationship(secondary=invite_groups, lazy="selectin")

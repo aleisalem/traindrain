@@ -40,6 +40,12 @@ function mockBackend(user: unknown) {
           status: 200,
         });
       }
+      if (url === "/api/admin/groups") {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+      if (url === "/api/admin/users") {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
       if (url === "/api/admin/settings/invite-expiry-days") {
         return new Response(JSON.stringify({ days: 7 }), { status: 200 });
       }
@@ -83,6 +89,20 @@ describe("Admin shell routing", () => {
     await user.click(screen.getByRole("link", { name: "Invite user" }));
 
     expect(await screen.findByRole("heading", { name: "Invite a user" })).toBeInTheDocument();
+  });
+
+  it("lets an Administrator navigate to the groups page", async () => {
+    const user = userEvent.setup();
+    mockBackend(ADMIN_USER);
+
+    render(<App />);
+    await screen.findByText("Signed in as admin@example.com");
+
+    await user.click(screen.getByRole("link", { name: "Admin area" }));
+    await screen.findByRole("heading", { name: "Overview" });
+    await user.click(screen.getByRole("link", { name: "Manage groups" }));
+
+    expect(await screen.findByRole("heading", { name: "Groups" })).toBeInTheDocument();
   });
 
   it("hides the admin nav link for a Learner", async () => {

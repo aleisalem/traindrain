@@ -20,6 +20,9 @@ export function AdminShell({ onLogout }: Props) {
             <Link to="/admin/roles" className="text-fg-muted hover:text-fg">
               {t("adminRoles.nav_link")}
             </Link>
+            <Link to="/admin/groups" className="text-fg-muted hover:text-fg">
+              {t("adminGroups.nav_link")}
+            </Link>
             <Link to="/admin/invites" className="text-fg-muted hover:text-fg">
               {t("invites.nav_link")}
             </Link>

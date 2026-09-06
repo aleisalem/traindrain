@@ -82,6 +82,16 @@ Release 0 is in progress. So far:
   action is kept alive. All three actions are audit-logged. Frontend:
   `src/frontend/src/features/admin/AdminRolesPage.tsx` (`/admin/roles`), one card per role listing
   its members with assign/remove controls.
+- User Groups: `GET`/`POST /api/admin/groups` list/create a group (name + description, 409 on a
+  duplicate name); `PUT`/`DELETE /api/admin/groups/{id}` rename/redescribe or delete one (deleting
+  cascades its membership rows). `GET /api/admin/groups/{id}/members` lists members;
+  `POST`/`DELETE /api/admin/groups/{id}/members/{user_id}` add/remove one (404 unknown group/user,
+  409 already-member/not-a-member; adding an erased user is also a conflict, removal isn't).
+  Unlike roles, group membership changes don't revoke sessions — groups are for targeting future
+  learning campaigns, not access control. Invite creation (`POST /api/admin/invites`) also accepts
+  `group_ids` to pre-assign group membership, applied on acceptance alongside pre-assigned roles.
+  All group CRUD and membership actions are audit-logged. Frontend:
+  `src/frontend/src/features/admin/AdminGroupsPage.tsx` (`/admin/groups`).
 
 Learning-content features don't exist yet — those land starting with Release 1.
 
@@ -101,7 +111,7 @@ src/
   frontend/        React + Vite SPA (TypeScript)
     src/
       features/auth/   Login / forced-password-change / forgot-, reset-password, and 2FA-verify UI, auth state hook
-      features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page)
+      features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page, groups page)
       features/invites/  Public accept-invite page (set password, no session required)
       features/twoFactor/  Self-service TOTP enroll/disable UI (QR code, recovery codes)
       i18n/        react-i18next config and en/de locale files

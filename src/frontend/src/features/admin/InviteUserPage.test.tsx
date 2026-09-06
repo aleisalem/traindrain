@@ -58,6 +58,7 @@ describe("InviteUserPage", () => {
 
   it("lists every role except Learner, which is always auto-assigned", async () => {
     queue("GET", "/api/admin/roles", { status: 200, body: ROLES });
+    queue("GET", "/api/admin/groups", { status: 200, body: [] });
 
     render(<InviteUserPage />);
 
@@ -69,9 +70,10 @@ describe("InviteUserPage", () => {
   it("submits the invite with the selected email, language, and roles", async () => {
     const user = userEvent.setup();
     queue("GET", "/api/admin/roles", { status: 200, body: ROLES });
+    queue("GET", "/api/admin/groups", { status: 200, body: [] });
     queue("POST", "/api/admin/invites", {
       status: 201,
-      body: { id: "invite-1", email: "newbie@example.com", language: "de", expires_at: "2026-09-09T00:00:00Z", roles: ["Content Manager"] },
+      body: { id: "invite-1", email: "newbie@example.com", language: "de", expires_at: "2026-09-09T00:00:00Z", roles: ["Content Manager"], groups: [] },
     });
 
     render(<InviteUserPage />);
@@ -92,12 +94,50 @@ describe("InviteUserPage", () => {
       email: "newbie@example.com",
       language: "de",
       role_ids: ["role-content"],
+      group_ids: [],
+    });
+  });
+
+  it("lists groups and submits the invite with the selected group pre-assignment", async () => {
+    const user = userEvent.setup();
+    queue("GET", "/api/admin/roles", { status: 200, body: ROLES });
+    queue("GET", "/api/admin/groups", {
+      status: 200,
+      body: [
+        { id: "group-sales", name: "Sales Team" },
+        { id: "group-eng", name: "Engineering" },
+      ],
+    });
+    queue("POST", "/api/admin/invites", {
+      status: 201,
+      body: { id: "invite-2", email: "groupie@example.com", language: "en", expires_at: "2026-09-09T00:00:00Z", roles: [], groups: ["Sales Team"] },
+    });
+
+    render(<InviteUserPage />);
+    await screen.findByLabelText("Sales Team");
+
+    await user.type(screen.getByLabelText("Email"), "groupie@example.com");
+    await user.click(screen.getByLabelText("Sales Team"));
+    await user.click(screen.getByRole("button", { name: "Send invite" }));
+
+    expect(await screen.findByText("Invite sent to groupie@example.com.")).toBeInTheDocument();
+
+    const call = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      (args: unknown[]) => args[0] === "/api/admin/invites",
+    ) as [RequestInfo, RequestInit];
+    const requestInit = call[1];
+    expect(JSON.parse(requestInit.body as string)).toEqual({
+      email: "groupie@example.com",
+      language: "en",
+      role_ids: [],
+      group_ids: ["group-sales"],
     });
   });
 
   it("shows a conflict message when the email already has an account", async () => {
     const user = userEvent.setup();
     queue("GET", "/api/admin/roles", { status: 200, body: ROLES });
+    queue("GET", "/api/admin/groups", { status: 200, body: [] });
     queue("POST", "/api/admin/invites", { status: 409, body: { detail: "conflict" } });
 
     render(<InviteUserPage />);
@@ -114,6 +154,7 @@ describe("InviteUserPage", () => {
   it("lets an admin view and update the invite-link expiry", async () => {
     const user = userEvent.setup();
     queue("GET", "/api/admin/roles", { status: 200, body: ROLES });
+    queue("GET", "/api/admin/groups", { status: 200, body: [] });
     queue("PUT", "/api/admin/settings/invite-expiry-days", { status: 200, body: { days: 3 } });
 
     render(<InviteUserPage />);

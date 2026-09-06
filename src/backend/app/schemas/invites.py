@@ -8,6 +8,7 @@ from pydantic import BaseModel, EmailStr, Field
 class InviteCreateRequest(BaseModel):
     email: EmailStr
     role_ids: list[uuid.UUID] = Field(default_factory=list)
+    group_ids: list[uuid.UUID] = Field(default_factory=list)
     language: Literal["en", "de"] = "en"
 
 
@@ -17,6 +18,7 @@ class InviteResponse(BaseModel):
     language: str
     expires_at: datetime
     roles: list[str]
+    groups: list[str]
 
 
 class InviteStatusResponse(BaseModel):

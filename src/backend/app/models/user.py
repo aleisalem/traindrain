@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+from app.models.group import Group, group_members
 from app.models.role import Role, user_roles
 
 
@@ -31,3 +32,4 @@ class User(Base):
     )
 
     roles: Mapped[list[Role]] = relationship(secondary=user_roles, lazy="selectin")
+    groups: Mapped[list[Group]] = relationship(secondary=group_members, lazy="selectin")
