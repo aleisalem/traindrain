@@ -10,6 +10,8 @@ export type AuthUser = {
   mustChangePassword: boolean;
   roles: string[];
   twoFactorEnabled: boolean;
+  preferredLanguage: string | null;
+  preferredTheme: string | null;
 };
 
 export type AuthState =
@@ -22,6 +24,8 @@ export type AuthState =
 type LoginError = "invalid_credentials" | "rate_limited" | "unknown";
 type ChangePasswordError = "wrong_current_password" | "policy_violation" | "unknown";
 type TwoFactorVerifyError = "invalid_code" | "rate_limited" | "unknown";
+type UpdateNameError = "invalid" | "unknown";
+type UpdatePreferencesError = "unknown";
 
 type ActionResult<E extends string> = { ok: true } | { ok: false; error: E };
 
@@ -33,6 +37,10 @@ type MeResponseBody = {
   must_change_password: boolean;
   roles: string[];
   two_factor_enabled: boolean;
+  // Optional so existing test fixtures that predate these fields still
+  // type-check — toAuthUser() treats a missing field the same as null.
+  preferred_language?: string | null;
+  preferred_theme?: string | null;
 };
 
 type LoginResponseBody = {
@@ -49,6 +57,8 @@ function toAuthUser(body: MeResponseBody): AuthUser {
     mustChangePassword: body.must_change_password,
     roles: body.roles,
     twoFactorEnabled: body.two_factor_enabled,
+    preferredLanguage: body.preferred_language ?? null,
+    preferredTheme: body.preferred_theme ?? null,
   };
 }
 
@@ -141,5 +151,48 @@ export function useAuth() {
     [refresh],
   );
 
-  return { state, login, logout, changePassword, verifyTwoFactor, refresh };
+  const updateName = useCallback(
+    async (firstName: string, lastName: string): Promise<ActionResult<UpdateNameError>> => {
+      const response = await fetch("/api/profile/name", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ first_name: firstName, last_name: lastName }),
+      });
+      if (response.status === 422) return { ok: false, error: "invalid" };
+      if (!response.ok) return { ok: false, error: "unknown" };
+
+      await refresh();
+      return { ok: true };
+    },
+    [refresh],
+  );
+
+  const updatePreferences = useCallback(
+    async (
+      language: string,
+      theme: string,
+    ): Promise<ActionResult<UpdatePreferencesError>> => {
+      const response = await fetch("/api/profile/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preferred_language: language, preferred_theme: theme }),
+      });
+      if (!response.ok) return { ok: false, error: "unknown" };
+
+      await refresh();
+      return { ok: true };
+    },
+    [refresh],
+  );
+
+  return {
+    state,
+    login,
+    logout,
+    changePassword,
+    verifyTwoFactor,
+    refresh,
+    updateName,
+    updatePreferences,
+  };
 }

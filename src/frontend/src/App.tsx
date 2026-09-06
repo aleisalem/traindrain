@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import Dashboard from "./Dashboard";
@@ -16,23 +17,57 @@ import { TwoFactorVerifyForm } from "./features/auth/TwoFactorVerifyForm";
 import type { AuthUser } from "./features/auth/useAuth";
 import { ADMINISTRATOR_ROLE, useAuth } from "./features/auth/useAuth";
 import { AcceptInvitePage } from "./features/invites/AcceptInvitePage";
+import { ProfilePage } from "./features/profile/ProfilePage";
+import i18n from "./i18n";
+import { resolveTheme, useAppliedTheme } from "./theme/useTheme";
+
+type AuthenticatedRoutesProps = {
+  user: AuthUser;
+  onLogout: () => void;
+  onRefreshUser: () => Promise<void>;
+  onUpdateName: ReturnType<typeof useAuth>["updateName"];
+  onUpdatePreferences: ReturnType<typeof useAuth>["updatePreferences"];
+  onChangePassword: ReturnType<typeof useAuth>["changePassword"];
+};
 
 function AuthenticatedRoutes({
   user,
   onLogout,
   onRefreshUser,
-}: {
-  user: AuthUser;
-  onLogout: () => void;
-  onRefreshUser: () => Promise<void>;
-}) {
+  onUpdateName,
+  onUpdatePreferences,
+  onChangePassword,
+}: AuthenticatedRoutesProps) {
   const isAdministrator = user.roles.includes(ADMINISTRATOR_ROLE);
+
+  // The user's server-persisted theme/language preferences (ticket 12) are
+  // applied here, once, for the whole authenticated app — rather than by
+  // whichever screen happens to be mounted — so they stick across
+  // navigation. A user with no stored preference falls back to the OS
+  // light/dark default; the language detector's own default stands until
+  // the user has one.
+  useAppliedTheme(resolveTheme(user.preferredTheme));
+
+  useEffect(() => {
+    if (user.preferredLanguage) void i18n.changeLanguage(user.preferredLanguage);
+  }, [user.preferredLanguage]);
 
   return (
     <Routes>
       <Route
         path="/"
         element={<Dashboard user={user} onLogout={onLogout} onRefreshUser={onRefreshUser} />}
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProfilePage
+            user={user}
+            onUpdateName={onUpdateName}
+            onUpdatePreferences={onUpdatePreferences}
+            onChangePassword={onChangePassword}
+          />
+        }
       />
       {isAdministrator && (
         <Route path="/admin" element={<AdminShell onLogout={onLogout} />}>
@@ -50,7 +85,16 @@ function AuthenticatedRoutes({
 }
 
 function App() {
-  const { state, login, logout, changePassword, verifyTwoFactor, refresh } = useAuth();
+  const {
+    state,
+    login,
+    logout,
+    changePassword,
+    verifyTwoFactor,
+    refresh,
+    updateName,
+    updatePreferences,
+  } = useAuth();
 
   // An invite or password-reset link is followed by a signed-out visitor —
   // reachable regardless of session state, unlike every other route in the app.
@@ -112,6 +156,9 @@ function App() {
         user={state.user}
         onLogout={() => void logout()}
         onRefreshUser={refresh}
+        onUpdateName={updateName}
+        onUpdatePreferences={updatePreferences}
+        onChangePassword={changePassword}
       />
     </BrowserRouter>
   );

@@ -8,6 +8,7 @@ from app.dependencies import get_ses_client
 from app.routes.admin import router as admin_router
 from app.routes.auth import router as auth_router
 from app.routes.invites import router as invites_router
+from app.routes.profile import router as profile_router
 from app.routes.two_factor import router as two_factor_router
 
 
@@ -26,6 +27,7 @@ app = FastAPI(title="TrainDrain API", lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(invites_router)
+app.include_router(profile_router)
 app.include_router(two_factor_router)
 
 

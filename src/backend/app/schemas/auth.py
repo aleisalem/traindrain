@@ -33,6 +33,11 @@ class MeResponse(BaseModel):
     must_change_password: bool
     roles: list[str]
     two_factor_enabled: bool
+    # Null until the user has explicitly set a preference (or was invited
+    # with a chosen language) — the frontend falls back to an OS-based
+    # light/dark default in that case, never to the colorblind theme.
+    preferred_language: str | None
+    preferred_theme: str | None
 
 
 class ForgotPasswordRequest(BaseModel):

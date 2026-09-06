@@ -5,8 +5,6 @@ import { Link } from "react-router-dom";
 import { ADMINISTRATOR_ROLE } from "./features/auth/useAuth";
 import type { AuthUser } from "./features/auth/useAuth";
 import { TwoFactorSettings } from "./features/twoFactor/TwoFactorSettings";
-import { SUPPORTED_LANGUAGES } from "./i18n";
-import { useTheme } from "./theme/useTheme";
 
 type HealthState =
   | { status: "idle" }
@@ -20,8 +18,7 @@ type Props = {
 };
 
 function Dashboard({ user, onLogout, onRefreshUser }: Props) {
-  const { t, i18n } = useTranslation();
-  const { theme, setTheme, themes } = useTheme();
+  const { t } = useTranslation();
   const [health, setHealth] = useState<HealthState>({ status: "idle" });
 
   async function checkBackendHealth() {
@@ -44,6 +41,9 @@ function Dashboard({ user, onLogout, onRefreshUser }: Props) {
       </div>
 
       <div className="flex gap-2">
+        <Link to="/profile" className="rounded-md border border-border px-3 py-1.5 text-sm">
+          {t("profile.nav_link")}
+        </Link>
         {user.roles.includes(ADMINISTRATOR_ROLE) && (
           <Link
             to="/admin"
@@ -60,40 +60,6 @@ function Dashboard({ user, onLogout, onRefreshUser }: Props) {
           {t("auth.logout")}
         </button>
       </div>
-
-      <section className="flex flex-col items-center gap-2">
-        <span className="text-sm text-fg-muted">{t("scaffold.language_label")}</span>
-        <div className="flex gap-2">
-          {SUPPORTED_LANGUAGES.map((lng) => (
-            <button
-              key={lng}
-              type="button"
-              onClick={() => void i18n.changeLanguage(lng)}
-              aria-pressed={i18n.resolvedLanguage === lng}
-              className="rounded-md border border-border px-3 py-1.5 text-sm aria-pressed:bg-primary aria-pressed:text-primary-fg"
-            >
-              {lng.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="flex flex-col items-center gap-2">
-        <span className="text-sm text-fg-muted">{t("scaffold.theme_label")}</span>
-        <div className="flex gap-2">
-          {themes.map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setTheme(option)}
-              aria-pressed={theme === option}
-              className="rounded-md border border-border px-3 py-1.5 text-sm aria-pressed:bg-primary aria-pressed:text-primary-fg"
-            >
-              {t(`scaffold.theme_${option}`)}
-            </button>
-          ))}
-        </div>
-      </section>
 
       <TwoFactorSettings enabled={user.twoFactorEnabled} onChanged={onRefreshUser} />
 

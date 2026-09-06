@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
@@ -37,23 +36,38 @@ describe("App", () => {
     expect(await screen.findByText("TrainDrain is up and running")).toBeInTheDocument();
   });
 
-  it("re-renders translated text when switching language to German", async () => {
-    const user = userEvent.setup();
+  it("falls back to the OS light/dark theme for a user with no stored preference", async () => {
     render(<App />);
     await screen.findByText("TrainDrain is up and running");
 
-    await user.click(screen.getByRole("button", { name: "DE" }));
-
-    expect(await screen.findByText("TrainDrain läuft")).toBeInTheDocument();
+    // jsdom's default matchMedia reports no match, i.e. "not dark" -> light.
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   });
 
-  it("applies the selected theme as a data-theme attribute on <html>", async () => {
-    const user = userEvent.setup();
+  it("applies a user's persisted theme preference on login, without any interaction", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({ ...AUTHENTICATED_USER, preferred_theme: "dark" }),
+          { status: 200 },
+        ),
+      ),
+    );
+
     render(<App />);
     await screen.findByText("TrainDrain is up and running");
 
-    await user.click(screen.getByRole("button", { name: "Dark" }));
-
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  });
+
+  it("links to the profile page from the dashboard", async () => {
+    render(<App />);
+    await screen.findByText("TrainDrain is up and running");
+
+    expect(screen.getByRole("link", { name: "My profile" })).toHaveAttribute(
+      "href",
+      "/profile",
+    );
   });
 });

@@ -92,6 +92,18 @@ Release 0 is in progress. So far:
   `group_ids` to pre-assign group membership, applied on acceptance alongside pre-assigned roles.
   All group CRUD and membership actions are audit-logged. Frontend:
   `src/frontend/src/features/admin/AdminGroupsPage.tsx` (`/admin/groups`).
+- User profile self-service: `PATCH /api/profile/name` updates a user's own first/last name
+  (email is immutable — the request schema forbids it, so trying to smuggle it in fails
+  validation). `PATCH /api/profile/preferences` sets the user's language (EN/DE) and theme
+  (light/dark/colorblind-friendly) preferences, persisted server-side on the user record so they
+  follow the user across devices and sessions; `GET /api/auth/me` reports both. Changing your own
+  password reuses the same `POST /api/auth/change-password` endpoint login already uses (ticket 2's
+  policy validator, invalidates your other active sessions). A user with no stored theme
+  preference gets an OS-based light/dark default the moment they log in — never the colorblind
+  theme, which is always an explicit opt-in. Frontend:
+  `src/frontend/src/features/profile/ProfilePage.tsx` (`/profile`, linked from the dashboard) —
+  the app-wide theme/language application itself now lives in `src/frontend/src/App.tsx` rather
+  than the dashboard, so it applies consistently across every authenticated screen.
 
 Learning-content features don't exist yet — those land starting with Release 1.
 
@@ -114,6 +126,7 @@ src/
       features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page, groups page)
       features/invites/  Public accept-invite page (set password, no session required)
       features/twoFactor/  Self-service TOTP enroll/disable UI (QR code, recovery codes)
+      features/profile/  Self-service profile page (name, password, language/theme preferences)
       i18n/        react-i18next config and en/de locale files
       styles/      Tailwind CSS-variable theme definitions (light/dark/colorblind)
       theme/       Theme-selection hook

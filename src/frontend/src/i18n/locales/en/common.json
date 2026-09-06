@@ -5,11 +5,6 @@
   "scaffold": {
     "heading": "TrainDrain is up and running",
     "description": "This placeholder page confirms the frontend, i18n, and theming infrastructure are wired together.",
-    "language_label": "Language",
-    "theme_label": "Theme",
-    "theme_light": "Light",
-    "theme_dark": "Dark",
-    "theme_colorblind": "Colorblind-friendly",
     "backend_health_button": "Check backend health",
     "backend_health_ok": "Backend reports: {{status}}",
     "backend_health_error": "Could not reach the backend."
@@ -183,6 +178,26 @@
     "error_conflict_add": "This user is already a member of this group.",
     "error_conflict_remove": "This user is not a member of this group.",
     "error_unknown": "Something went wrong. Please try again."
+  },
+  "profile": {
+    "nav_link": "My profile",
+    "back_to_dashboard": "Back to dashboard",
+    "heading": "Your profile",
+    "name_heading": "Name",
+    "first_name_label": "First name",
+    "last_name_label": "Last name",
+    "name_submit": "Save name",
+    "name_saved": "Name updated.",
+    "name_error_invalid": "First and last name can't be blank.",
+    "name_error_unknown": "Something went wrong. Please try again.",
+    "password_heading": "Password",
+    "password_submit": "Change password",
+    "password_saved": "Password updated.",
+    "language_heading": "Language",
+    "theme_heading": "Theme",
+    "theme_light": "Light",
+    "theme_dark": "Dark",
+    "theme_colorblind": "Colorblind-friendly"
   },
   "adminTwoFactor": {
     "nav_link": "Disable a user's 2FA",

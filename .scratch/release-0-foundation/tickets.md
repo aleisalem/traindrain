@@ -146,10 +146,10 @@ Work the **frontier**: any ticket whose blockers are all done.
 
 **Blocked by:** 3
 
-- [ ] Self-service endpoint: update first/last name
-- [ ] Self-service endpoint: change own password (ticket 2 validator, invalidates other active sessions)
-- [ ] Self-service endpoint: set preferred language and theme, persisted server-side on the user record
-- [ ] Attempting to edit email is rejected
-- [ ] New user with no stored theme preference gets an OS-based light/dark default, never colorblind by default
-- [ ] Profile UI screen uses i18n/theme infra from ticket 1
-- [ ] Tests: name update, password change + session invalidation, language/theme persistence across a new session, email-edit rejection, default-theme behavior for a fresh user
+- [x] Self-service endpoint: update first/last name
+- [x] Self-service endpoint: change own password (ticket 2 validator, invalidates other active sessions)
+- [x] Self-service endpoint: set preferred language and theme, persisted server-side on the user record
+- [x] Attempting to edit email is rejected
+- [x] New user with no stored theme preference gets an OS-based light/dark default, never colorblind by default
+- [x] Profile UI screen uses i18n/theme infra from ticket 1
+- [x] Tests: name update, password change + session invalidation, language/theme persistence across a new session, email-edit rejection, default-theme behavior for a fresh user
