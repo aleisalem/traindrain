@@ -10,6 +10,7 @@ class UserListItem(BaseModel):
     first_name: str | None
     last_name: str | None
     roles: list[str]
+    groups: list[str]
     disabled_at: datetime | None
     erased_at: datetime | None
     created_at: datetime

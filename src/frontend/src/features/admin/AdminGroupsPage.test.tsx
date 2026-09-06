@@ -39,30 +39,20 @@ const GROUPS = [
   { id: "group-eng", name: "Engineering", description: null, created_at: "2026-01-01T00:00:00Z" },
 ];
 
+// Ada already belongs to Sales Team; Grace belongs to nothing — matches
+// AdminRolesPage's convention of carrying membership inline on each user,
+// so the page needs only one /api/admin/users fetch (no per-group calls).
 const USERS = [
-  { id: "user-1", email: "ada@example.com" },
-  { id: "user-2", email: "grace@example.com" },
+  { id: "user-1", email: "ada@example.com", groups: ["Sales Team"] },
+  { id: "user-2", email: "grace@example.com", groups: [] as string[] },
 ];
 
 function queueInitialLoad(
   queue: ReturnType<typeof createFetchMock>["queue"],
-  options: {
-    groups?: typeof GROUPS;
-    users?: typeof USERS;
-    membersByGroup?: Record<string, typeof USERS>;
-  } = {},
+  options: { groups?: typeof GROUPS; users?: typeof USERS } = {},
 ) {
-  const groups = options.groups ?? GROUPS;
-  const users = options.users ?? USERS;
-  const membersByGroup = options.membersByGroup ?? {};
-  queue("GET", "/api/admin/groups", { status: 200, body: groups });
-  queue("GET", "/api/admin/users", { status: 200, body: users });
-  for (const group of groups) {
-    queue("GET", `/api/admin/groups/${group.id}/members`, {
-      status: 200,
-      body: membersByGroup[group.id] ?? [],
-    });
-  }
+  queue("GET", "/api/admin/groups", { status: 200, body: options.groups ?? GROUPS });
+  queue("GET", "/api/admin/users", { status: 200, body: options.users ?? USERS });
 }
 
 describe("AdminGroupsPage", () => {
@@ -80,9 +70,7 @@ describe("AdminGroupsPage", () => {
   });
 
   it("lists each group with its current members", async () => {
-    queueInitialLoad(queue, {
-      membersByGroup: { "group-sales": [USERS[0]] },
-    });
+    queueInitialLoad(queue);
 
     render(<AdminGroupsPage />);
 
@@ -133,7 +121,9 @@ describe("AdminGroupsPage", () => {
     const user = userEvent.setup();
     queueInitialLoad(queue);
     queue("POST", "/api/admin/groups/group-eng/members/user-2", { status: 204 });
-    queueInitialLoad(queue, { membersByGroup: { "group-eng": [USERS[1]] } });
+    queueInitialLoad(queue, {
+      users: [USERS[0], { ...USERS[1], groups: ["Engineering"] }],
+    });
 
     render(<AdminGroupsPage />);
     const engHeading = await screen.findByText("Engineering");
@@ -147,9 +137,9 @@ describe("AdminGroupsPage", () => {
 
   it("removes a member from a group and refreshes the member list", async () => {
     const user = userEvent.setup();
-    queueInitialLoad(queue, { membersByGroup: { "group-sales": [USERS[0]] } });
-    queue("DELETE", "/api/admin/groups/group-sales/members/user-1", { status: 204 });
     queueInitialLoad(queue);
+    queue("DELETE", "/api/admin/groups/group-sales/members/user-1", { status: 204 });
+    queueInitialLoad(queue, { users: [{ ...USERS[0], groups: [] }, USERS[1]] });
 
     render(<AdminGroupsPage />);
     const salesHeading = await screen.findByText("Sales Team");

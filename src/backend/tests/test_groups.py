@@ -107,6 +107,17 @@ async def test_admin_can_list_groups(client: AsyncClient, db_session: AsyncSessi
     assert "Marketing" in names
 
 
+async def test_non_admin_is_forbidden_from_listing_groups(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(db_session, email="learner-group-list@example.com", role_name="Learner")
+    await _login(client, email="learner-group-list@example.com")
+
+    response = await client.get("/api/admin/groups")
+
+    assert response.status_code == 403
+
+
 async def test_admin_can_update_a_group(client: AsyncClient, db_session: AsyncSession) -> None:
     await _login_as_admin(client, db_session, email="admin-group-update@example.com")
     group = await _make_group(db_session, name="Old Name", description="Old description")
@@ -151,6 +162,18 @@ async def test_updating_an_unknown_group_is_not_found(
     )
 
     assert response.status_code == 404
+
+
+async def test_non_admin_is_forbidden_from_updating_a_group(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(db_session, email="learner-group-update@example.com", role_name="Learner")
+    group = await _make_group(db_session, name="Protected Update Group")
+    await _login(client, email="learner-group-update@example.com")
+
+    response = await client.put(f"/api/admin/groups/{group.id}", json={"name": "Renamed"})
+
+    assert response.status_code == 403
 
 
 async def test_admin_can_delete_a_group(client: AsyncClient, db_session: AsyncSession) -> None:
@@ -239,6 +262,20 @@ async def test_viewing_members_of_an_unknown_group_is_not_found(
     response = await client.get(f"/api/admin/groups/{uuid.uuid4()}/members")
 
     assert response.status_code == 404
+
+
+async def test_non_admin_is_forbidden_from_viewing_group_members(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _make_user_with_role(
+        db_session, email="learner-group-members@example.com", role_name="Learner"
+    )
+    group = await _make_group(db_session, name="Forbidden View Group")
+    await _login(client, email="learner-group-members@example.com")
+
+    response = await client.get(f"/api/admin/groups/{group.id}/members")
+
+    assert response.status_code == 403
 
 
 async def test_admin_can_add_a_member_to_a_group(
@@ -369,6 +406,30 @@ async def test_removing_a_non_member_is_a_conflict(
     assert response.status_code == 409
 
 
+async def test_removing_a_member_from_an_unknown_group_is_not_found(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _login_as_admin(client, db_session, email="admin-group-remove-unknown-group@example.com")
+    target = await _make_user_with_role(
+        db_session, email="target-remove-unknown-group@example.com", role_name="Learner"
+    )
+
+    response = await client.delete(f"/api/admin/groups/{uuid.uuid4()}/members/{target.id}")
+
+    assert response.status_code == 404
+
+
+async def test_removing_an_unknown_user_from_a_group_is_not_found(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _login_as_admin(client, db_session, email="admin-group-remove-unknown-user@example.com")
+    group = await _make_group(db_session, name="Remove Unknown User Group")
+
+    response = await client.delete(f"/api/admin/groups/{group.id}/members/{uuid.uuid4()}")
+
+    assert response.status_code == 404
+
+
 async def test_admin_can_remove_an_erased_user_from_a_group(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
@@ -401,6 +462,35 @@ async def test_non_admin_is_forbidden_from_removing_a_group_member(
     response = await client.delete(f"/api/admin/groups/{group.id}/members/{target.id}")
 
     assert response.status_code == 403
+
+
+async def test_group_membership_change_does_not_invalidate_the_targets_other_sessions(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    # Deliberately unlike role assignment (ticket 10): groups are an
+    # organizational grouping for targeting future campaigns, not an
+    # access-control mechanism, so membership changes don't force a
+    # re-login the way a role change does.
+    await _login_as_admin(client, db_session, email="admin-group-session@example.com")
+    group = await _make_group(db_session, name="Session Survives Group")
+    target = await _make_user_with_role(
+        db_session, email="target-group-session@example.com", role_name="Learner"
+    )
+
+    login_response = await client.post(
+        "/api/auth/login",
+        json={"email": "target-group-session@example.com", "password": KNOWN_PASSWORD},
+    )
+    target_token = login_response.cookies[COOKIE_NAME]
+    client.cookies.delete(COOKIE_NAME)
+
+    await _login(client, email="admin-group-session@example.com")
+    add_response = await client.post(f"/api/admin/groups/{group.id}/members/{target.id}")
+    assert add_response.status_code == 204
+
+    client.cookies.set(COOKIE_NAME, target_token)
+    still_valid = await client.get("/api/auth/me")
+    assert still_valid.status_code == 200
 
 
 # --- Invite-time group pre-assignment ---

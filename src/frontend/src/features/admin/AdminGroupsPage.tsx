@@ -11,6 +11,7 @@ type GroupBody = {
 type UserBody = {
   id: string;
   email: string;
+  groups: string[];
 };
 
 type RowAction = { kind: "idle" } | { kind: "error"; message: string };
@@ -21,7 +22,6 @@ export function AdminGroupsPage() {
   const { t } = useTranslation();
   const [groups, setGroups] = useState<GroupBody[] | null>(null);
   const [users, setUsers] = useState<UserBody[] | null>(null);
-  const [membersByGroup, setMembersByGroup] = useState<Record<string, UserBody[]> | null>(null);
   const [loadError, setLoadError] = useState(false);
 
   const [createName, setCreateName] = useState("");
@@ -44,28 +44,9 @@ export function AdminGroupsPage() {
       setLoadError(true);
       return;
     }
-    const groupsBody: GroupBody[] = await groupsResponse.json();
-    const usersBody: UserBody[] = await usersResponse.json();
-
-    const memberResponses = await Promise.all(
-      groupsBody.map((group) => fetch(`/api/admin/groups/${group.id}/members`)),
-    );
-    if (memberResponses.some((response) => !response.ok)) {
-      setLoadError(true);
-      return;
-    }
-    const memberBodies: UserBody[][] = await Promise.all(
-      memberResponses.map((response) => response.json()),
-    );
-    const membersByGroupNext: Record<string, UserBody[]> = {};
-    groupsBody.forEach((group, index) => {
-      membersByGroupNext[group.id] = memberBodies[index];
-    });
-
     setLoadError(false);
-    setGroups(groupsBody);
-    setUsers(usersBody);
-    setMembersByGroup(membersByGroupNext);
+    setGroups(await groupsResponse.json());
+    setUsers(await usersResponse.json());
   }, []);
 
   useEffect(() => {
@@ -215,7 +196,7 @@ export function AdminGroupsPage() {
     );
   }
 
-  if (groups === null || users === null || membersByGroup === null) return null;
+  if (groups === null || users === null) return null;
 
   return (
     <section className="flex flex-col gap-6">
@@ -262,9 +243,8 @@ export function AdminGroupsPage() {
       </div>
 
       {groups.map((group) => {
-        const members = membersByGroup[group.id] ?? [];
-        const memberIds = new Set(members.map((member) => member.id));
-        const eligible = users.filter((user) => !memberIds.has(user.id));
+        const members = users.filter((user) => user.groups.includes(group.name));
+        const eligible = users.filter((user) => !user.groups.includes(group.name));
         const edit = editing[group.id];
         const editKey = `edit:${group.id}`;
         const editAction = rowActions[editKey] ?? { kind: "idle" };

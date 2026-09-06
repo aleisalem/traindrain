@@ -40,6 +40,16 @@ Implements ticket 11 of Release 0 (`.scratch/release-0-foundation/tickets.md`).
   per-member "Remove" button, and a select-and-add control for non-members.
   `InviteUserPage.tsx` gained a "Groups" checkbox fieldset alongside the
   existing roles one.
+- `UserListItem` (`app/schemas/users.py`, used by `GET /api/admin/users`,
+  `GET /api/admin/roles/{id}/members`, and `GET /api/admin/groups/{id}/members`)
+  gained a `groups: list[str]` field alongside the existing `roles` one, and
+  the three near-identical construction sites in `app/routes/admin.py` were
+  collapsed into one `_to_user_list_item` helper. This lets
+  `AdminGroupsPage.tsx` compute each group's members/eligible-users client-side
+  from a single `GET /api/admin/users` call — the same single-fetch pattern
+  `AdminRolesPage.tsx` already uses for roles — instead of the N+1
+  `GET /api/admin/groups/{id}/members` fan-out an earlier version of this page
+  made per group on load.
 
 ## Notes
 

@@ -33,6 +33,20 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 _USER_NOT_FOUND = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
 
 
+def _to_user_list_item(user: User) -> UserListItem:
+    return UserListItem(
+        id=user.id,
+        email=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        roles=[role.name for role in user.roles],
+        groups=[group.name for group in user.groups],
+        disabled_at=user.disabled_at,
+        erased_at=user.erased_at,
+        created_at=user.created_at,
+    )
+
+
 async def _get_target_user(db: AsyncSession, user_id: uuid.UUID) -> User:
     # A select(), not db.get() — db.get() short-circuits on an
     # already-identity-mapped row without applying the mapper's selectin
@@ -66,19 +80,7 @@ async def list_users(
     admin: User = Depends(require_administrator),
 ) -> list[UserListItem]:
     users = (await db.execute(select(User).order_by(User.created_at))).scalars()
-    return [
-        UserListItem(
-            id=user.id,
-            email=user.email,
-            first_name=user.first_name,
-            last_name=user.last_name,
-            roles=[role.name for role in user.roles],
-            disabled_at=user.disabled_at,
-            erased_at=user.erased_at,
-            created_at=user.created_at,
-        )
-        for user in users
-    ]
+    return [_to_user_list_item(user) for user in users]
 
 
 @router.get("/settings/invite-expiry-days", response_model=InviteExpirySettingResponse)
@@ -260,20 +262,7 @@ async def list_role_members(
 ) -> list[UserListItem]:
     role = await _get_target_role(db, role_id)
     users = (await db.execute(select(User).order_by(User.created_at))).scalars()
-    return [
-        UserListItem(
-            id=user.id,
-            email=user.email,
-            first_name=user.first_name,
-            last_name=user.last_name,
-            roles=[r.name for r in user.roles],
-            disabled_at=user.disabled_at,
-            erased_at=user.erased_at,
-            created_at=user.created_at,
-        )
-        for user in users
-        if role in user.roles
-    ]
+    return [_to_user_list_item(user) for user in users if role in user.roles]
 
 
 @router.post("/users/{user_id}/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -456,20 +445,7 @@ async def list_group_members(
 ) -> list[UserListItem]:
     group = await _get_target_group(db, group_id)
     users = (await db.execute(select(User).order_by(User.created_at))).scalars()
-    return [
-        UserListItem(
-            id=user.id,
-            email=user.email,
-            first_name=user.first_name,
-            last_name=user.last_name,
-            roles=[role.name for role in user.roles],
-            disabled_at=user.disabled_at,
-            erased_at=user.erased_at,
-            created_at=user.created_at,
-        )
-        for user in users
-        if group in user.groups
-    ]
+    return [_to_user_list_item(user) for user in users if group in user.groups]
 
 
 @router.post("/groups/{group_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
