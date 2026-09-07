@@ -23,7 +23,7 @@ export function AdminOverview() {
       <button
         type="button"
         onClick={() => void checkAdminAccess()}
-        className="self-start rounded-md bg-primary px-4 py-2 text-sm text-primary-fg"
+        className="self-start rounded-full bg-[image:var(--gradient)] px-5 py-2.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
       >
         {t("admin.ping_button")}
       </button>

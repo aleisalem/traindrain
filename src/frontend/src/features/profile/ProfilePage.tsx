@@ -88,7 +88,7 @@ export function ProfilePage({ user, onUpdateName, onUpdatePreferences, onChangeP
             required
             value={firstName}
             onChange={(event) => setFirstName(event.target.value)}
-            className="rounded-md border border-border bg-bg px-3 py-2"
+            className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
@@ -98,7 +98,7 @@ export function ProfilePage({ user, onUpdateName, onUpdatePreferences, onChangeP
             required
             value={lastName}
             onChange={(event) => setLastName(event.target.value)}
-            className="rounded-md border border-border bg-bg px-3 py-2"
+            className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none"
           />
         </label>
         {nameError && (
@@ -110,7 +110,7 @@ export function ProfilePage({ user, onUpdateName, onUpdatePreferences, onChangeP
         <button
           type="submit"
           disabled={savingName}
-          className="self-start rounded-md bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-60"
+          className="self-start rounded-full bg-[image:var(--gradient)] px-5 py-2.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {t("profile.name_submit")}
         </button>
@@ -129,7 +129,7 @@ export function ProfilePage({ user, onUpdateName, onUpdatePreferences, onChangeP
             autoComplete="current-password"
             value={currentPassword}
             onChange={(event) => setCurrentPassword(event.target.value)}
-            className="rounded-md border border-border bg-bg px-3 py-2"
+            className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
@@ -140,7 +140,7 @@ export function ProfilePage({ user, onUpdateName, onUpdatePreferences, onChangeP
             autoComplete="new-password"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
-            className="rounded-md border border-border bg-bg px-3 py-2"
+            className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none"
           />
         </label>
         {passwordError && (
@@ -152,7 +152,7 @@ export function ProfilePage({ user, onUpdateName, onUpdatePreferences, onChangeP
         <button
           type="submit"
           disabled={savingPassword}
-          className="self-start rounded-md bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-60"
+          className="self-start rounded-full bg-[image:var(--gradient)] px-5 py-2.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {t("profile.password_submit")}
         </button>
@@ -167,7 +167,7 @@ export function ProfilePage({ user, onUpdateName, onUpdatePreferences, onChangeP
               type="button"
               onClick={() => void onUpdatePreferences(language, currentTheme)}
               aria-pressed={currentLanguage === language}
-              className="rounded-md border border-border px-3 py-1.5 text-sm aria-pressed:bg-primary aria-pressed:text-primary-fg"
+              className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition aria-pressed:border-transparent aria-pressed:bg-[image:var(--gradient)] aria-pressed:text-primary-fg hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
             >
               {language.toUpperCase()}
             </button>
@@ -184,7 +184,7 @@ export function ProfilePage({ user, onUpdateName, onUpdatePreferences, onChangeP
               type="button"
               onClick={() => void onUpdatePreferences(currentLanguage, theme)}
               aria-pressed={currentTheme === theme}
-              className="rounded-md border border-border px-3 py-1.5 text-sm aria-pressed:bg-primary aria-pressed:text-primary-fg"
+              className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition aria-pressed:border-transparent aria-pressed:bg-[image:var(--gradient)] aria-pressed:text-primary-fg hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
             >
               {t(`profile.theme_${theme}`)}
             </button>

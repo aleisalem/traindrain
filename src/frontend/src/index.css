@@ -3,6 +3,7 @@
 
 @theme inline {
   --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
   --color-bg-subtle: var(--bg-subtle);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
@@ -13,9 +14,20 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
   background-color: var(--bg);
   color: var(--fg);
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
 }

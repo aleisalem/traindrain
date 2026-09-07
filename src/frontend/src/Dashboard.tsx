@@ -33,21 +33,37 @@ function Dashboard({ user, onLogout, onRefreshUser }: Props) {
   }
 
   return (
-    <main className="min-h-screen bg-bg text-fg flex flex-col items-center justify-center gap-8 p-8">
-      <div className="text-center space-y-2">
+    <main className="relative min-h-screen overflow-hidden bg-bg text-fg flex flex-col items-center justify-center gap-8 p-8">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 right-[-4rem] -z-10 h-64 w-64 rounded-full opacity-30 blur-[80px]"
+        style={{ background: "var(--gradient)" }}
+      />
+
+      <div className="relative text-center space-y-2">
+        <svg width="40" height="40" viewBox="0 0 28 28" className="mx-auto mb-2" aria-hidden="true">
+          <rect x="2" y="2" width="24" height="24" rx="8" fill="url(#dashboard-logo)" />
+          <path d="M9 14l4-6 4 6-4 6z" fill="var(--primary-fg)" opacity="0.92" />
+          <defs>
+            <linearGradient id="dashboard-logo" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="var(--primary)" />
+              <stop offset="1" stopColor="var(--accent)" />
+            </linearGradient>
+          </defs>
+        </svg>
         <h1 className="text-3xl font-semibold">{t("scaffold.heading")}</h1>
         <p className="text-fg-muted">{t("scaffold.description")}</p>
         <p className="text-sm text-fg-muted">{t("auth.welcome", { email: user.email })}</p>
       </div>
 
       <div className="flex gap-2">
-        <Link to="/profile" className="rounded-md border border-border px-3 py-1.5 text-sm">
+        <Link to="/profile" className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]">
           {t("profile.nav_link")}
         </Link>
         {user.roles.includes(ADMINISTRATOR_ROLE) && (
           <Link
             to="/admin"
-            className="rounded-md border border-border px-3 py-1.5 text-sm"
+            className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
           >
             {t("admin.nav_link")}
           </Link>
@@ -55,7 +71,7 @@ function Dashboard({ user, onLogout, onRefreshUser }: Props) {
         <button
           type="button"
           onClick={onLogout}
-          className="rounded-md border border-border px-3 py-1.5 text-sm"
+          className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
         >
           {t("auth.logout")}
         </button>
@@ -67,7 +83,7 @@ function Dashboard({ user, onLogout, onRefreshUser }: Props) {
         <button
           type="button"
           onClick={() => void checkBackendHealth()}
-          className="rounded-md bg-primary px-4 py-2 text-sm text-primary-fg"
+          className="rounded-full bg-[image:var(--gradient)] px-5 py-2.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
         >
           {t("scaffold.backend_health_button")}
         </button>

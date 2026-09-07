@@ -12,7 +12,9 @@ Release 0 is in progress. So far:
   prod-style static frontend build, all runnable via `docker-compose up`.
 - Backend health-check endpoint (`GET /api/health`) with Alembic migrations wired to Postgres.
 - Frontend i18n (English/German via react-i18next) and a Tailwind CSS-variable theme system
-  (light, dark, colorblind-friendly).
+  (light, dark, colorblind-friendly) with a bold gradient-accented visual language — pill
+  buttons/inputs, elevated cards, and a `Space Grotesk`/`Manrope` type pairing (see
+  [docs/frontend-design-refresh.md](docs/frontend-design-refresh.md)).
 - Core identity schema: `users`, `roles` (seeded with Administrator, Content Manager, Learner),
   `user_roles`, `sessions`, and `audit_log` tables, plus a bootstrap Administrator account seeded
   on first migration (its one-time random password is written to the backend's logs). Shared
