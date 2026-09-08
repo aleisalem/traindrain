@@ -33,23 +33,23 @@ Images are deliberately out of this ticket; the `image` node is in the schema bu
 
 **Blocked by:** 1
 
-- [ ] One ProseMirror schema checked into the repo, consumed by both the Tiptap editor and the backend validator, covering exactly the Release 1 node set: `doc`, `paragraph`, `heading` (levels 2–4), `bulletList`, `orderedList`, `listItem`, `blockquote`, `codeBlock`, `horizontalRule`, `hardBreak`, `image`, `text`; marks `bold`, `italic`, `code`, `link`
-- [ ] Migration creates `module_pages` with `body jsonb`, `schema_version`, `search_text`, and `search_tsv` as a `GENERATED ALWAYS AS (to_tsvector(<config>, coalesce(search_text,'')))` stored column plus a GIN index; the configuration is chosen from the module's stored `language`, not inferred at query time
-- [ ] `search_text` is populated on every write by walking the tree and concatenating text nodes — `jsonb_to_tsvector` over the raw tree is not used
-- [ ] `GET|POST /api/content/modules/{id}/pages`, `PATCH|DELETE .../pages/{page_id}`, and `POST .../pages/reorder`; ordering is an integer `position` with a unique constraint on `(module_id, position)`, renumbered transactionally on reorder
-- [ ] Every incoming document is validated server-side with `prosemirror-py` against the checked-in schema and **rejected with 422 on failure** — no code path strips a node or attribute and accepts the document
-- [ ] Server-side per-node attribute allowlist: an unknown attribute is a rejection, not a strip
-- [ ] Link `href` restricted to `https:`, `mailto:`, and site-relative paths; image `src` restricted to the platform's own asset paths; Tiptap's own `protocols`/`isAllowedUri` options are not relied on as the control
-- [ ] Server-side caps on node count, nesting depth, and total serialized document size, enforced at ingest
-- [ ] Draft mutations carry the module's `draft_revision` token and are rejected with 409 when it has moved; a successful write advances it and updates `last_edited_by`
-- [ ] Tiptap editor in the authoring screen covers the full node set above, saves without publishing, and supports add / edit / reorder / delete of pages
-- [ ] Preview mode renders the module as a learner will see it, exclusively via `renderToReactElement` from `@tiptap/static-renderer/pm/react`
-- [ ] An ESLint rule bans `dangerouslySetInnerHTML` across `src/frontend` and fails CI
-- [ ] A strict Content-Security-Policy ships: no `'unsafe-inline'` in `script-src`, with `img-src`, `style-src`, and `connect-src` locked to the platform's own origins
-- [ ] Adversarial backend tests, each asserting 422 and not a silent strip: unknown node type, unknown attribute, `javascript:` / `data:` / `vbscript:` in `href` and in `src`, over-deep nesting, over-large document, mismatched `schema_version`
-- [ ] Backend test: a stale `draft_revision` produces 409
-- [ ] Frontend tests: the editor's save flow, and page reorder reflected in the rendered order
-- [ ] README and a brief `docs/` summary of the content model updated
+- [x] One ProseMirror schema checked into the repo, consumed by both the Tiptap editor and the backend validator, covering exactly the Release 1 node set: `doc`, `paragraph`, `heading` (levels 2–4), `bulletList`, `orderedList`, `listItem`, `blockquote`, `codeBlock`, `horizontalRule`, `hardBreak`, `image`, `text`; marks `bold`, `italic`, `code`, `link`
+- [x] Migration creates `module_pages` with `body jsonb`, `schema_version`, `search_text`, and `search_tsv` as a `GENERATED ALWAYS AS (to_tsvector(<config>, coalesce(search_text,'')))` stored column plus a GIN index; the configuration is chosen from the module's stored `language`, not inferred at query time
+- [x] `search_text` is populated on every write by walking the tree and concatenating text nodes — `jsonb_to_tsvector` over the raw tree is not used
+- [x] `GET|POST /api/content/modules/{id}/pages`, `PATCH|DELETE .../pages/{page_id}`, and `POST .../pages/reorder`; ordering is an integer `position` with a unique constraint on `(module_id, position)`, renumbered transactionally on reorder
+- [x] Every incoming document is validated server-side with `prosemirror-py` against the checked-in schema and **rejected with 422 on failure** — no code path strips a node or attribute and accepts the document
+- [x] Server-side per-node attribute allowlist: an unknown attribute is a rejection, not a strip
+- [x] Link `href` restricted to `https:`, `mailto:`, and site-relative paths; image `src` restricted to the platform's own asset paths; Tiptap's own `protocols`/`isAllowedUri` options are not relied on as the control
+- [x] Server-side caps on node count, nesting depth, and total serialized document size, enforced at ingest
+- [x] Draft mutations carry the module's `draft_revision` token and are rejected with 409 when it has moved; a successful write advances it and updates `last_edited_by`
+- [x] Tiptap editor in the authoring screen covers the full node set above, saves without publishing, and supports add / edit / reorder / delete of pages
+- [x] Preview mode renders the module as a learner will see it, exclusively via `renderToReactElement` from `@tiptap/static-renderer/pm/react`
+- [x] An ESLint rule bans `dangerouslySetInnerHTML` across `src/frontend` and fails CI — implemented as `react/no-danger: error` in **oxlint**, which is the linter this repo actually uses (there is no ESLint config); `npm run lint` exits non-zero on a violation, and a test shells out to the linter to prove the rule fires
+- [x] A strict Content-Security-Policy ships: no `'unsafe-inline'` in `script-src`, with `img-src`, `style-src`, and `connect-src` locked to the platform's own origins — two documented exceptions: `img-src` also allows `data:` (the 2FA enrolment QR code is returned as a data URI), and `style-src`/`font-src` allow `fonts.googleapis.com`/`fonts.gstatic.com` for the webfonts already in `index.html`. Self-hosting those fonts would close both the CSP exception and the learner-IP-to-Google privacy exposure — worth its own small ticket
+- [x] Adversarial backend tests, each asserting 422 and not a silent strip: unknown node type, unknown attribute, `javascript:` / `data:` / `vbscript:` in `href` and in `src`, over-deep nesting, over-large document, mismatched `schema_version`
+- [x] Backend test: a stale `draft_revision` produces 409
+- [x] Frontend tests: the editor's save flow, and page reorder reflected in the rendered order
+- [x] README and a brief `docs/` summary of the content model updated
 
 ## 3. Module assets: images and downloadable attachments
 

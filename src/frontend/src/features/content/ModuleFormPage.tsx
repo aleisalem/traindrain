@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { ModulePagesPanel } from "./ModulePagesPanel";
 import type { ModuleBody } from "./types";
 
 const inputClassName =
@@ -116,7 +117,7 @@ export function ModuleFormPage() {
   if (isEdit && module === null) return null;
 
   return (
-    <section className="flex max-w-2xl flex-col gap-6">
+    <section className="flex max-w-5xl flex-col gap-6">
       <div>
         <h2 className="text-xl font-semibold">
           {isEdit ? t("content.edit_heading") : t("content.create_heading")}
@@ -128,7 +129,7 @@ export function ModuleFormPage() {
 
       <form
         onSubmit={(event) => void handleSubmit(event)}
-        className="flex flex-col gap-4 rounded-2xl border border-border bg-bg-elevated p-5 shadow-[var(--shadow)]"
+        className="flex max-w-2xl flex-col gap-4 rounded-2xl border border-border bg-bg-elevated p-5 shadow-[var(--shadow)]"
       >
         <label className="flex flex-col gap-1 text-sm">
           {t("content.title_label")}
@@ -211,6 +212,10 @@ export function ModuleFormPage() {
           </Link>
         </div>
       </form>
+
+      {/* Pages belong to a module that already exists — there is nothing to
+          attach them to until the metadata has been saved once. */}
+      {isEdit && moduleId && <ModulePagesPanel moduleId={moduleId} />}
 
       {module && (
         <dl className="flex flex-col gap-1 text-sm text-fg-muted">

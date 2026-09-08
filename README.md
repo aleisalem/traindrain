@@ -125,8 +125,21 @@ Release 1 (learning modules) is in progress. So far:
   with a module list (`/content`) and a create/edit metadata form (`/content/new`,
   `/content/{id}`), visible only to Content Managers and Administrators.
 
-The rest of Release 1 — page authoring, assets, publishing, assignment, the learner viewer — is
-still to come.
+- Page authoring: an author adds pages to a module, writes each one in a Tiptap visual editor
+  (headings, bold, italic, inline code, bullet and ordered lists, links, quotes, code blocks,
+  dividers, line breaks), reorders and deletes pages, saves without publishing, and previews the
+  module as a learner will see it. `GET`/`POST /api/content/modules/{id}/pages`,
+  `PATCH`/`DELETE .../pages/{page_id}`, and `POST .../pages/reorder`. **Page bodies are stored as
+  validated ProseMirror document trees in `jsonb`, never HTML.** One schema is checked into the repo
+  and shared by the editor and the server-side validator; a document that doesn't conform is
+  rejected with 422 and is never stripped-and-accepted. Nothing on the render path injects an HTML
+  string — `dangerouslySetInnerHTML` is banned by a lint rule that fails the build and by a test,
+  and a strict CSP ships in `nginx.conf`. Draft writes carry the module's `draft_revision` token, so
+  a second author's save is a clear 409 rather than a lost edit. Full details in
+  [docs/module-content-model.md](docs/module-content-model.md). Frontend:
+  `src/frontend/src/features/content/ModulePagesPanel.tsx`, `PageEditor.tsx`, `PagePreview.tsx`.
+
+The rest of Release 1 — assets, publishing, assignment, the learner viewer — is still to come.
 
 ## Project structure
 
@@ -134,6 +147,7 @@ still to come.
 src/
   backend/         FastAPI app (Python, SQLAlchemy 2.0 async, Alembic)
     app/           Application code
+      content/     ProseMirror schema (the checked-in source of truth) and its server-side validator
       models/      SQLAlchemy models
       routes/      API endpoints (FastAPI routers)
       schemas/     Pydantic request/response models
@@ -145,7 +159,8 @@ src/
     src/
       features/auth/   Login / forced-password-change / forgot-, reset-password, and 2FA-verify UI, auth state hook
       features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page, groups page)
-      features/content/  Content Manager authoring area (module list, create/edit metadata form)
+      features/content/  Content Manager authoring area (module list, metadata form, page editor, preview)
+      content/         The checked-in ProseMirror schema and the Tiptap extension set built from it
       features/invites/  Public accept-invite page (set password, no session required)
       features/twoFactor/  Self-service TOTP enroll/disable UI (QR code, recovery codes)
       features/profile/  Self-service profile page (name, password, language/theme preferences)
@@ -214,8 +229,15 @@ Frontend:
 cd src/frontend
 npm install
 npm run test        # Vitest + React Testing Library
-npx tsc -b           # typecheck
+npm run lint        # oxlint — `react/no-danger` is an error, so a
+                    # dangerouslySetInnerHTML anywhere in src/ fails the build
+npx tsc -b          # typecheck
 ```
+
+`npm run test` also asserts that the ProseMirror schema mirrored at
+`src/frontend/src/content/prosemirrorSchema.json` is byte-identical to the backend's canonical copy
+at `src/backend/app/content/prosemirror_schema.json`, and that the Tiptap editor can produce exactly
+the nodes and marks that schema allows. If you change one, change both.
 
 ## Deploying to AWS
 

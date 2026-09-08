@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "spec": {
+    "nodes": {
+      "doc": { "content": "block+" },
+      "paragraph": { "content": "inline*", "group": "block" },
+      "heading": {
+        "content": "inline*",
+        "group": "block",
+        "defining": true,
+        "attrs": { "level": { "default": 2 } }
+      },
+      "bulletList": { "content": "listItem+", "group": "block" },
+      "orderedList": {
+        "content": "listItem+",
+        "group": "block",
+        "attrs": { "start": { "default": 1 } }
+      },
+      "listItem": { "content": "paragraph block*", "defining": true },
+      "blockquote": { "content": "block+", "group": "block", "defining": true },
+      "codeBlock": {
+        "content": "text*",
+        "group": "block",
+        "marks": "",
+        "code": true,
+        "defining": true,
+        "attrs": { "language": { "default": null } }
+      },
+      "horizontalRule": { "group": "block" },
+      "image": {
+        "group": "block",
+        "attrs": {
+          "src": {},
+          "alt": { "default": null },
+          "title": { "default": null }
+        }
+      },
+      "hardBreak": { "group": "inline", "inline": true, "selectable": false },
+      "text": { "group": "inline" }
+    },
+    "marks": {
+      "bold": {},
+      "italic": {},
+      "code": {},
+      "link": { "attrs": { "href": {} } }
+    }
+  },
+  "constraints": {
+    "headingLevels": [2, 3, 4],
+    "linkProtocols": ["https:", "mailto:"],
+    "imageSrcPattern": "^/api/modules/[0-9a-fA-F-]{36}/assets/[0-9a-fA-F-]{36}$",
+    "limits": {
+      "maxNodes": 2000,
+      "maxDepth": 20,
+      "maxBytes": 262144,
+      "maxPageTitleLength": 200,
+      "maxPagesPerModule": 200
+    }
+  }
+}

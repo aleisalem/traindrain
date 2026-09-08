@@ -51,6 +51,21 @@ const MODULE = {
   updated_at: "2026-09-01T00:00:00Z",
 };
 
+/**
+ * Opening a module for editing also mounts its pages panel, which loads the
+ * draft. These tests are about the metadata form, so the pages come back
+ * empty — `ModulePagesPanel.test.tsx` covers the authoring surface itself.
+ */
+function queueEmptyPages(
+  queue: ReturnType<typeof createFetchMock>["queue"],
+  moduleId = "module-1",
+) {
+  queue("GET", `/api/content/modules/${moduleId}/pages`, {
+    status: 200,
+    body: { draft_revision: 1, schema_version: 1, pages: [] },
+  });
+}
+
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -84,6 +99,7 @@ describe("ModuleFormPage", () => {
     // A successful create navigates to the new module's own screen, which
     // loads it — so that fetch is part of the flow under test.
     queue("GET", "/api/content/modules/module-1", { status: 200, body: MODULE });
+    queueEmptyPages(queue);
 
     renderAt("/content/new");
 
@@ -120,6 +136,7 @@ describe("ModuleFormPage", () => {
   it("loads an existing module's metadata for editing and saves a partial change", async () => {
     const user = userEvent.setup();
     queue("GET", "/api/content/modules/module-1", { status: 200, body: MODULE });
+    queueEmptyPages(queue);
     queue("PATCH", "/api/content/modules/module-1", {
       status: 200,
       body: { ...MODULE, title: "Phishing-Bewusstsein 2026" },
@@ -145,6 +162,7 @@ describe("ModuleFormPage", () => {
 
   it("shows an existing module's language as fixed rather than editable", async () => {
     queue("GET", "/api/content/modules/module-1", { status: 200, body: MODULE });
+    queueEmptyPages(queue);
 
     renderAt("/content/module-1");
 
@@ -156,6 +174,7 @@ describe("ModuleFormPage", () => {
 
   it("names who created the module and who edited it last", async () => {
     queue("GET", "/api/content/modules/module-1", { status: 200, body: MODULE });
+    queueEmptyPages(queue);
 
     renderAt("/content/module-1");
 

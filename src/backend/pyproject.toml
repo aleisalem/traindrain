@@ -17,6 +17,9 @@ dependencies = [
     "pyotp>=2.9,<3.0",
     "qrcode[pil]>=8.0,<9.0",
     "cryptography>=43.0,<46.0",
+    # Server-side ProseMirror schema validation, pure Python (no Node
+    # sidecar). Client-side editor configuration is UX; this is the control.
+    "prosemirror>=0.6,<1.0",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +35,12 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
+
+[tool.setuptools.package-data]
+# The ProseMirror schema is data the validator reads at runtime, not code —
+# without this it would be missing from an installed (non-editable) build,
+# which is exactly what the Docker image is.
+app = ["content/*.json"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

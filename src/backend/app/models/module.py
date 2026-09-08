@@ -1,20 +1,36 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    Computed,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
+
+# The generated `search_tsv` expression. A stored generated column has to be
+# IMMUTABLE, and `text::regconfig` is not — so the configuration is spelled out
+# as a CASE over literal regconfigs rather than cast from the stored string.
+# The value of `search_config` itself comes from the module's stored language
+# at write time, never from the query.
+SEARCH_TSV_EXPRESSION = (
+    "to_tsvector("
+    "case when search_config = 'german' then 'german'::regconfig "
+    "else 'english'::regconfig end, "
+    "coalesce(search_text, '')"
+    ")"
+)
 
 
 class ModuleTranslationGroup(Base):
@@ -80,3 +96,49 @@ class Module(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ModulePage(Base):
+    """One page of a module's working draft.
+
+    The body is a validated ProseMirror document tree, never HTML — see
+    `app.content.validation` for why, and for what "validated" means here.
+    """
+
+    __tablename__ = "module_pages"
+    __table_args__ = (
+        # DEFERRABLE so a reorder can renumber every page inside one
+        # transaction without contorting the update order to dodge a
+        # transient collision.
+        UniqueConstraint(
+            "module_id", "position", deferrable=True, initially="DEFERRED"
+        ),
+        Index("ix_module_pages_search_tsv", "search_tsv", postgresql_using="gin"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    module_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("modules.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    body: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    # Which version of the checked-in schema this document was validated
+    # against, so a future schema change knows what it is looking at.
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    # 'english' | 'german' — resolved from the module's language on write.
+    search_config: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Populated by walking the tree and concatenating its text nodes.
+    search_text: Mapped[str | None] = mapped_column(Text)
+    search_tsv: Mapped[str | None] = mapped_column(
+        TSVECTOR, Computed(SEARCH_TSV_EXPRESSION, persisted=True)
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

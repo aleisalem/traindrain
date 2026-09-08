@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -79,6 +79,78 @@ class ModuleActor(BaseModel):
 
     id: uuid.UUID
     display_name: str
+
+
+class PageCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # The module's optimistic-lock token, so two Content Managers editing the
+    # same draft get a 409 rather than one silently overwriting the other.
+    draft_revision: int
+    title: str = Field(min_length=1, max_length=200)
+    schema_version: int
+    # Validated against the checked-in ProseMirror schema in the route, not
+    # here: pydantic can say "this is an object", but only
+    # `app.content.validation` can say the document conforms.
+    body: dict[str, Any]
+
+    @field_validator("title")
+    @classmethod
+    def _title_not_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("A page needs a title.")
+        return value
+
+
+class PageUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    draft_revision: int
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    schema_version: int | None = None
+    body: dict[str, Any] | None = None
+
+    @field_validator("title")
+    @classmethod
+    def _title_not_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("A page needs a title.")
+        return value
+
+
+class PageDeleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    draft_revision: int
+
+
+class PageReorderRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    draft_revision: int
+    # Every one of the module's page ids, exactly once, in the order wanted.
+    page_ids: list[uuid.UUID] = Field(min_length=1)
+
+
+class PageResponse(BaseModel):
+    id: uuid.UUID
+    position: int
+    title: str
+    schema_version: int
+    body: dict[str, Any]
+    updated_at: datetime
+
+
+class PagesResponse(BaseModel):
+    """A module's draft pages, with the token the next write has to carry."""
+
+    draft_revision: int
+    schema_version: int
+    pages: list[PageResponse]
 
 
 class ModuleResponse(BaseModel):

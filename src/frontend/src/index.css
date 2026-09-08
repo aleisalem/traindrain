@@ -31,3 +31,96 @@ h4 {
   font-family: var(--font-display);
   letter-spacing: -0.01em;
 }
+
+/* Rendered module content — the editor surface and the learner-facing
+   preview share these, so what an author sees is what a learner gets.
+   Every colour comes from the theme variables, so all three themes work. */
+.page-prose {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  line-height: 1.65;
+}
+
+.page-prose :is(h2, h3, h4) {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.page-prose h2 {
+  font-size: 1.5rem;
+}
+
+.page-prose h3 {
+  font-size: 1.25rem;
+}
+
+.page-prose h4 {
+  font-size: 1.1rem;
+}
+
+.page-prose :is(ul, ol) {
+  padding-inline-start: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.page-prose ul {
+  list-style: disc;
+}
+
+.page-prose ol {
+  list-style: decimal;
+}
+
+.page-prose blockquote {
+  border-inline-start: 3px solid var(--primary);
+  padding-inline-start: 1rem;
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+.page-prose code {
+  background-color: var(--bg-subtle);
+  border-radius: 0.375rem;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
+
+.page-prose pre {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.page-prose pre code {
+  background: none;
+  padding: 0;
+}
+
+.page-prose a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.page-prose hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.page-prose img {
+  max-width: 100%;
+  border-radius: 0.75rem;
+}
+
+/* ProseMirror renders an empty paragraph with no height, which leaves the
+   author with nowhere visible to click on a blank page. */
+.page-prose p:empty::after {
+  content: "";
+  display: inline-block;
+}
