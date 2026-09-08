@@ -107,7 +107,26 @@ Release 0 is in progress. So far:
   the app-wide theme/language application itself now lives in `src/frontend/src/App.tsx` rather
   than the dashboard, so it applies consistently across every authenticated screen.
 
-Learning-content features don't exist yet — those land starting with Release 1.
+Release 1 (learning modules) is in progress. So far:
+
+- Module records and the `/content` authoring area: `GET`/`POST /api/content/modules` and
+  `GET`/`PATCH /api/content/modules/{id}` create, list, read, and update a module's metadata
+  (title, description, language, estimated duration). `created_by` and `last_edited_by` are set
+  from the acting session and never accepted from the client — the request schemas forbid unknown
+  fields, so trying to smuggle one in is a 422. A module's `language` is fixed at creation
+  (a different language is a translation variant, not an edit), because the full-text search
+  configuration its pages are indexed under is derived from it. Every module belongs to a
+  translation group, and creating a standalone module auto-creates a group with that module as its
+  primary, so assignment (which targets groups) never has to be rewritten when a translation is
+  added later. `module_created` and `module_updated` are audit-logged. A new
+  `require_content_manager` dependency admits Content Managers and Administrators; no Release 0
+  boundary moved — a Content Manager still gets a 403 from every `/api/admin/*` route. Frontend:
+  `src/frontend/src/features/content/` — a `/content` shell parallel to (not inside) `/admin`,
+  with a module list (`/content`) and a create/edit metadata form (`/content/new`,
+  `/content/{id}`), visible only to Content Managers and Administrators.
+
+The rest of Release 1 — page authoring, assets, publishing, assignment, the learner viewer — is
+still to come.
 
 ## Project structure
 
@@ -126,6 +145,7 @@ src/
     src/
       features/auth/   Login / forced-password-change / forgot-, reset-password, and 2FA-verify UI, auth state hook
       features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page, groups page)
+      features/content/  Content Manager authoring area (module list, create/edit metadata form)
       features/invites/  Public accept-invite page (set password, no session required)
       features/twoFactor/  Self-service TOTP enroll/disable UI (QR code, recovery codes)
       features/profile/  Self-service profile page (name, password, language/theme preferences)

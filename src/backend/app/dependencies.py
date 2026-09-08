@@ -74,3 +74,17 @@ async def require_administrator(user: User = Depends(require_active_user)) -> Us
     if "Administrator" not in {role.name for role in user.roles}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden.")
     return user
+
+
+async def require_content_manager(user: User = Depends(require_active_user)) -> User:
+    """Gate for the authoring endpoints — Content Managers and Administrators only.
+
+    Deliberately *not* the inverse of `require_administrator`: this admits
+    Administrators too (they have read-and-write access to everything), while
+    `require_administrator` still admits nobody else. No Release 0 boundary
+    moves — a Content Manager gets a 403 from `/api/admin/*` exactly as a
+    Learner does.
+    """
+    if not {"Content Manager", "Administrator"} & {role.name for role in user.roles}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden.")
+    return user

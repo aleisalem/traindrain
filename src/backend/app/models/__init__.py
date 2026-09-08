@@ -2,6 +2,7 @@ from app.models.audit_log import AuditLog
 from app.models.group import Group, group_members
 from app.models.invite import Invite, invite_groups, invite_roles
 from app.models.login_attempt import LoginAttempt
+from app.models.module import Module, ModuleTranslationGroup
 from app.models.password_reset_token import PasswordResetToken
 from app.models.role import Role, user_roles
 from app.models.session import Session
@@ -14,6 +15,8 @@ __all__ = [
     "Group",
     "Invite",
     "LoginAttempt",
+    "Module",
+    "ModuleTranslationGroup",
     "PasswordResetToken",
     "RecoveryCode",
     "Role",

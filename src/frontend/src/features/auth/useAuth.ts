@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 
 export const ADMINISTRATOR_ROLE = "Administrator";
+export const CONTENT_MANAGER_ROLE = "Content Manager";
+
+/** Who may reach the `/content` authoring area — the frontend half of the
+ * server's `require_content_manager` gate. The server is the control; this
+ * only decides what to render. */
+export function canAuthorContent(roles: string[]): boolean {
+  return roles.includes(CONTENT_MANAGER_ROLE) || roles.includes(ADMINISTRATOR_ROLE);
+}
 
 export type AuthUser = {
   id: string;

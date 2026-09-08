@@ -15,7 +15,10 @@ import { LoginForm } from "./features/auth/LoginForm";
 import { ResetPasswordPage } from "./features/auth/ResetPasswordPage";
 import { TwoFactorVerifyForm } from "./features/auth/TwoFactorVerifyForm";
 import type { AuthUser } from "./features/auth/useAuth";
-import { ADMINISTRATOR_ROLE, useAuth } from "./features/auth/useAuth";
+import { ADMINISTRATOR_ROLE, canAuthorContent, useAuth } from "./features/auth/useAuth";
+import { ContentModulesPage } from "./features/content/ContentModulesPage";
+import { ContentShell } from "./features/content/ContentShell";
+import { ModuleFormPage } from "./features/content/ModuleFormPage";
 import { AcceptInvitePage } from "./features/invites/AcceptInvitePage";
 import { ProfilePage } from "./features/profile/ProfilePage";
 import i18n from "./i18n";
@@ -39,6 +42,9 @@ function AuthenticatedRoutes({
   onChangePassword,
 }: AuthenticatedRoutesProps) {
   const isAdministrator = user.roles.includes(ADMINISTRATOR_ROLE);
+  // `/content` sits alongside `/admin`, not inside it: authoring needs no
+  // Release 0 administrator permission, and this gate does not widen `/admin`.
+  const canAuthor = canAuthorContent(user.roles);
 
   // The user's server-persisted theme/language preferences (ticket 12) are
   // applied here, once, for the whole authenticated app — rather than by
@@ -77,6 +83,13 @@ function AuthenticatedRoutes({
           <Route path="groups" element={<AdminGroupsPage />} />
           <Route path="invites" element={<InviteUserPage />} />
           <Route path="two-factor" element={<AdminDisableTwoFactorPage />} />
+        </Route>
+      )}
+      {canAuthor && (
+        <Route path="/content" element={<ContentShell onLogout={onLogout} />}>
+          <Route index element={<ContentModulesPage />} />
+          <Route path="new" element={<ModuleFormPage />} />
+          <Route path=":moduleId" element={<ModuleFormPage />} />
         </Route>
       )}
       <Route path="*" element={<Navigate to="/" replace />} />

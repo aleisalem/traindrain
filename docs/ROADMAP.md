@@ -29,11 +29,20 @@ Zero learning-content features. Establishes the permission/identity substrate ev
 
 - Learning Module CRUD: create, edit, delete, import. No AI generation yet.
 - Direct assignment of modules to individual users or groups (no campaigns yet — validates the assignment/targeting mechanism against the simplest content type).
+- Import covers the platform's own export format plus DOCX/PDF/Markdown, all converted into native module pages. SCORM is explicitly *not* here — see Release 2.5.
 
 ## Release 2 — Campaigns & Grading
 
 - Campaigns: collections of modules, targeted at users/groups. Reuses the assignment mechanism built in Release 1.
 - Quiz/grading: modules can be configured to require a passing quiz score for completion.
+
+## Release 2.5 — Packaged Content (SCORM)
+
+Split out of Release 1 during its spec, because SCORM is a runtime rather than an import format and shares almost nothing with the native content model.
+
+- Import and playback of SCORM 1.2 / 2004 packages: a sandboxed player served from an origin separate from the application (the package is third-party HTML and JavaScript; same-origin hosting would expose the session cookie to it), plus the SCORM run-time API that receives the package's own completion signal.
+- Introduces a second module type — opaque and unversioned — alongside Release 1's native pages, reusing Release 1's assignment, targeting, and reporting mechanisms.
+- Numbered `2.5` rather than renumbering the releases below it, so existing references to Releases 3–8 stay accurate.
 
 ## Release 3 — AI Chat Foundation
 
@@ -66,5 +75,7 @@ Zero learning-content features. Establishes the permission/identity substrate ev
 ## Deferred / cross-cutting, not yet scheduled
 
 - Custom permission-matrix builder (arbitrary roles + per-action permission editing) — the end goal behind Release 0's fixed roles.
-- Scoped API token generation/management.
+- Scoped API token generation/management. Release 1 brings the resource count to the point where these become designable.
+- Video in learning modules — upload, transcoding, adaptive streaming, playback-position tracking, and the WebVTT captions the project's accessibility posture requires. Deferred out of Release 1 as its own body of work.
+- Certificates / completion PDFs, scheduled publishing, and recurring (e.g. annual) re-assignment.
 - Admin-level "enforce 2FA for all users" toggle (umbrella control on top of Release 0's opt-in 2FA).

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
-import { ADMINISTRATOR_ROLE } from "./features/auth/useAuth";
+import { ADMINISTRATOR_ROLE, canAuthorContent } from "./features/auth/useAuth";
 import type { AuthUser } from "./features/auth/useAuth";
 import { TwoFactorSettings } from "./features/twoFactor/TwoFactorSettings";
 
@@ -60,6 +60,14 @@ function Dashboard({ user, onLogout, onRefreshUser }: Props) {
         <Link to="/profile" className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]">
           {t("profile.nav_link")}
         </Link>
+        {canAuthorContent(user.roles) && (
+          <Link
+            to="/content"
+            className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
+          >
+            {t("content.nav_link")}
+          </Link>
+        )}
         {user.roles.includes(ADMINISTRATOR_ROLE) && (
           <Link
             to="/admin"
