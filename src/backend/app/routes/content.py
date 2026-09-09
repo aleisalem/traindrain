@@ -16,7 +16,7 @@ from app.content import (
     validate_document,
 )
 from app.db import get_db
-from app.dependencies import require_content_manager
+from app.dependencies import get_module_or_404, require_content_manager
 from app.models import Module, ModuleEditSession, ModulePage, ModuleTranslationGroup, User
 from app.schemas.modules import (
     ModuleActor,
@@ -35,9 +35,6 @@ from app.security.audit import record_audit_log
 
 router = APIRouter(prefix="/api/content", tags=["content"])
 
-_MODULE_NOT_FOUND = HTTPException(
-    status_code=status.HTTP_404_NOT_FOUND, detail="Module not found."
-)
 _PAGE_NOT_FOUND = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page not found.")
 _MAX_PAGES: int = CONSTRAINTS["limits"]["maxPagesPerModule"]
 
@@ -45,11 +42,6 @@ _MAX_PAGES: int = CONSTRAINTS["limits"]["maxPagesPerModule"]
 # Generous next to the client's 15-second beat, so a slow request or a
 # backgrounded tab doesn't make a colleague flicker in and out of the list.
 PRESENCE_WINDOW = timedelta(seconds=60)
-
-
-def _display_name(user: User) -> str:
-    name = " ".join(part for part in (user.first_name, user.last_name) if part).strip()
-    return name or user.email
 
 
 async def _actors_by_id(db: AsyncSession, modules: list[Module]) -> dict[uuid.UUID, ModuleActor]:
@@ -60,7 +52,7 @@ async def _actors_by_id(db: AsyncSession, modules: list[Module]) -> dict[uuid.UU
     if not user_ids:
         return {}
     users = (await db.execute(select(User).where(User.id.in_(user_ids)))).scalars()
-    return {user.id: ModuleActor(id=user.id, display_name=_display_name(user)) for user in users}
+    return {user.id: ModuleActor.from_user(user) for user in users}
 
 
 def _to_module_response(module: Module, actors: dict[uuid.UUID, ModuleActor]) -> ModuleResponse:
@@ -77,23 +69,6 @@ def _to_module_response(module: Module, actors: dict[uuid.UUID, ModuleActor]) ->
         created_at=module.created_at,
         updated_at=module.updated_at,
     )
-
-
-async def _get_module(db: AsyncSession, module_id: uuid.UUID, *, for_update: bool = False) -> Module:
-    """Load a module, optionally taking its row lock first.
-
-    `for_update` is what makes `draft_revision` an actual lock rather than a
-    check: without it, two simultaneous saves can both read revision 1, both
-    find it current, and both write revision 2 — the lost update the token
-    exists to prevent. Every draft mutation takes the lock; reads don't.
-    """
-    statement = select(Module).where(Module.id == module_id)
-    if for_update:
-        statement = statement.with_for_update()
-    module = (await db.execute(statement)).scalar_one_or_none()
-    if module is None:
-        raise _MODULE_NOT_FOUND
-    return module
 
 
 async def _get_page(db: AsyncSession, module_id: uuid.UUID, page_id: uuid.UUID) -> ModulePage:
@@ -175,7 +150,7 @@ async def get_module(
     db: AsyncSession = Depends(get_db),
     author: User = Depends(require_content_manager),
 ) -> ModuleResponse:
-    module = await _get_module(db, module_id)
+    module = await get_module_or_404(db, module_id)
     actors = await _actors_by_id(db, [module])
     return _to_module_response(module, actors)
 
@@ -187,7 +162,7 @@ async def update_module(
     db: AsyncSession = Depends(get_db),
     author: User = Depends(require_content_manager),
 ) -> ModuleResponse:
-    module = await _get_module(db, module_id)
+    module = await get_module_or_404(db, module_id)
 
     # exclude_unset, so a field the client left out keeps its stored value
     # while an explicitly-null one is genuinely cleared.
@@ -305,7 +280,7 @@ async def list_pages(
     db: AsyncSession = Depends(get_db),
     author: User = Depends(require_content_manager),
 ) -> PagesResponse:
-    module = await _get_module(db, module_id)
+    module = await get_module_or_404(db, module_id)
     return await _pages_response(db, module)
 
 
@@ -320,7 +295,7 @@ async def create_page(
     db: AsyncSession = Depends(get_db),
     author: User = Depends(require_content_manager),
 ) -> PagesResponse:
-    module = await _get_module(db, module_id, for_update=True)
+    module = await get_module_or_404(db, module_id, for_update=True)
     document, search_text = _validated_body(payload.body, payload.schema_version)
 
     page_count = (
@@ -362,7 +337,7 @@ async def reorder_pages(
     db: AsyncSession = Depends(get_db),
     author: User = Depends(require_content_manager),
 ) -> PagesResponse:
-    module = await _get_module(db, module_id, for_update=True)
+    module = await get_module_or_404(db, module_id, for_update=True)
     pages = await _module_pages(db, module.id)
     by_id = {page.id: page for page in pages}
 
@@ -392,7 +367,7 @@ async def update_page(
     db: AsyncSession = Depends(get_db),
     author: User = Depends(require_content_manager),
 ) -> PagesResponse:
-    module = await _get_module(db, module_id, for_update=True)
+    module = await get_module_or_404(db, module_id, for_update=True)
     page = await _get_page(db, module.id, page_id)
 
     validated: tuple[dict[str, Any], str] | None = None
@@ -425,7 +400,7 @@ async def delete_page(
     db: AsyncSession = Depends(get_db),
     author: User = Depends(require_content_manager),
 ) -> PagesResponse:
-    module = await _get_module(db, module_id, for_update=True)
+    module = await get_module_or_404(db, module_id, for_update=True)
     page = await _get_page(db, module.id, page_id)
 
     _claim_draft(module, payload.draft_revision, author)
@@ -473,7 +448,7 @@ async def _current_editors(
 
     users = (await db.execute(select(User).where(User.id.in_(user_ids)))).scalars()
     return sorted(
-        (ModuleActor(id=user.id, display_name=_display_name(user)) for user in users),
+        (ModuleActor.from_user(user) for user in users),
         key=lambda actor: actor.display_name.lower(),
     )
 
@@ -490,7 +465,7 @@ async def heartbeat_editing(
     screen's point of view — a presence ping — and splitting it would double
     the traffic of something that runs on a timer.
     """
-    module = await _get_module(db, module_id)
+    module = await get_module_or_404(db, module_id)
 
     now = datetime.now(UTC)
     await db.execute(

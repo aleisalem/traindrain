@@ -8,7 +8,7 @@ by release.
 
 Release 0 is in progress. So far:
 
-- Local dev environment: Postgres, a FastAPI backend, LocalStack (SES emulation), and a
+- Local dev environment: Postgres, a FastAPI backend, LocalStack (S3 + SES emulation), and a
   prod-style static frontend build, all runnable via `docker-compose up`.
 - Backend health-check endpoint (`GET /api/health`) with Alembic migrations wired to Postgres.
 - Frontend i18n (English/German via react-i18next) and a Tailwind CSS-variable theme system
@@ -149,7 +149,23 @@ Release 1 (learning modules) is in progress. So far:
   `src/frontend/src/features/content/ModuleEditorsPresence.tsx`, `OverwriteWarningDialog.tsx`,
   `useModuleEditors.ts`.
 
-The rest of Release 1 — assets, publishing, assignment, the learner viewer — is still to come.
+- Module assets: an author inserts an image into a page from the editor's toolbar (picking one
+  already uploaded, or uploading and inserting in one step) and attaches downloadable files to a
+  module. `GET`/`POST /api/content/modules/{id}/assets` and `DELETE .../assets/{asset_id}` manage
+  them; `GET /api/modules/{id}/assets/{asset_id}` **authorizes the caller against the module and
+  then redirects (307) to a presigned URL with a 5-minute TTL** — assets are never served directly
+  and the signed URL never appears in a response body. The bytes leave from an origin that is not
+  the application's, which the CSP's `img-src` names via `ASSET_ORIGIN`. Uploads are treated as
+  hostile: the content type is sniffed from the **bytes** (the client's declared type is never
+  consulted) and the filename extension must agree with what was found; **SVG is rejected
+  outright** as a script-execution vector; `docx`/`xlsx`/`pptx` are verified against the OOXML part
+  declared inside the archive, which keeps macro-enabled formats out; per-file (5 MB image, 20 MB
+  attachment) and per-module (100 MB) caps are enforced before anything is persisted. Deleting an
+  asset deletes the stored object, and the UI says how many pages still embed it first. Full
+  details in [docs/module-assets.md](docs/module-assets.md). Frontend:
+  `src/frontend/src/features/content/ModuleAssetsPanel.tsx` and `useModuleAssets.ts`.
+
+The rest of Release 1 — publishing, assignment, the learner viewer — is still to come.
 
 ## Project structure
 
@@ -157,11 +173,13 @@ The rest of Release 1 — assets, publishing, assignment, the learner viewer —
 src/
   backend/         FastAPI app (Python, SQLAlchemy 2.0 async, Alembic)
     app/           Application code
-      content/     ProseMirror schema (the checked-in source of truth) and its server-side validator
+      content/     ProseMirror schema (the checked-in source of truth), its server-side
+                   validator, and the upload sniffer that decides what a file really is
       models/      SQLAlchemy models
       routes/      API endpoints (FastAPI routers)
       schemas/     Pydantic request/response models
       security/    Passwords, sessions, tokens, rate limiting, audit logging
+      storage.py   The private object store module assets live in (S3 / LocalStack S3)
       dependencies.py   Shared FastAPI dependencies (auth/session gates)
     alembic/       Database migrations
     tests/         pytest suite, run against a real Postgres instance
@@ -169,7 +187,8 @@ src/
     src/
       features/auth/   Login / forced-password-change / forgot-, reset-password, and 2FA-verify UI, auth state hook
       features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page, groups page)
-      features/content/  Content Manager authoring area (module list, metadata form, page editor, preview)
+      features/content/  Content Manager authoring area (module list, metadata form, page editor,
+                         preview, image/attachment panel)
       content/         The checked-in ProseMirror schema and the Tiptap extension set built from it
       features/invites/  Public accept-invite page (set password, no session required)
       features/twoFactor/  Self-service TOTP enroll/disable UI (QR code, recovery codes)
@@ -196,11 +215,18 @@ This starts:
 
 - Postgres on `localhost:5433` (mapped off the default 5432 to avoid clashing with a host-installed
   Postgres; override with `POSTGRES_HOST_PORT` in `.env`)
-- LocalStack (SES emulation) on `localhost:4566`
+- LocalStack (S3 for module assets, SES for mail) on `localhost:4566`. The backend creates the
+  assets bucket on startup — with public access blocked and default encryption on — so no setup
+  step is needed. Note that LocalStack Community does not *enforce* S3 request authorization, so
+  the private-bucket property is real only in a deployment; see
+  [docs/module-assets.md](docs/module-assets.md).
 - The backend API on `localhost:8000` (runs Alembic migrations on startup, which seeds a
   bootstrap Administrator account — find its one-time password with
   `docker-compose logs backend | grep traindrain.bootstrap`)
-- A prod-style static build of the frontend, served via nginx, on `localhost:8080`
+- A prod-style static build of the frontend, served via nginx, on `localhost:8080`. Its
+  `nginx.conf.template` is rendered at container start so the Content-Security-Policy's `img-src`
+  can name `ASSET_ORIGIN` — the origin presigned asset URLs are served from, deliberately not the
+  application's own.
 
 For day-to-day frontend development with hot-module-reload, run the Vite dev server natively on
 the host instead of relying on the containerized build:
@@ -232,6 +258,19 @@ pytest   # defaults to postgresql+asyncpg://traindrain:traindrain@localhost:5433
 Tests run against a real Postgres database — the fixtures in `tests/conftest.py` apply Alembic
 migrations once per test session and wrap each test in a transaction that's rolled back
 afterwards, so tests can freely write data without polluting `docker-compose`'s dev database.
+
+A handful of tests do assert on global state (for example, that exactly one `group_created` audit
+entry exists), so they only pass against a database nothing has been clicked through by hand. If
+you've been using the app locally, point `DATABASE_URL` at a database of its own rather than the
+one `docker-compose` serves:
+
+```bash
+createdb -h localhost -p 5433 -U traindrain traindrain_test   # once
+DATABASE_URL=postgresql+asyncpg://traindrain:traindrain@localhost:5433/traindrain_test pytest
+```
+
+The object store is faked in the suite (`FakeS3Client` in `conftest.py`), so no LocalStack is
+needed to run the asset tests.
 
 Frontend:
 

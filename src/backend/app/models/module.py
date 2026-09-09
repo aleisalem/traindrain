@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Computed,
     DateTime,
@@ -141,6 +142,49 @@ class ModulePage(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class ModuleAsset(Base):
+    """An image or a downloadable file belonging to a module.
+
+    The bytes live in a private object store, never in the database and never
+    served directly — `GET /api/modules/{id}/assets/{asset_id}` authorizes the
+    caller and then redirects to a short-lived presigned URL.
+
+    `content_type` is what the *bytes* turned out to be (see
+    `app.content.uploads`), not what the client declared, and it is what the
+    object is stored and later served under.
+    """
+
+    __tablename__ = "module_assets"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # No `index=True`: the composite `(module_id, created_at)` index the
+    # migration creates already serves a lookup by module on its leading
+    # column, and declaring a second one here would leave the model and the
+    # migration disagreeing — which `alembic revision --autogenerate` would
+    # then keep trying to reconcile.
+    module_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("modules.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # image | attachment — constrained in the database by `ck_module_assets_kind`.
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    # `modules/{module_id}/assets/{asset_id}` — derived from opaque UUIDs, so
+    # nothing about a module's content makes another module's key guessable.
+    object_key: Mapped[str] = mapped_column(String(300), nullable=False, unique=True)
+    content_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # Kept for the download name only. Sanitized to a bare basename before it
+    # is stored, because it is echoed into a `Content-Disposition` header.
+    original_filename: Mapped[str] = mapped_column(String(200), nullable=False)
+    uploaded_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
 

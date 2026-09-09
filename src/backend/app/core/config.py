@@ -25,6 +25,25 @@ class Settings(BaseSettings):
     # Base URL the frontend is served from — used to build the invite-accept link.
     frontend_base_url: str = "http://localhost:8080"
 
+    # --- Module assets ----------------------------------------------------
+    #
+    # A private bucket: public access blocked, server-side encryption on.
+    # Terraform provisions it in a real deployment; locally the backend creates
+    # it in LocalStack on startup so `docker-compose up` needs no setup step.
+    assets_bucket: str = "traindrain-assets"
+    # Presigned URLs are handed to a browser, so they have to be signed against
+    # an endpoint the *browser* can reach. Inside docker-compose the API talks
+    # to LocalStack as `http://localstack:4566`, which means nothing on the
+    # host — hence a separate, browser-facing endpoint for signing. Unset in
+    # production, where a presigned URL points at the bucket's own S3 origin.
+    s3_public_endpoint_url: str | None = None
+    # Short-lived by design: long enough for a page of images to load, short
+    # enough that a URL copied out of a network log is useless before long.
+    asset_url_ttl_seconds: int = 300
+    asset_max_image_bytes: int = 5 * 1024 * 1024
+    asset_max_attachment_bytes: int = 20 * 1024 * 1024
+    asset_max_module_bytes: int = 100 * 1024 * 1024
+
     # Envelope-encryption key for TOTP secrets at rest (base64-encoded 32
     # bytes, AES-256-GCM) — AWS Secrets Manager in production (injected into
     # this env var by the ECS task definition), a local-only value in dev.

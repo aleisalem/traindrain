@@ -280,7 +280,14 @@
     "error_conflict": "Someone else edited this module since you opened it. Reload the page to see their changes before saving again.",
     "error_rejected": "This page couldn't be saved: part of its content isn't allowed. Remove it and try again.",
     "error_page_limit": "This module already has the maximum number of pages.",
-    "error_unknown": "Something went wrong. Please try again."
+    "error_unknown": "Something went wrong. Please try again.",
+    "image": "Image",
+    "image_alt_label": "Alt text",
+    "image_alt_placeholder": "What the image shows",
+    "image_alt_hint": "Describe the image for learners using a screen reader. Leave empty only if it is purely decorative.",
+    "image_upload": "Upload and insert",
+    "image_insert": "Insert {{name}}",
+    "image_none": "No images uploaded yet. Upload one to insert it."
   },
   "presence": {
     "editing_now_one": "{{names}} also has this module open.",
@@ -291,5 +298,29 @@
     "warning_body_other": "{{names}} have this module open. If they have changed the title, description, or duration since you loaded this page, saving now replaces their versions with yours.",
     "warning_confirm": "Save anyway",
     "warning_cancel": "Cancel"
+  },
+  "assets": {
+    "heading": "Images and attachments",
+    "description": "Upload the images used on pages, and the files learners can download.",
+    "upload_image": "Upload image",
+    "upload_attachment": "Upload attachment",
+    "none": "Nothing uploaded yet.",
+    "download": "Download",
+    "usage": "{{used}} of {{total}} used",
+    "per_file_limits": "up to {{image}} per image, {{attachment}} per attachment",
+    "used_on_pages_one": "used on 1 page",
+    "used_on_pages_other": "used on {{count}} pages",
+    "used_on_pages_zero": "not used on any page",
+    "delete_asset": "Delete {{name}}",
+    "confirm_delete": "Delete this file?",
+    "confirm_delete_in_use_one": "Used on 1 page — delete anyway?",
+    "confirm_delete_in_use_other": "Used on {{count}} pages — delete anyway?",
+    "confirm_delete_yes": "Delete",
+    "confirm_delete_no": "Keep",
+    "error_svg": "SVG files can carry scripts and are not accepted. Use PNG, JPEG, WebP, or GIF.",
+    "error_type": "That file type isn't accepted. Images: PNG, JPEG, WebP, GIF. Attachments: PDF, Word, Excel, PowerPoint, or plain text.",
+    "error_too_large": "That file is too large.",
+    "error_quota": "This module has no room left. Remove a file before adding another.",
+    "error_unknown": "Something went wrong. Please try again."
   }
 }

@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { ModuleAssetsPanel } from "./ModuleAssetsPanel";
 import { ModuleEditorsPresence } from "./ModuleEditorsPresence";
 import { ModulePagesPanel } from "./ModulePagesPanel";
 import { OverwriteWarningDialog } from "./OverwriteWarningDialog";
 import type { ModuleBody } from "./types";
+import { useModuleAssets } from "./useModuleAssets";
 import { useModuleEditors } from "./useModuleEditors";
 
 const inputClassName =
@@ -43,6 +45,9 @@ export function ModuleFormPage() {
   // save that could land on their work.
   const [confirmingOverwrite, setConfirmingOverwrite] = useState(false);
   const editors = useModuleEditors(moduleId);
+  // One owner of the module's assets: the page editor inserts from this list,
+  // and the panel below manages it. Two fetches would let the two disagree.
+  const assets = useModuleAssets(moduleId);
 
   const load = useCallback(async () => {
     if (!moduleId) return;
@@ -242,9 +247,10 @@ export function ModuleFormPage() {
         />
       )}
 
-      {/* Pages belong to a module that already exists — there is nothing to
-          attach them to until the metadata has been saved once. */}
-      {isEdit && moduleId && <ModulePagesPanel moduleId={moduleId} />}
+      {/* Pages and assets belong to a module that already exists — there is
+          nothing to attach them to until the metadata has been saved once. */}
+      {isEdit && moduleId && <ModulePagesPanel moduleId={moduleId} assets={assets} />}
+      {isEdit && moduleId && <ModuleAssetsPanel assets={assets} />}
 
       {module && (
         <dl className="flex flex-col gap-1 text-sm text-fg-muted">

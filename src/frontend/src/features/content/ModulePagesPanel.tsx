@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { SCHEMA_VERSION, emptyDocument, type PageDocument } from "../../content/schema";
 import { PageEditor } from "./PageEditor";
 import { PagePreview } from "./PagePreview";
+import type { ModuleAssetsState } from "./useModuleAssets";
 
 type PageBody = {
   id: string;
@@ -24,12 +25,15 @@ type Draft = { pageId: string; title: string; document: PageDocument };
 
 type Props = {
   moduleId: string;
+  /** Lifted to the authoring screen, so the editor's image picker and the
+   *  asset panel are looking at the same list. */
+  assets: ModuleAssetsState;
 };
 
 const pillClassName =
   "rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0";
 
-export function ModulePagesPanel({ moduleId }: Props) {
+export function ModulePagesPanel({ moduleId, assets }: Props) {
   const { t } = useTranslation();
   const [state, setState] = useState<PagesBody | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -282,6 +286,11 @@ export function ModulePagesPanel({ moduleId }: Props) {
                     document,
                   })
                 }
+                library={{
+                  images: assets.images,
+                  upload: (file) => assets.upload("image", file),
+                  busy: assets.busy,
+                }}
               />
 
               <div className="flex flex-wrap items-center gap-3">

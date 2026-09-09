@@ -10,6 +10,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 # configuration.
 ModuleLanguage = Literal["en", "de"]
 
+# An illustration on a page, or a file a learner downloads. Kept as a Literal so
+# an unknown kind is a 422 at the edge, before it reaches the row whose CHECK
+# constraint would otherwise be the only thing refusing it.
+AssetKind = Literal["image", "attachment"]
+
 
 class ModuleCreateRequest(BaseModel):
     # extra="forbid" is what makes an attempt to smuggle `created_by`,
@@ -71,7 +76,7 @@ class ModuleUpdateRequest(BaseModel):
 
 
 class ModuleActor(BaseModel):
-    """Who created or last edited a module.
+    """Who created or last edited a module, or uploaded one of its assets.
 
     Carries a display name rather than the full user record: authoring must
     not become a route into the staff directory.
@@ -79,6 +84,17 @@ class ModuleActor(BaseModel):
 
     id: uuid.UUID
     display_name: str
+
+    @classmethod
+    def from_user(cls, user: Any) -> "ModuleActor":
+        """Build one from a `User`.
+
+        Lives here rather than in each route so there is one answer to "what do
+        we call this person" — a name if they have one, their email if not.
+        Typed loosely to keep the schema layer from importing the models.
+        """
+        name = " ".join(part for part in (user.first_name, user.last_name) if part).strip()
+        return cls(id=user.id, display_name=name or user.email)
 
 
 class ModuleEditorsResponse(BaseModel):
@@ -162,6 +178,38 @@ class PagesResponse(BaseModel):
     draft_revision: int
     schema_version: int
     pages: list[PageResponse]
+
+
+class AssetResponse(BaseModel):
+    """One image or attachment on a module.
+
+    `url` is the API path that authorizes and redirects — never a presigned
+    URL. A signed URL in a JSON response would outlive the check that produced
+    it and could be forwarded to someone the check would have refused.
+    """
+
+    id: uuid.UUID
+    kind: AssetKind
+    url: str
+    content_type: str
+    size_bytes: int
+    original_filename: str
+    uploaded_by: ModuleActor
+    created_at: datetime
+    # How many of this module's pages embed this asset. Shown so an author
+    # deleting an image knows they are about to leave a gap on a page, rather
+    # than discovering it in the preview afterwards.
+    referenced_by_pages: int
+
+
+class AssetsResponse(BaseModel):
+    """A module's assets, and how much of its storage budget is left."""
+
+    assets: list[AssetResponse]
+    total_bytes: int
+    max_module_bytes: int
+    max_image_bytes: int
+    max_attachment_bytes: int
 
 
 class ModuleResponse(BaseModel):

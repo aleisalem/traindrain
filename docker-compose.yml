@@ -18,7 +18,9 @@ services:
   localstack:
     image: localstack/localstack:3
     environment:
-      SERVICES: ses
+      # S3 holds module assets; SES sends invite, reset, and (later)
+      # assignment mail. Both are LocalStack Community services.
+      SERVICES: s3,ses
       DEBUG: ${LOCALSTACK_DEBUG:-0}
       LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN:-}
     ports:
@@ -45,6 +47,12 @@ services:
       AWS_SECRET_ACCESS_KEY: test
       SES_SENDER_EMAIL: no-reply@traindrain.local
       FRONTEND_BASE_URL: http://localhost:8080
+      ASSETS_BUCKET: traindrain-assets
+      # Presigned asset URLs are followed by the *browser*, which cannot resolve
+      # the `localstack` hostname the API uses. Signing against the host-facing
+      # endpoint is what makes the redirect land. Unset in production, where a
+      # presigned URL points at the bucket's own S3 origin.
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:4566
       TWO_FACTOR_ENCRYPTION_KEY: ${TWO_FACTOR_ENCRYPTION_KEY:?Set TWO_FACTOR_ENCRYPTION_KEY in .env — copy .env.example to .env first}
     ports:
       - "8000:8000"
@@ -56,6 +64,12 @@ services:
 
   frontend:
     build: ./src/frontend
+    environment:
+      # Named in the Content-Security-Policy's img-src, because that is where an
+      # asset request ends up after the API authorizes it and redirects. This is
+      # LocalStack locally; a deployment points it at the assets bucket's own
+      # delivery origin, which is deliberately not the application's.
+      ASSET_ORIGIN: http://localhost:4566
     ports:
       - "8080:80"
     depends_on:

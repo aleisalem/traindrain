@@ -4,6 +4,7 @@ from app.models.invite import Invite, invite_groups, invite_roles
 from app.models.login_attempt import LoginAttempt
 from app.models.module import (
     Module,
+    ModuleAsset,
     ModuleEditSession,
     ModulePage,
     ModuleTranslationGroup,
@@ -21,6 +22,7 @@ __all__ = [
     "Invite",
     "LoginAttempt",
     "Module",
+    "ModuleAsset",
     "ModuleEditSession",
     "ModulePage",
     "ModuleTranslationGroup",

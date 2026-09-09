@@ -280,7 +280,14 @@
     "error_conflict": "Jemand anderes hat dieses Modul bearbeitet, seit Sie es geöffnet haben. Laden Sie die Seite neu, um die Änderungen zu sehen, bevor Sie erneut speichern.",
     "error_rejected": "Diese Seite konnte nicht gespeichert werden: Ein Teil des Inhalts ist nicht zulässig. Entfernen Sie ihn und versuchen Sie es erneut.",
     "error_page_limit": "Dieses Modul hat bereits die maximale Anzahl an Seiten.",
-    "error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
+    "error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+    "image": "Bild",
+    "image_alt_label": "Alternativtext",
+    "image_alt_placeholder": "Was das Bild zeigt",
+    "image_alt_hint": "Beschreiben Sie das Bild für Lernende mit Screenreader. Lassen Sie das Feld nur leer, wenn das Bild rein dekorativ ist.",
+    "image_upload": "Hochladen und einfügen",
+    "image_insert": "{{name}} einfügen",
+    "image_none": "Noch keine Bilder hochgeladen. Laden Sie eines hoch, um es einzufügen."
   },
   "presence": {
     "editing_now_one": "{{names}} hat dieses Modul ebenfalls geöffnet.",
@@ -291,5 +298,29 @@
     "warning_body_other": "{{names}} haben dieses Modul geöffnet. Falls Titel, Beschreibung oder Dauer seit dem Laden dieser Seite geändert wurden, ersetzt Ihr Speichern die dortigen Fassungen.",
     "warning_confirm": "Trotzdem speichern",
     "warning_cancel": "Abbrechen"
+  },
+  "assets": {
+    "heading": "Bilder und Anhänge",
+    "description": "Laden Sie die Bilder für die Seiten hoch sowie die Dateien, die Lernende herunterladen können.",
+    "upload_image": "Bild hochladen",
+    "upload_attachment": "Anhang hochladen",
+    "none": "Noch nichts hochgeladen.",
+    "download": "Herunterladen",
+    "usage": "{{used}} von {{total}} belegt",
+    "per_file_limits": "bis zu {{image}} pro Bild, {{attachment}} pro Anhang",
+    "used_on_pages_one": "auf 1 Seite verwendet",
+    "used_on_pages_other": "auf {{count}} Seiten verwendet",
+    "used_on_pages_zero": "auf keiner Seite verwendet",
+    "delete_asset": "{{name}} löschen",
+    "confirm_delete": "Diese Datei löschen?",
+    "confirm_delete_in_use_one": "Auf 1 Seite verwendet — trotzdem löschen?",
+    "confirm_delete_in_use_other": "Auf {{count}} Seiten verwendet — trotzdem löschen?",
+    "confirm_delete_yes": "Löschen",
+    "confirm_delete_no": "Behalten",
+    "error_svg": "SVG-Dateien können Skripte enthalten und werden nicht akzeptiert. Verwenden Sie PNG, JPEG, WebP oder GIF.",
+    "error_type": "Dieser Dateityp wird nicht akzeptiert. Bilder: PNG, JPEG, WebP, GIF. Anhänge: PDF, Word, Excel, PowerPoint oder reiner Text.",
+    "error_too_large": "Diese Datei ist zu groß.",
+    "error_quota": "Dieses Modul hat keinen Platz mehr. Entfernen Sie eine Datei, bevor Sie eine weitere hinzufügen.",
+    "error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
   }
 }

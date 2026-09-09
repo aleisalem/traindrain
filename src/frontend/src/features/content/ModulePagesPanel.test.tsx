@@ -6,6 +6,7 @@ import { SCHEMA_VERSION } from "../../content/schema";
 import i18n from "../../i18n";
 import "../../i18n";
 import { ModulePagesPanel } from "./ModulePagesPanel";
+import type { ModuleAssetsState } from "./useModuleAssets";
 
 type MockResponse = { status: number; body?: unknown };
 
@@ -58,6 +59,26 @@ function pagesBody(draftRevision: number, pages: ReturnType<typeof page>[]) {
 
 const TWO_PAGES = [page("page-a", "Intro", 0), page("page-b", "Details", 1)];
 
+/**
+ * A module with nothing uploaded. These tests are about pages, not assets —
+ * the asset surface has its own file, which drives the real hook.
+ */
+const NO_ASSETS: ModuleAssetsState = {
+  images: [],
+  attachments: [],
+  totalBytes: 0,
+  maxModuleBytes: 100 * 1024 * 1024,
+  maxImageBytes: 5 * 1024 * 1024,
+  maxAttachmentBytes: 20 * 1024 * 1024,
+  loading: false,
+  loadError: false,
+  busy: false,
+  error: null,
+  upload: async () => null,
+  remove: async () => undefined,
+  clearError: () => undefined,
+};
+
 describe("ModulePagesPanel", () => {
   let queue: ReturnType<typeof createFetchMock>["queue"];
   let requests: ReturnType<typeof createFetchMock>["requests"];
@@ -82,7 +103,7 @@ describe("ModulePagesPanel", () => {
       body: pagesBody(6, [page("page-a", "Introduction", 0), TWO_PAGES[1]]),
     });
 
-    render(<ModulePagesPanel moduleId={MODULE_ID} />);
+    render(<ModulePagesPanel moduleId={MODULE_ID} assets={NO_ASSETS} />);
 
     const title = await screen.findByLabelText("Page title");
     await user.clear(title);
@@ -105,7 +126,7 @@ describe("ModulePagesPanel", () => {
     queue("PATCH", `${PAGES_URL}/page-a`, { status: 200, body: pagesBody(6, TWO_PAGES) });
     queue("PATCH", `${PAGES_URL}/page-a`, { status: 200, body: pagesBody(7, TWO_PAGES) });
 
-    render(<ModulePagesPanel moduleId={MODULE_ID} />);
+    render(<ModulePagesPanel moduleId={MODULE_ID} assets={NO_ASSETS} />);
     await screen.findByLabelText("Page title");
 
     await user.click(screen.getByRole("button", { name: "Save page" }));
@@ -124,7 +145,7 @@ describe("ModulePagesPanel", () => {
       body: { detail: { code: "draft_conflict", message: "conflict", draft_revision: 9 } },
     });
 
-    render(<ModulePagesPanel moduleId={MODULE_ID} />);
+    render(<ModulePagesPanel moduleId={MODULE_ID} assets={NO_ASSETS} />);
     await screen.findByLabelText("Page title");
     await user.click(screen.getByRole("button", { name: "Save page" }));
 
@@ -142,7 +163,7 @@ describe("ModulePagesPanel", () => {
       body: { detail: { code: "bad_href", message: "no" } },
     });
 
-    render(<ModulePagesPanel moduleId={MODULE_ID} />);
+    render(<ModulePagesPanel moduleId={MODULE_ID} assets={NO_ASSETS} />);
     await screen.findByLabelText("Page title");
     await user.click(screen.getByRole("button", { name: "Save page" }));
 
@@ -157,7 +178,7 @@ describe("ModulePagesPanel", () => {
       body: pagesBody(6, [...TWO_PAGES, page("page-c", "Untitled page", 2, "")]),
     });
 
-    render(<ModulePagesPanel moduleId={MODULE_ID} />);
+    render(<ModulePagesPanel moduleId={MODULE_ID} assets={NO_ASSETS} />);
     await screen.findByLabelText("Page title");
     await user.click(screen.getByRole("button", { name: "Add page" }));
 
@@ -174,7 +195,7 @@ describe("ModulePagesPanel", () => {
       body: pagesBody(6, [page("page-b", "Details", 0), page("page-a", "Intro", 1)]),
     });
 
-    render(<ModulePagesPanel moduleId={MODULE_ID} />);
+    render(<ModulePagesPanel moduleId={MODULE_ID} assets={NO_ASSETS} />);
     const nav = await screen.findByRole("navigation", { name: "Pages" });
     expect(within(nav).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
       expect.stringContaining("1. Intro"),
@@ -199,7 +220,7 @@ describe("ModulePagesPanel", () => {
       body: pagesBody(6, [page("page-b", "Details", 0)]),
     });
 
-    render(<ModulePagesPanel moduleId={MODULE_ID} />);
+    render(<ModulePagesPanel moduleId={MODULE_ID} assets={NO_ASSETS} />);
     await screen.findByLabelText("Page title");
     await user.click(screen.getByRole("button", { name: 'Delete "Intro"' }));
 
@@ -213,7 +234,7 @@ describe("ModulePagesPanel", () => {
     const user = userEvent.setup();
     queue("GET", PAGES_URL, { status: 200, body: pagesBody(5, TWO_PAGES) });
 
-    render(<ModulePagesPanel moduleId={MODULE_ID} />);
+    render(<ModulePagesPanel moduleId={MODULE_ID} assets={NO_ASSETS} />);
     await screen.findByLabelText("Page title");
     await user.click(screen.getByRole("button", { name: "Preview" }));
 
@@ -230,7 +251,7 @@ describe("ModulePagesPanel", () => {
   it("says plainly that saving a draft is not publishing it", async () => {
     queue("GET", PAGES_URL, { status: 200, body: pagesBody(5, TWO_PAGES) });
 
-    render(<ModulePagesPanel moduleId={MODULE_ID} />);
+    render(<ModulePagesPanel moduleId={MODULE_ID} assets={NO_ASSETS} />);
 
     expect(
       await screen.findByText("Saved drafts are not visible to learners."),

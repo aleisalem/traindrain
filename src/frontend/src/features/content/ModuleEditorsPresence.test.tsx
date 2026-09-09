@@ -51,6 +51,20 @@ function mockBackend(editors: { id: string; display_name: string }[]) {
           { status: 200 },
         );
       }
+      // The authoring screen loads the module's assets too; these tests are
+      // about presence, so an empty set keeps that panel quiet.
+      if (url.endsWith("/assets")) {
+        return new Response(
+          JSON.stringify({
+            assets: [],
+            total_bytes: 0,
+            max_module_bytes: 100 * 1024 * 1024,
+            max_image_bytes: 5 * 1024 * 1024,
+            max_attachment_bytes: 20 * 1024 * 1024,
+          }),
+          { status: 200 },
+        );
+      }
       if (method === "PATCH") return new Response(JSON.stringify(MODULE), { status: 200 });
       return new Response(JSON.stringify(MODULE), { status: 200 });
     }),
