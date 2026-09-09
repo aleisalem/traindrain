@@ -281,5 +281,15 @@
     "error_rejected": "This page couldn't be saved: part of its content isn't allowed. Remove it and try again.",
     "error_page_limit": "This module already has the maximum number of pages.",
     "error_unknown": "Something went wrong. Please try again."
+  },
+  "presence": {
+    "editing_now_one": "{{names}} also has this module open.",
+    "editing_now_other": "{{names}} also have this module open.",
+    "overwrite_hint": "Saving will overwrite any changes they have made without warning them.",
+    "warning_heading": "Someone else is editing this module",
+    "warning_body_one": "{{names}} has this module open. If they have changed the title, description, or duration since you loaded this page, saving now replaces their version with yours.",
+    "warning_body_other": "{{names}} have this module open. If they have changed the title, description, or duration since you loaded this page, saving now replaces their versions with yours.",
+    "warning_confirm": "Save anyway",
+    "warning_cancel": "Cancel"
   }
 }

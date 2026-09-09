@@ -103,10 +103,33 @@ search is a query change later rather than a migration.
 
 ## Concurrency
 
-There is no module ownership — any Content Manager may edit any module — so every draft mutation
-carries the module's `draft_revision` token and is refused with **409** if it has moved. A
-successful write advances the token and updates `last_edited_by`. A refused write advances nothing,
-so a rejected document cannot lock a colleague out.
+There is no module ownership — any Content Manager may edit any module — so two people can be in
+the same module at once. The two halves of a module are treated differently on purpose.
+
+**Page bodies are locked.** Every page mutation carries the module's `draft_revision` token and is
+refused with **409** if it has moved; the module's row is locked (`SELECT ... FOR UPDATE`) before
+the token is checked, so the check is a lock rather than a race. A successful write advances the
+token and updates `last_edited_by`; a refused write advances nothing, so a rejected document cannot
+lock a colleague out. Losing a page of written material is not a recoverable annoyance, which is
+why this half refuses rather than warns.
+
+**Metadata is not locked — it is made visible.** A title, description, or duration is cheap to
+retype and expensive to be blocked on, so concurrent edits are *allowed* and the guard is
+awareness instead:
+
+- `module_edit_sessions` records who currently has a module open, refreshed by a 15-second
+  heartbeat from the authoring screen (`POST /api/content/modules/{id}/editing`, which records the
+  caller and returns everyone else). A row whose heartbeat has aged past the 60-second presence
+  window counts as gone — closed tab, dropped network, sleeping laptop, all the same. Leaving the
+  screen sends `DELETE` on the same route so the seat frees immediately rather than after the
+  window.
+- The authoring screen shows those people as named avatars above the form, in a polite live region
+  so a colleague arriving is announced rather than silently appearing.
+- Saving metadata while someone else is present opens a confirmation dialog naming them and saying
+  plainly that saving replaces their version. Confirming proceeds; cancelling writes nothing.
+
+The presence list is an aid, not a control: a dropped heartbeat is swallowed rather than surfaced,
+and nothing on the server refuses a metadata write because of it.
 
 Page order is an integer `position` with a unique constraint on `(module_id, position)`, declared
 `DEFERRABLE INITIALLY DEFERRED` so a reorder can renumber every row inside one transaction without

@@ -139,6 +139,16 @@ Release 1 (learning modules) is in progress. So far:
   [docs/module-content-model.md](docs/module-content-model.md). Frontend:
   `src/frontend/src/features/content/ModulePagesPanel.tsx`, `PageEditor.tsx`, `PagePreview.tsx`.
 
+- Concurrent-editing awareness: `POST /api/content/modules/{id}/editing` is a 15-second heartbeat
+  that records the caller as having the module open and returns everyone else who does;
+  `DELETE` on the same route frees the seat the moment they leave. The authoring screen shows those
+  people as named avatars above the form, and saving the metadata while someone else is there opens
+  a dialog naming them and stating that saving replaces their version — overwriting is **allowed**,
+  it just never happens unannounced. Page bodies keep the stricter `draft_revision` conflict
+  instead, because losing written material is not a recoverable annoyance. Frontend:
+  `src/frontend/src/features/content/ModuleEditorsPresence.tsx`, `OverwriteWarningDialog.tsx`,
+  `useModuleEditors.ts`.
+
 The rest of Release 1 — assets, publishing, assignment, the learner viewer — is still to come.
 
 ## Project structure

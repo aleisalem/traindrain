@@ -142,3 +142,31 @@ class ModulePage(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class ModuleEditSession(Base):
+    """Who currently has a module open in the authoring screen.
+
+    Presence, not a lock. Concurrent editing of a module's metadata is
+    deliberately *allowed* — this row is what lets the UI say who else is in
+    here, so the author decides knowingly rather than discovering the
+    overwrite afterwards.
+
+    Kept fresh by a heartbeat from the open editor; a row whose `last_seen_at`
+    has aged past the presence window counts as gone, whether the author
+    closed the tab, lost their network, or their laptop went to sleep.
+    """
+
+    __tablename__ = "module_edit_sessions"
+
+    module_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("modules.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

@@ -2,8 +2,11 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { ModuleEditorsPresence } from "./ModuleEditorsPresence";
 import { ModulePagesPanel } from "./ModulePagesPanel";
+import { OverwriteWarningDialog } from "./OverwriteWarningDialog";
 import type { ModuleBody } from "./types";
+import { useModuleEditors } from "./useModuleEditors";
 
 const inputClassName =
   "rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none";
@@ -35,6 +38,11 @@ export function ModuleFormPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Concurrent metadata edits are allowed rather than locked, so the guard is
+  // visibility: who else is here, and one deliberate confirmation before a
+  // save that could land on their work.
+  const [confirmingOverwrite, setConfirmingOverwrite] = useState(false);
+  const editors = useModuleEditors(moduleId);
 
   const load = useCallback(async () => {
     if (!moduleId) return;
@@ -62,8 +70,19 @@ export function ModuleFormPage() {
     setSaved(false);
   }
 
-  async function handleSubmit(event: FormEvent) {
+  function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    // Someone else has this module open, so their copy of the metadata may
+    // already differ from what is about to be written over it.
+    if (isEdit && editors.length > 0) {
+      setConfirmingOverwrite(true);
+      return;
+    }
+    void save();
+  }
+
+  async function save() {
+    setConfirmingOverwrite(false);
     setSaving(true);
     setError(null);
     setSaved(false);
@@ -127,8 +146,10 @@ export function ModuleFormPage() {
         </p>
       </div>
 
+      {isEdit && <ModuleEditorsPresence editors={editors} />}
+
       <form
-        onSubmit={(event) => void handleSubmit(event)}
+        onSubmit={handleSubmit}
         className="flex max-w-2xl flex-col gap-4 rounded-2xl border border-border bg-bg-elevated p-5 shadow-[var(--shadow)]"
       >
         <label className="flex flex-col gap-1 text-sm">
@@ -212,6 +233,14 @@ export function ModuleFormPage() {
           </Link>
         </div>
       </form>
+
+      {confirmingOverwrite && (
+        <OverwriteWarningDialog
+          editors={editors}
+          onConfirm={() => void save()}
+          onCancel={() => setConfirmingOverwrite(false)}
+        />
+      )}
 
       {/* Pages belong to a module that already exists — there is nothing to
           attach them to until the metadata has been saved once. */}

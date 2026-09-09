@@ -281,5 +281,15 @@
     "error_rejected": "Diese Seite konnte nicht gespeichert werden: Ein Teil des Inhalts ist nicht zulässig. Entfernen Sie ihn und versuchen Sie es erneut.",
     "error_page_limit": "Dieses Modul hat bereits die maximale Anzahl an Seiten.",
     "error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
+  },
+  "presence": {
+    "editing_now_one": "{{names}} hat dieses Modul ebenfalls geöffnet.",
+    "editing_now_other": "{{names}} haben dieses Modul ebenfalls geöffnet.",
+    "overwrite_hint": "Beim Speichern werden deren Änderungen ohne Warnung überschrieben.",
+    "warning_heading": "Jemand anderes bearbeitet dieses Modul",
+    "warning_body_one": "{{names}} hat dieses Modul geöffnet. Falls Titel, Beschreibung oder Dauer seit dem Laden dieser Seite geändert wurden, ersetzt Ihr Speichern die dortige Fassung.",
+    "warning_body_other": "{{names}} haben dieses Modul geöffnet. Falls Titel, Beschreibung oder Dauer seit dem Laden dieser Seite geändert wurden, ersetzt Ihr Speichern die dortigen Fassungen.",
+    "warning_confirm": "Trotzdem speichern",
+    "warning_cancel": "Abbrechen"
   }
 }

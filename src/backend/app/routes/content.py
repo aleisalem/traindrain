@@ -1,8 +1,10 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.content import (
@@ -15,10 +17,11 @@ from app.content import (
 )
 from app.db import get_db
 from app.dependencies import require_content_manager
-from app.models import Module, ModulePage, ModuleTranslationGroup, User
+from app.models import Module, ModuleEditSession, ModulePage, ModuleTranslationGroup, User
 from app.schemas.modules import (
     ModuleActor,
     ModuleCreateRequest,
+    ModuleEditorsResponse,
     ModuleResponse,
     ModuleUpdateRequest,
     PageCreateRequest,
@@ -37,6 +40,11 @@ _MODULE_NOT_FOUND = HTTPException(
 )
 _PAGE_NOT_FOUND = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page not found.")
 _MAX_PAGES: int = CONSTRAINTS["limits"]["maxPagesPerModule"]
+
+# How long after its last heartbeat an open editor still counts as present.
+# Generous next to the client's 15-second beat, so a slow request or a
+# backgrounded tab doesn't make a colleague flicker in and out of the list.
+PRESENCE_WINDOW = timedelta(seconds=60)
 
 
 def _display_name(user: User) -> str:
@@ -431,3 +439,99 @@ async def delete_page(
 
     await db.commit()
     return await _pages_response(db, module)
+
+
+# --- Presence -------------------------------------------------------------
+#
+# Concurrent editing of a module's *metadata* is deliberately allowed rather
+# than locked: an author who has to be told "someone else saved first, reload
+# and retype" on a title change is being punished for a collision the system
+# could simply have shown them coming. Page bodies are different — those keep
+# the hard `draft_revision` conflict above, because losing a page of written
+# material is not a recoverable annoyance.
+#
+# So the trade here is: make the collision visible before it happens, warn at
+# the moment of saving, and then let the author decide.
+
+
+async def _current_editors(
+    db: AsyncSession, module_id: uuid.UUID, *, excluding: uuid.UUID
+) -> list[ModuleActor]:
+    cutoff = datetime.now(UTC) - PRESENCE_WINDOW
+    rows = (
+        await db.execute(
+            select(ModuleEditSession.user_id).where(
+                ModuleEditSession.module_id == module_id,
+                ModuleEditSession.last_seen_at >= cutoff,
+                ModuleEditSession.user_id != excluding,
+            )
+        )
+    ).scalars()
+    user_ids = list(rows)
+    if not user_ids:
+        return []
+
+    users = (await db.execute(select(User).where(User.id.in_(user_ids)))).scalars()
+    return sorted(
+        (ModuleActor(id=user.id, display_name=_display_name(user)) for user in users),
+        key=lambda actor: actor.display_name.lower(),
+    )
+
+
+@router.post("/modules/{module_id}/editing", response_model=ModuleEditorsResponse)
+async def heartbeat_editing(
+    module_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    author: User = Depends(require_content_manager),
+) -> ModuleEditorsResponse:
+    """Record that the caller has this module open, and say who else does.
+
+    One endpoint rather than two because this is one operation from the
+    screen's point of view — a presence ping — and splitting it would double
+    the traffic of something that runs on a timer.
+    """
+    module = await _get_module(db, module_id)
+
+    now = datetime.now(UTC)
+    await db.execute(
+        pg_insert(ModuleEditSession)
+        .values(module_id=module.id, user_id=author.id, last_seen_at=now)
+        .on_conflict_do_update(
+            index_elements=["module_id", "user_id"], set_={"last_seen_at": now}
+        )
+    )
+    # Rows that stopped being refreshed are dead weight; clearing them here
+    # keeps the table proportional to who is actually editing, with no
+    # scheduled job to own.
+    await db.execute(
+        delete(ModuleEditSession).where(
+            ModuleEditSession.module_id == module.id,
+            ModuleEditSession.last_seen_at < now - PRESENCE_WINDOW,
+        )
+    )
+    await db.commit()
+
+    return ModuleEditorsResponse(
+        editors=await _current_editors(db, module.id, excluding=author.id)
+    )
+
+
+@router.delete("/modules/{module_id}/editing", status_code=status.HTTP_204_NO_CONTENT)
+async def stop_editing(
+    module_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    author: User = Depends(require_content_manager),
+) -> None:
+    """Leave the module, so the other authors see it immediately.
+
+    Deliberately forgiving: closing an editor you were not registered in is
+    not an error, because this is called on unmount and must never turn into
+    a failure the author has to care about.
+    """
+    await db.execute(
+        delete(ModuleEditSession).where(
+            ModuleEditSession.module_id == module_id,
+            ModuleEditSession.user_id == author.id,
+        )
+    )
+    await db.commit()

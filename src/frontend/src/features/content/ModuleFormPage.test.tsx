@@ -9,6 +9,16 @@ import { ModuleFormPage } from "./ModuleFormPage";
 
 type MockResponse = { status: number; body?: unknown };
 
+/**
+ * The presence heartbeat runs on a timer and on unmount, so it can't be
+ * queued per-test without every test having to know about it. Tests that care
+ * about presence queue their own response; everyone else gets an empty room.
+ */
+function presenceDefault(method: string, url: string): MockResponse | undefined {
+  if (!url.endsWith("/editing")) return undefined;
+  return method === "DELETE" ? { status: 204 } : { status: 200, body: { editors: [] } };
+}
+
 function createFetchMock() {
   const queues = new Map<string, MockResponse[]>();
   const requests: { key: string; body: unknown }[] = [];
@@ -25,7 +35,7 @@ function createFetchMock() {
     const method = init?.method ?? "GET";
     const key = `${method} ${url}`;
     requests.push({ key, body: init?.body ? JSON.parse(init.body as string) : undefined });
-    const queued = queues.get(key)?.shift();
+    const queued = queues.get(key)?.shift() ?? presenceDefault(method, url);
     if (!queued) throw new Error(`No mocked response queued for ${key}`);
     const hasBody = ![204, 205, 304].includes(queued.status);
     return new Response(hasBody ? JSON.stringify(queued.body) : null, {

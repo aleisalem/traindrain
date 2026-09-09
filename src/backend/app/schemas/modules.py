@@ -81,6 +81,17 @@ class ModuleActor(BaseModel):
     display_name: str
 
 
+class ModuleEditorsResponse(BaseModel):
+    """Who else currently has this module open.
+
+    Never includes the caller — the question the authoring screen is asking is
+    "who am I sharing this with", and listing yourself back answers a
+    different one.
+    """
+
+    editors: list[ModuleActor]
+
+
 class PageCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
