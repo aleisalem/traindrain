@@ -71,10 +71,18 @@ def _to_module_response(module: Module, actors: dict[uuid.UUID, ModuleActor]) ->
     )
 
 
-async def _get_module(db: AsyncSession, module_id: uuid.UUID) -> Module:
-    module = (
-        await db.execute(select(Module).where(Module.id == module_id))
-    ).scalar_one_or_none()
+async def _get_module(db: AsyncSession, module_id: uuid.UUID, *, for_update: bool = False) -> Module:
+    """Load a module, optionally taking its row lock first.
+
+    `for_update` is what makes `draft_revision` an actual lock rather than a
+    check: without it, two simultaneous saves can both read revision 1, both
+    find it current, and both write revision 2 — the lost update the token
+    exists to prevent. Every draft mutation takes the lock; reads don't.
+    """
+    statement = select(Module).where(Module.id == module_id)
+    if for_update:
+        statement = statement.with_for_update()
+    module = (await db.execute(statement)).scalar_one_or_none()
     if module is None:
         raise _MODULE_NOT_FOUND
     return module
@@ -304,7 +312,7 @@ async def create_page(
     db: AsyncSession = Depends(get_db),
     author: User = Depends(require_content_manager),
 ) -> PagesResponse:
-    module = await _get_module(db, module_id)
+    module = await _get_module(db, module_id, for_update=True)
     document, search_text = _validated_body(payload.body, payload.schema_version)
 
     page_count = (
@@ -346,7 +354,7 @@ async def reorder_pages(
     db: AsyncSession = Depends(get_db),
     author: User = Depends(require_content_manager),
 ) -> PagesResponse:
-    module = await _get_module(db, module_id)
+    module = await _get_module(db, module_id, for_update=True)
     pages = await _module_pages(db, module.id)
     by_id = {page.id: page for page in pages}
 
@@ -376,7 +384,7 @@ async def update_page(
     db: AsyncSession = Depends(get_db),
     author: User = Depends(require_content_manager),
 ) -> PagesResponse:
-    module = await _get_module(db, module_id)
+    module = await _get_module(db, module_id, for_update=True)
     page = await _get_page(db, module.id, page_id)
 
     validated: tuple[dict[str, Any], str] | None = None
@@ -409,7 +417,7 @@ async def delete_page(
     db: AsyncSession = Depends(get_db),
     author: User = Depends(require_content_manager),
 ) -> PagesResponse:
-    module = await _get_module(db, module_id)
+    module = await _get_module(db, module_id, for_update=True)
     page = await _get_page(db, module.id, page_id)
 
     _claim_draft(module, payload.draft_revision, author)

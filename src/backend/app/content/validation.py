@@ -12,7 +12,6 @@ Client-side editor configuration is UX. This module is the control.
 import json
 import re
 from typing import Any
-from urllib.parse import urlparse
 
 from prosemirror.model import Node
 
@@ -30,6 +29,9 @@ MAX_BYTES: int = _LIMITS["maxBytes"]
 
 _HEADING_LEVELS = frozenset(CONSTRAINTS["headingLevels"])
 _LINK_PROTOCOLS = frozenset(protocol.lower() for protocol in CONSTRAINTS["linkProtocols"])
+# The checked-in schema and `_check_link_href` below must agree about which
+# protocols are permitted; this catches a schema edit that forgets the code.
+assert _LINK_PROTOCOLS == {"https:", "mailto:"}, _LINK_PROTOCOLS
 _IMAGE_SRC = re.compile(CONSTRAINTS["imageSrcPattern"])
 
 # The complete set of keys a ProseMirror node may carry in its JSON form.
@@ -286,12 +288,17 @@ def _check_link_href(href: Any) -> None:
             )
         return
 
-    scheme = urlparse(href).scheme.lower()
-    if f"{scheme}:" not in _LINK_PROTOCOLS:
-        raise DocumentValidationError(
-            "bad_href",
-            "A link must be an https: URL, a mailto: address, or a site-relative path.",
-        )
+    # Matched as a literal prefix rather than by parsing out a scheme: an
+    # `https:` with no authority (`https:evil`) parses as scheme "https" but
+    # resolves relative to the current host, which is not what "an https: URL"
+    # is meant to permit here.
+    lowered = href.lower()
+    if lowered.startswith(("https://", "mailto:")):
+        return
+    raise DocumentValidationError(
+        "bad_href",
+        "A link must be an https: URL, a mailto: address, or a site-relative path.",
+    )
 
 
 def _check_image_src(src: Any) -> None:
@@ -303,7 +310,7 @@ def _check_image_src(src: Any) -> None:
     """
     if not isinstance(src, str) or src == "":
         raise DocumentValidationError("bad_src", "An image needs a `src`.")
-    if _CONTROL_CHARACTERS.search(src) or not _IMAGE_SRC.match(src):
+    if _CONTROL_CHARACTERS.search(src) or not _IMAGE_SRC.fullmatch(src):
         raise DocumentValidationError(
             "bad_src", "An image `src` must be one of this platform's own asset paths."
         )

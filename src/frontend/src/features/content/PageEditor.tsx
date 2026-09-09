@@ -1,5 +1,5 @@
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { pageExtensions } from "../../content/extensions";
@@ -183,12 +183,9 @@ export function PageEditor({ document, onChange }: Props) {
     onUpdate: ({ editor: instance }) => onChange(instance.getJSON() as PageDocument),
   });
 
-  useEffect(() => {
-    return () => {
-      editor?.destroy();
-    };
-  }, [editor]);
-
+  // No teardown effect here: `useEditor` destroys the instance on unmount
+  // itself, and doing it again risks tearing down an editor the hook still
+  // holds a reference to.
   if (!editor) return null;
 
   return (

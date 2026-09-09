@@ -15,14 +15,17 @@ const FRONTEND_ROOT = process.cwd();
  */
 describe("the ban on dangerouslySetInnerHTML", () => {
   it("holds across the whole frontend source tree", () => {
+    // Matches the prop as it would actually be written — `git grep` on the
+    // bare word also hits the comments explaining why the ban exists, and a
+    // rule that punishes documenting itself is a rule people delete.
     // `git grep` exits 1 when nothing matches, which is the passing case, so
     // the exit status is read rather than allowed to throw. This file is
-    // excluded because it necessarily names the thing it bans.
+    // excluded because it necessarily spells out the thing it bans.
     const result = run("git", [
       "grep",
-      "-l",
+      "-lE",
       "--",
-      "dangerouslySetInnerHTML",
+      String.raw`dangerouslySetInnerHTML\s*[=:]`,
       "--",
       "src",
       ":(exclude)src/content/renderPath.test.ts",

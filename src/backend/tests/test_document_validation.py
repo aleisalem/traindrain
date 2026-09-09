@@ -146,6 +146,11 @@ def test_an_unknown_key_on_a_node_is_rejected() -> None:
         "//evil.example.com/x",
         "/\\evil.example.com/x",
         "file:///etc/passwd",
+        # Parses as scheme "https" but has no authority, so a browser resolves
+        # it against the current host rather than as the external URL it looks
+        # like — not what "an https: URL" is meant to permit.
+        "https:evil.example.com",
+        "https:/evil.example.com",
         "",
     ],
 )
