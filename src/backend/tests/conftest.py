@@ -113,6 +113,14 @@ class FakeS3Client:
         self.objects[kwargs["Key"]] = kwargs
         return {"ETag": "fake-etag"}
 
+    def copy_object(self, **kwargs: Any) -> dict[str, str]:
+        source = kwargs["CopySource"]["Key"]
+        # Faithful to the real thing in the way that matters here: the copy is
+        # the source's bytes and headers under a new key, so a test can assert
+        # a duplicated module's objects are its own rather than shared.
+        self.objects[kwargs["Key"]] = {**self.objects[source], "Key": kwargs["Key"]}
+        return {}
+
     def delete_object(self, **kwargs: Any) -> dict[str, str]:
         self.objects.pop(kwargs["Key"], None)
         return {}

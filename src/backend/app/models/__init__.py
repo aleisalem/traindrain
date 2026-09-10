@@ -8,6 +8,7 @@ from app.models.module import (
     ModuleEditSession,
     ModulePage,
     ModuleTranslationGroup,
+    ModuleVersion,
 )
 from app.models.password_reset_token import PasswordResetToken
 from app.models.role import Role, user_roles
@@ -26,6 +27,7 @@ __all__ = [
     "ModuleEditSession",
     "ModulePage",
     "ModuleTranslationGroup",
+    "ModuleVersion",
     "PasswordResetToken",
     "RecoveryCode",
     "Role",

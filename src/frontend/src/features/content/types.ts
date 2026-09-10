@@ -15,8 +15,11 @@ export type ModuleAsset = {
   original_filename: string;
   uploaded_by: ModuleActor;
   created_at: string;
-  /** How many of this module's pages embed it, so a delete is an informed one. */
+  /** How many of this module's draft pages reference it, so a delete is an informed one. */
   referenced_by_pages: number;
+  /** How many published versions reference it — the heavier warning, since a
+   *  snapshot is immutable and cannot be edited to remove the reference. */
+  referenced_by_versions: number;
 };
 
 export type ModuleAssetsBody = {
@@ -35,8 +38,24 @@ export type ModuleBody = {
   description: string | null;
   estimated_duration_minutes: number | null;
   status: string;
+  /** The version learners are reading; `null` until the first publish. */
+  current_version_number: number | null;
   created_by: ModuleActor;
   last_edited_by: ModuleActor;
   created_at: string;
   updated_at: string;
+};
+
+/** Is this a typo fix, or does everyone have to read the module again? */
+export type RevisionKind = "minor" | "substantive";
+
+export type ModuleVersion = {
+  id: string;
+  version_number: number;
+  revision_kind: RevisionKind;
+  published_at: string;
+  published_by: ModuleActor;
+  /** The title as it stood at publish time, not as it reads today. */
+  title: string;
+  page_count: number;
 };

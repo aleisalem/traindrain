@@ -24,6 +24,8 @@ from app.core.config import get_settings
 class S3Client(Protocol):
     def put_object(self, **kwargs: Any) -> Any: ...
 
+    def copy_object(self, **kwargs: Any) -> Any: ...
+
     def delete_object(self, **kwargs: Any) -> Any: ...
 
     def generate_presigned_url(self, operation: str, **kwargs: Any) -> str: ...
@@ -90,6 +92,28 @@ async def put_asset(
         s3_client.put_object(**arguments)
 
     await run_in_threadpool(_put)
+
+
+async def copy_asset(s3_client: S3Client, *, source_key: str, key: str) -> None:
+    """Duplicate a stored object under a new key.
+
+    Server-side, so the bytes never travel through the application to be
+    written back out. The copy keeps the source's content type and
+    `Content-Disposition` — those were decided by the sniffer when the original
+    was accepted, and re-deriving them here would be a second, weaker answer to
+    a question already settled.
+    """
+    settings = get_settings()
+
+    def _copy() -> None:
+        s3_client.copy_object(
+            Bucket=settings.assets_bucket,
+            CopySource={"Bucket": settings.assets_bucket, "Key": source_key},
+            Key=key,
+            ServerSideEncryption="AES256",
+        )
+
+    await run_in_threadpool(_copy)
 
 
 async def delete_asset(s3_client: S3Client, *, key: str) -> None:

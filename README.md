@@ -161,11 +161,31 @@ Release 1 (learning modules) is in progress. So far:
   outright** as a script-execution vector; `docx`/`xlsx`/`pptx` are verified against the OOXML part
   declared inside the archive, which keeps macro-enabled formats out; per-file (5 MB image, 20 MB
   attachment) and per-module (100 MB) caps are enforced before anything is persisted. Deleting an
-  asset deletes the stored object, and the UI says how many pages still embed it first. Full
+  asset deletes the stored object, and the UI says how many pages still embed it first —
+  and, since publishing, how many **published versions** do, which is the heavier warning
+  because a version snapshot is immutable and cannot be edited to remove the reference. Full
   details in [docs/module-assets.md](docs/module-assets.md). Frontend:
   `src/frontend/src/features/content/ModuleAssetsPanel.tsx` and `useModuleAssets.ts`.
 
-The rest of Release 1 — publishing, assignment, the learner viewer — is still to come.
+- Publishing, version snapshots, unpublish, and duplicate: `POST /api/content/modules/{id}/publish`
+  freezes the module's current pages (plus its title, description, and language) into an
+  **immutable** `module_versions` row and repoints `modules.current_version_id` at it, so editing a
+  published module edits the draft and nobody sees the work-in-progress until the next publish.
+  Every publish requires an explicit `revision_kind` of `minor` or `substantive` — there is no
+  default, so a request that omits it is a 422 and the publish dialog's two radios both start
+  unchecked. Version rows are immutable in the database, not just by convention: a `BEFORE UPDATE`
+  trigger refuses any update to one. `POST .../unpublish` returns a published module to `draft`
+  reversibly, keeping every page, version, and stored file (and leaving `current_version_id` in
+  place, so an existing completion record still resolves); `POST .../duplicate` produces a fresh
+  unpublished draft in its own new translation group, with its own copies of the pages and of the
+  stored asset objects — the copied pages' `src` attributes are rewritten to the duplicate's own
+  assets, so deleting the original can never blank out the copy. `GET .../versions` lists the
+  history for authors. `module_published`, `module_unpublished`, and `module_duplicated` are
+  audit-logged, publishes carrying `version_number` and `revision_kind`. Full details in
+  [docs/module-publishing.md](docs/module-publishing.md). Frontend:
+  `src/frontend/src/features/content/ModulePublishPanel.tsx` and `PublishDialog.tsx`.
+
+The rest of Release 1 — assignment, the learner viewer — is still to come.
 
 ## Project structure
 
@@ -188,7 +208,7 @@ src/
       features/auth/   Login / forced-password-change / forgot-, reset-password, and 2FA-verify UI, auth state hook
       features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page, groups page)
       features/content/  Content Manager authoring area (module list, metadata form, page editor,
-                         preview, image/attachment panel)
+                         preview, image/attachment panel, publish/version panel)
       content/         The checked-in ProseMirror schema and the Tiptap extension set built from it
       features/invites/  Public accept-invite page (set password, no session required)
       features/twoFactor/  Self-service TOTP enroll/disable UI (QR code, recovery codes)

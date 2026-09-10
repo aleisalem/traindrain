@@ -16,6 +16,7 @@ const MODULE = {
   description: "Wie man Phishing erkennt.",
   estimated_duration_minutes: 15,
   status: "draft",
+  current_version_number: null,
   created_by: { id: "user-1", display_name: "Cora Manager" },
   last_edited_by: { id: "user-1", display_name: "Cora Manager" },
   created_at: "2026-09-01T00:00:00Z",

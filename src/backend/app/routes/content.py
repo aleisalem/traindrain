@@ -1,6 +1,7 @@
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete, func, select
@@ -16,9 +17,19 @@ from app.content import (
     validate_document,
 )
 from app.db import get_db
-from app.dependencies import get_module_or_404, require_content_manager
-from app.models import Module, ModuleEditSession, ModulePage, ModuleTranslationGroup, User
+from app.dependencies import get_module_or_404, get_s3_client, require_content_manager
+from app.models import (
+    Module,
+    ModuleAsset,
+    ModuleEditSession,
+    ModulePage,
+    ModuleTranslationGroup,
+    ModuleVersion,
+    User,
+)
+from app.routes.assets import asset_url
 from app.schemas.modules import (
+    DuplicateRequest,
     ModuleActor,
     ModuleCreateRequest,
     ModuleEditorsResponse,
@@ -30,10 +41,16 @@ from app.schemas.modules import (
     PageResponse,
     PagesResponse,
     PageUpdateRequest,
+    PublishRequest,
+    RevisionKind,
+    VersionResponse,
 )
 from app.security.audit import record_audit_log
+from app.storage import S3Client, copy_asset, delete_asset, object_key
 
 router = APIRouter(prefix="/api/content", tags=["content"])
+
+logger = logging.getLogger(__name__)
 
 _PAGE_NOT_FOUND = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page not found.")
 _MAX_PAGES: int = CONSTRAINTS["limits"]["maxPagesPerModule"]
@@ -55,7 +72,24 @@ async def _actors_by_id(db: AsyncSession, modules: list[Module]) -> dict[uuid.UU
     return {user.id: ModuleActor.from_user(user) for user in users}
 
 
-def _to_module_response(module: Module, actors: dict[uuid.UUID, ModuleActor]) -> ModuleResponse:
+async def _version_numbers(db: AsyncSession, modules: list[Module]) -> dict[uuid.UUID, int]:
+    """Resolve every module's current version number in one query, not per row."""
+    version_ids = {module.current_version_id for module in modules} - {None}
+    if not version_ids:
+        return {}
+    rows = await db.execute(
+        select(ModuleVersion.id, ModuleVersion.version_number).where(
+            ModuleVersion.id.in_(version_ids)
+        )
+    )
+    return {row.id: row.version_number for row in rows}
+
+
+def _to_module_response(
+    module: Module,
+    actors: dict[uuid.UUID, ModuleActor],
+    version_numbers: dict[uuid.UUID, int],
+) -> ModuleResponse:
     return ModuleResponse(
         id=module.id,
         translation_group_id=module.translation_group_id,
@@ -64,11 +98,33 @@ def _to_module_response(module: Module, actors: dict[uuid.UUID, ModuleActor]) ->
         description=module.description,
         estimated_duration_minutes=module.estimated_duration_minutes,
         status=module.status,
+        current_version_number=(
+            version_numbers.get(module.current_version_id)
+            if module.current_version_id
+            else None
+        ),
         created_by=actors[module.created_by],
         last_edited_by=actors[module.last_edited_by],
         created_at=module.created_at,
         updated_at=module.updated_at,
     )
+
+
+async def _module_responses(db: AsyncSession, modules: list[Module]) -> list[ModuleResponse]:
+    actors = await _actors_by_id(db, modules)
+    version_numbers = await _version_numbers(db, modules)
+    return [_to_module_response(module, actors, version_numbers) for module in modules]
+
+
+async def _module_response(db: AsyncSession, module: Module) -> ModuleResponse:
+    return (await _module_responses(db, [module]))[0]
+
+
+async def _current_version_number(db: AsyncSession, module: Module) -> int | None:
+    """The version number learners are reading, or `None` before the first publish."""
+    if module.current_version_id is None:
+        return None
+    return (await _version_numbers(db, [module])).get(module.current_version_id)
 
 
 async def _get_page(db: AsyncSession, module_id: uuid.UUID, page_id: uuid.UUID) -> ModulePage:
@@ -94,8 +150,7 @@ async def list_modules(
     modules = list(
         (await db.execute(select(Module).order_by(Module.created_at.desc()))).scalars()
     )
-    actors = await _actors_by_id(db, modules)
-    return [_to_module_response(module, actors) for module in modules]
+    return await _module_responses(db, modules)
 
 
 @router.post("/modules", response_model=ModuleResponse, status_code=status.HTTP_201_CREATED)
@@ -140,8 +195,7 @@ async def create_module(
     await db.commit()
     await db.refresh(module)
 
-    actors = await _actors_by_id(db, [module])
-    return _to_module_response(module, actors)
+    return await _module_response(db, module)
 
 
 @router.get("/modules/{module_id}", response_model=ModuleResponse)
@@ -151,8 +205,7 @@ async def get_module(
     author: User = Depends(require_content_manager),
 ) -> ModuleResponse:
     module = await get_module_or_404(db, module_id)
-    actors = await _actors_by_id(db, [module])
-    return _to_module_response(module, actors)
+    return await _module_response(db, module)
 
 
 @router.patch("/modules/{module_id}", response_model=ModuleResponse)
@@ -184,8 +237,7 @@ async def update_module(
     await db.commit()
     await db.refresh(module)
 
-    actors = await _actors_by_id(db, [module])
-    return _to_module_response(module, actors)
+    return await _module_response(db, module)
 
 
 # --- Page authoring -------------------------------------------------------
@@ -414,6 +466,379 @@ async def delete_page(
 
     await db.commit()
     return await _pages_response(db, module)
+
+
+# --- Publishing -----------------------------------------------------------
+#
+# The line between what an author is working on and what a learner reads.
+#
+# `module_pages` is always the draft, whatever the module's status. Publishing
+# freezes a copy of it into an immutable `module_versions` row and repoints
+# `current_version_id` at that row, so a revision to a live module is invisible
+# until the author says otherwise — and so a completion record can later name
+# exactly which text somebody read, rather than pointing at material that has
+# moved on since.
+
+
+def _build_snapshot(module: Module, pages: list[ModulePage]) -> dict[str, Any]:
+    """Everything a learner reads at this version, frozen.
+
+    Page ids travel into the snapshot because ticket 5's progress tracking
+    records which pages a learner has seen: those ids have to mean the same
+    thing on the next request, and a position in an array would not survive the
+    author reordering the draft underneath them.
+    """
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "title": module.title,
+        "description": module.description,
+        "language": module.language,
+        "estimated_duration_minutes": module.estimated_duration_minutes,
+        "pages": [
+            {
+                "id": str(page.id),
+                "position": page.position,
+                "title": page.title,
+                "schema_version": page.schema_version,
+                "body": page.body,
+            }
+            for page in pages
+        ],
+    }
+
+
+@router.post("/modules/{module_id}/publish", response_model=ModuleResponse)
+async def publish_module(
+    module_id: uuid.UUID,
+    payload: PublishRequest,
+    db: AsyncSession = Depends(get_db),
+    author: User = Depends(require_content_manager),
+) -> ModuleResponse:
+    """Freeze the draft into a new version and point learners at it.
+
+    `revision_kind` is required — see `PublishRequest`. Recording it is all
+    this ticket does with it; ticket 7 is where `substantive` starts dragging
+    completed learners back through the material, once there is an assignment
+    to scope that to.
+    """
+    # The row lock is what makes version numbering safe: two simultaneous
+    # publishes would otherwise both read "the highest version is 2" and both
+    # try to write a 3.
+    module = await get_module_or_404(db, module_id, for_update=True)
+    pages = await _module_pages(db, module.id)
+    if not pages:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "empty_module",
+                "message": "Add at least one page before publishing this module.",
+            },
+        )
+
+    highest = (
+        await db.execute(
+            select(func.coalesce(func.max(ModuleVersion.version_number), 0)).where(
+                ModuleVersion.module_id == module.id
+            )
+        )
+    ).scalar_one()
+
+    version = ModuleVersion(
+        module_id=module.id,
+        version_number=highest + 1,
+        published_by=author.id,
+        revision_kind=payload.revision_kind,
+        snapshot=_build_snapshot(module, pages),
+    )
+    db.add(version)
+    await db.flush()
+
+    module.status = "published"
+    module.current_version_id = version.id
+
+    await record_audit_log(
+        db,
+        actor_user_id=author.id,
+        action="module_published",
+        detail={
+            "module_id": str(module.id),
+            "title": module.title,
+            "version_number": version.version_number,
+            "revision_kind": version.revision_kind,
+            "page_count": len(pages),
+        },
+    )
+    await db.commit()
+    await db.refresh(module)
+    return await _module_response(db, module)
+
+
+@router.post("/modules/{module_id}/unpublish", response_model=ModuleResponse)
+async def unpublish_module(
+    module_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    author: User = Depends(require_content_manager),
+) -> ModuleResponse:
+    """Take a module out of circulation without destroying anything.
+
+    Reversible by design, and the opposite of ticket 11's delete: no page, no
+    version, and no stored file is touched. `current_version_id` deliberately
+    keeps pointing at the last published version, so a completion record
+    against it still resolves while the module is out of circulation.
+
+    Republishing is an ordinary publish, not a restore: it snapshots the draft
+    as it stands now and writes the next version. That is the safe direction —
+    flipping the status back would silently publish whatever was written to the
+    draft in the meantime, under a version number that predates it.
+    """
+    module = await get_module_or_404(db, module_id, for_update=True)
+    if module.status != "published":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "not_published",
+                "message": "This module is not published.",
+            },
+        )
+
+    module.status = "draft"
+    version_number = await _current_version_number(db, module)
+
+    await record_audit_log(
+        db,
+        actor_user_id=author.id,
+        action="module_unpublished",
+        detail={
+            "module_id": str(module.id),
+            "title": module.title,
+            "version_number": version_number,
+        },
+    )
+    await db.commit()
+    await db.refresh(module)
+    return await _module_response(db, module)
+
+
+# The attributes a page body can point at an asset with. `src` is an embedded
+# image; `href` is a link to one, which the schema permits because an asset URL
+# is a site-relative path — the assets panel shows the author exactly that URL,
+# so a page linking a policy PDF is ordinary authored content, not an edge case.
+_ASSET_REFERENCE_ATTRIBUTES = frozenset({"src", "href"})
+
+
+def _rewrite_asset_references(value: Any, urls: dict[str, str]) -> Any:
+    """Repoint a copied page's asset references at the copy's own assets.
+
+    A duplicate owns its own asset rows and its own stored objects, so leaving
+    the copied pages pointing at the original's would make the two modules
+    share files — and deleting the original would then silently empty the
+    copy's pages and break its links. Matched against the exact URLs of the
+    source module's own assets, so nothing else in the tree that happens to
+    look like a path is touched.
+    """
+    if isinstance(value, dict):
+        return {
+            key: urls[item]
+            if key in _ASSET_REFERENCE_ATTRIBUTES and isinstance(item, str) and item in urls
+            else _rewrite_asset_references(item, urls)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_rewrite_asset_references(item, urls) for item in value]
+    return value
+
+
+async def _duplicate_assets(
+    db: AsyncSession,
+    s3_client: S3Client,
+    *,
+    source: Module,
+    copy: Module,
+    author: User,
+) -> dict[str, str]:
+    """Give the copy its own asset rows and its own stored objects.
+
+    Returns the source's asset URLs mapped to the copy's, for rewriting the
+    page bodies with.
+    """
+    source_assets = (
+        await db.execute(
+            select(ModuleAsset)
+            .where(ModuleAsset.module_id == source.id)
+            .order_by(ModuleAsset.created_at)
+        )
+    ).scalars()
+
+    asset_urls: dict[str, str] = {}
+    object_copies: list[tuple[str, str]] = []
+    for asset in source_assets:
+        new_id = uuid.uuid4()
+        key = object_key(copy.id, new_id)
+        db.add(
+            ModuleAsset(
+                id=new_id,
+                module_id=copy.id,
+                kind=asset.kind,
+                object_key=key,
+                # The sniffer already decided what these bytes are, when the
+                # original was accepted. Re-deriving it here would be a second,
+                # weaker answer to a settled question.
+                content_type=asset.content_type,
+                size_bytes=asset.size_bytes,
+                original_filename=asset.original_filename,
+                uploaded_by=author.id,
+            )
+        )
+        asset_urls[asset_url(source.id, asset.id)] = asset_url(copy.id, new_id)
+        object_copies.append((asset.object_key, key))
+    await db.flush()
+
+    copied: list[str] = []
+    try:
+        for source_key, key in object_copies:
+            # Before the commit, as everywhere else assets are written: if the
+            # store refuses, the transaction rolls back and no row is left
+            # describing an object that was never created.
+            await copy_asset(s3_client, source_key=source_key, key=key)
+            copied.append(key)
+    except Exception:
+        # The rollback undoes the rows, but it cannot reach into the object
+        # store — so the objects already written have to be taken back by hand,
+        # or a failed duplicate leaves a private bucket accumulating files
+        # nothing can enumerate. Best effort: the original failure is what the
+        # caller needs to see, so a failure to clean up must not replace it.
+        for key in copied:
+            try:
+                await delete_asset(s3_client, key=key)
+            except Exception:
+                logger.exception("Could not remove a copied asset object: %s", key)
+        raise
+
+    return asset_urls
+
+
+async def _duplicate_pages(db: AsyncSession, *, source: Module, copy: Module, urls: dict[str, str]) -> None:
+    """Copy the source's pages, repointed at the copy's own assets."""
+    for page in await _module_pages(db, source.id):
+        # Re-validated, so the invariant that everything in `module_pages` has
+        # been through the validator holds on this path too, and what is stored
+        # is the validator's canonical document exactly as on the write path. A
+        # failure here is a bug in the rewrite above, not something a client
+        # did, so it is left to surface as one rather than dressed up as a 422.
+        body = validate_document(_rewrite_asset_references(page.body, urls))
+        db.add(
+            ModulePage(
+                module_id=copy.id,
+                position=page.position,
+                title=page.title,
+                body=body,
+                schema_version=page.schema_version,
+                search_config=page.search_config,
+                search_text=page.search_text,
+            )
+        )
+
+
+@router.post(
+    "/modules/{module_id}/duplicate",
+    response_model=ModuleResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def duplicate_module(
+    module_id: uuid.UUID,
+    payload: DuplicateRequest,
+    db: AsyncSession = Depends(get_db),
+    author: User = Depends(require_content_manager),
+    s3_client: S3Client = Depends(get_s3_client),
+) -> ModuleResponse:
+    """A fresh, independent draft based on material that already works.
+
+    Independent in every direction: its own translation group (so it is not a
+    language variant of the original), its own pages, and its own copies of the
+    stored asset objects. Nothing the author does to the copy can reach back
+    into the original, which is the whole point of duplicating rather than
+    editing.
+    """
+    source = await get_module_or_404(db, module_id)
+
+    group = ModuleTranslationGroup()
+    db.add(group)
+    await db.flush()
+
+    copy = Module(
+        translation_group_id=group.id,
+        # Fixed at creation on the original and fixed here too: the copy's
+        # pages are indexed under the same text-search configuration.
+        language=source.language,
+        title=payload.title or source.title,
+        description=source.description,
+        estimated_duration_minutes=source.estimated_duration_minutes,
+        created_by=author.id,
+        last_edited_by=author.id,
+    )
+    db.add(copy)
+    await db.flush()
+    group.primary_module_id = copy.id
+
+    asset_urls = await _duplicate_assets(
+        db, s3_client, source=source, copy=copy, author=author
+    )
+    await _duplicate_pages(db, source=source, copy=copy, urls=asset_urls)
+
+    await record_audit_log(
+        db,
+        actor_user_id=author.id,
+        action="module_duplicated",
+        detail={
+            "module_id": str(copy.id),
+            "source_module_id": str(source.id),
+            "title": copy.title,
+            "language": copy.language,
+        },
+    )
+    await db.commit()
+    await db.refresh(copy)
+    return await _module_response(db, copy)
+
+
+@router.get("/modules/{module_id}/versions", response_model=list[VersionResponse])
+async def list_versions(
+    module_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    author: User = Depends(require_content_manager),
+) -> list[VersionResponse]:
+    """A module's publish history, newest first."""
+    module = await get_module_or_404(db, module_id)
+    versions = list(
+        (
+            await db.execute(
+                select(ModuleVersion)
+                .where(ModuleVersion.module_id == module.id)
+                .order_by(ModuleVersion.version_number.desc())
+            )
+        ).scalars()
+    )
+
+    publisher_ids = {version.published_by for version in versions}
+    publishers: dict[uuid.UUID, ModuleActor] = {}
+    if publisher_ids:
+        users = (await db.execute(select(User).where(User.id.in_(publisher_ids)))).scalars()
+        publishers = {user.id: ModuleActor.from_user(user) for user in users}
+
+    return [
+        VersionResponse(
+            id=version.id,
+            version_number=version.version_number,
+            # The row's CHECK constraint is what makes this narrowing sound;
+            # nothing else can have been written.
+            revision_kind=cast(RevisionKind, version.revision_kind),
+            published_at=version.published_at,
+            published_by=publishers[version.published_by],
+            title=version.snapshot.get("title", ""),
+            page_count=len(version.snapshot.get("pages", [])),
+        )
+        for version in versions
+    ]
 
 
 # --- Presence -------------------------------------------------------------

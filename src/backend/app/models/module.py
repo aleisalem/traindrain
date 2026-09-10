@@ -79,6 +79,19 @@ class Module(Base):
     catalog_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # draft | published | deleted — `deleted` is terminal.
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    # The snapshot learners read. Never the draft: editing a published module
+    # edits `module_pages`, and nobody sees that work until the next publish
+    # repoints this. Left pointing at the last version on unpublish, so the
+    # history stays resolvable and republishing is a status change.
+    current_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "module_versions.id",
+            use_alter=True,
+            name="fk_modules_current_version",
+            ondelete="SET NULL",
+        ),
+    )
     # Optimistic-lock token for draft mutations, so two Content Managers
     # editing the same draft get a conflict rather than a lost edit.
     draft_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -143,6 +156,46 @@ class ModulePage(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class ModuleVersion(Base):
+    """An immutable snapshot of one module at the moment it was published.
+
+    Learners never read `module_pages` — those are the working draft. They read
+    the snapshot the module's `current_version_id` points at, which is why an
+    author can revise a live module without anyone seeing a half-finished edit.
+
+    Immutable is meant literally: a `BEFORE UPDATE` trigger in the database
+    refuses any update to a row here. A version is the evidence of what a
+    learner was made to read, and evidence that can be edited afterwards is not
+    evidence. Only ticket 11's module delete removes one, by cascade.
+    """
+
+    __tablename__ = "module_versions"
+    __table_args__ = (
+        UniqueConstraint("module_id", "version_number", name="uq_module_versions_number"),
+        Index("ix_module_versions_module_number", "module_id", "version_number"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    module_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("modules.id", ondelete="CASCADE"), nullable=False
+    )
+    # 1, 2, 3… per module, so "Anna completed v2" is a thing a person can say.
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    published_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    published_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    # minor | substantive — the author's answer to "does everyone have to read
+    # this again?". Recorded here; acted on in ticket 7, where a live
+    # assignment exists to scope it to.
+    revision_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Title, description, language, estimated duration, and the full page
+    # array — including each page's id — as they stood at publish time.
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
 
 
 class ModuleAsset(Base):

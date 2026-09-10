@@ -15,6 +15,11 @@ ModuleLanguage = Literal["en", "de"]
 # constraint would otherwise be the only thing refusing it.
 AssetKind = Literal["image", "attachment"]
 
+# Does everyone have to read this again? A Literal with no default, so the
+# question cannot be answered by omission — publishing without deciding is a
+# 422, not a quiet `minor`.
+RevisionKind = Literal["minor", "substantive"]
+
 
 class ModuleCreateRequest(BaseModel):
     # extra="forbid" is what makes an attempt to smuggle `created_by`,
@@ -196,10 +201,14 @@ class AssetResponse(BaseModel):
     original_filename: str
     uploaded_by: ModuleActor
     created_at: datetime
-    # How many of this module's pages embed this asset. Shown so an author
-    # deleting an image knows they are about to leave a gap on a page, rather
-    # than discovering it in the preview afterwards.
+    # How many of this module's draft pages reference this asset. Shown so an
+    # author deleting an image knows they are about to leave a gap on a page,
+    # rather than discovering it in the preview afterwards.
     referenced_by_pages: int
+    # How many *published versions* reference it. A far heavier warning: a
+    # version snapshot is immutable, so an asset deleted out from under one
+    # leaves a hole in material learners are reading that no edit can repair.
+    referenced_by_versions: int
 
 
 class AssetsResponse(BaseModel):
@@ -212,6 +221,61 @@ class AssetsResponse(BaseModel):
     max_attachment_bytes: int
 
 
+class PublishRequest(BaseModel):
+    """The one question a publish cannot dodge.
+
+    `revision_kind` is required and has no default: whether a revision drags
+    every completed learner back through the module is the author's call, and a
+    default here would be the system quietly making it for them.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    revision_kind: RevisionKind
+
+
+class DuplicateRequest(BaseModel):
+    """An optional new title for the copy.
+
+    The title is supplied by the caller rather than suffixed server-side,
+    because "(copy)" is a word — and a platform that ships in English and
+    German has no business inventing one in a single language.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+
+    @field_validator("title")
+    @classmethod
+    def _title_not_blank(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("A module needs a title.")
+        return value
+
+
+class VersionResponse(BaseModel):
+    """One entry of a module's publish history.
+
+    Deliberately without the snapshot itself: the history screen wants to know
+    what happened and when, and shipping every published page array to render a
+    list would be pounds of payload for a line of text.
+    """
+
+    id: uuid.UUID
+    version_number: int
+    revision_kind: RevisionKind
+    published_at: datetime
+    published_by: ModuleActor
+    # The title as it stood at publish time — a module renamed since then still
+    # shows history under the names it actually went out with.
+    title: str
+    page_count: int
+
+
 class ModuleResponse(BaseModel):
     id: uuid.UUID
     translation_group_id: uuid.UUID
@@ -220,6 +284,9 @@ class ModuleResponse(BaseModel):
     description: str | None
     estimated_duration_minutes: int | None
     status: str
+    # The version learners are reading, or were reading when the module was
+    # unpublished. `None` until the first publish.
+    current_version_number: int | None
     created_by: ModuleActor
     last_edited_by: ModuleActor
     created_at: datetime

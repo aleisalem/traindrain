@@ -120,9 +120,16 @@ function AssetRow({
       {confirming ? (
         <span className="flex items-center gap-2">
           <span className="text-xs text-fg-muted">
-            {asset.referenced_by_pages > 0
-              ? t("assets.confirm_delete_in_use", { count: asset.referenced_by_pages })
-              : t("assets.confirm_delete")}
+            {/* A published version referencing it is the heavier warning and
+                wins the line: a snapshot is immutable, so unlike a draft page
+                there is no edit that could repair the hole afterwards. */}
+            {asset.referenced_by_versions > 0
+              ? t("assets.confirm_delete_in_version", {
+                  count: asset.referenced_by_versions,
+                })
+              : asset.referenced_by_pages > 0
+                ? t("assets.confirm_delete_in_use", { count: asset.referenced_by_pages })
+                : t("assets.confirm_delete")}
           </span>
           <button
             type="button"

@@ -80,16 +80,16 @@ Publishing writes an immutable version snapshot so that, later, a completion rec
 
 **Blocked by:** 3
 
-- [ ] Migration creates `module_versions` (`version_number`, `published_at`, `published_by`, `revision_kind`, `snapshot jsonb` holding the full page array plus title, description, and language at publish time) and adds `current_version_id` to `modules`
-- [ ] `POST /api/content/modules/{id}/publish` requires an explicit `revision_kind` of `minor` or `substantive`, writes a new version row, and repoints `current_version_id`; version rows are never updated or deleted after they are written
-- [ ] `POST /api/content/modules/{id}/unpublish` returns a published module to `draft`: it stops being assignable and leaves the catalog, fully reversibly, with history untouched
-- [ ] `POST /api/content/modules/{id}/duplicate` produces a new unpublished draft copying metadata, pages, and assets, in its own new translation group
-- [ ] `GET /api/content/modules/{id}/versions` lists version history for authors
-- [ ] The publish dialog forces the minor/substantive choice explicitly — there is no default that lets an author publish without deciding
-- [ ] `module_published`, `module_unpublished`, and `module_duplicated` audit entries carry `version_number` and `revision_kind` where applicable
-- [ ] Backend tests: draft edits after a publish do not change the published snapshot; a second publish writes a second version and repoints `current_version_id`; a version row is immutable thereafter; unpublish reverses cleanly and republish works; a duplicate is an independent draft whose edits do not touch the original
-- [ ] Frontend test: the publish flow including the minor/substantive choice
-- [ ] README updated
+- [x] Migration creates `module_versions` (`version_number`, `published_at`, `published_by`, `revision_kind`, `snapshot jsonb` holding the full page array plus title, description, and language at publish time) and adds `current_version_id` to `modules`. Page **ids** are in the snapshot too, because ticket 5's progress rows key on them and a position in an array would not survive a reorder of the draft
+- [x] `POST /api/content/modules/{id}/publish` requires an explicit `revision_kind` of `minor` or `substantive`, writes a new version row, and repoints `current_version_id`. Immutability is enforced by a `BEFORE UPDATE` trigger in the database rather than by every future route remembering not to touch the row — `DELETE` stays possible on purpose, because ticket 11's module delete has to purge snapshots. Publishing a module with no pages is a 409 (`empty_module`)
+- [x] `POST /api/content/modules/{id}/unpublish` returns a published module to `draft`: it stops being assignable and leaves the catalog, fully reversibly, with history untouched. `current_version_id` deliberately keeps pointing at the last published version, so a completion record against it still resolves while the module is out of circulation. Republishing is an ordinary publish, not a restore — it snapshots the draft as it stands now, because flipping the status back would ship whatever had been written to the draft meanwhile under an older version number
+- [x] `POST /api/content/modules/{id}/duplicate` produces a new unpublished draft copying metadata, pages, and assets, in its own new translation group. The stored objects are copied too and the copied pages' `src` **and `href`** attributes rewritten to the duplicate's own assets (a page can link an attachment as well as embed an image) — pages left pointing at the original's would mean deleting the original silently blanks out the copy — and the rewritten bodies go back through the same server-side validator
+- [x] `GET /api/content/modules/{id}/versions` lists version history for authors — without the snapshots themselves, which would be pounds of payload for a line of text
+- [x] The publish dialog forces the minor/substantive choice explicitly — there is no default that lets an author publish without deciding. Enforced on both sides: neither radio starts checked and the confirm button is disabled until one is, and `revision_kind` is a required Literal server-side, so a request that omits it is a 422
+- [x] `module_published`, `module_unpublished`, and `module_duplicated` audit entries carry `version_number` and `revision_kind` where applicable
+- [x] Backend tests: draft edits after a publish do not change the published snapshot; a second publish writes a second version and repoints `current_version_id`; a version row is immutable thereafter; unpublish reverses cleanly and republish works; a duplicate is an independent draft whose edits do not touch the original. 36 tests in `test_module_publishing.py`, including the duplicate's own asset objects, its rewritten `src` and `href` attributes, and the cleanup of already-copied objects when a copy fails part-way
+- [x] Frontend test: the publish flow including the minor/substantive choice
+- [x] README updated, plus `docs/module-publishing.md`
 
 ## 5. Learner module viewer: open catalog, page navigation, progress, attestation
 

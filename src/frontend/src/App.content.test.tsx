@@ -41,6 +41,7 @@ const MODULE = {
   description: "How to spot a phish.",
   estimated_duration_minutes: 15,
   status: "draft",
+  current_version_number: null,
   created_by: { id: CONTENT_MANAGER_USER.id, display_name: "Cora Manager" },
   last_edited_by: { id: CONTENT_MANAGER_USER.id, display_name: "Cora Manager" },
   created_at: "2026-09-01T00:00:00Z",

@@ -43,6 +43,7 @@ function asset(overrides: Record<string, unknown> = {}) {
     uploaded_by: { id: "user-a", display_name: "Cora Manager" },
     created_at: "2026-09-01T00:00:00Z",
     referenced_by_pages: 0,
+    referenced_by_versions: 0,
     ...overrides,
   };
 }
@@ -269,6 +270,26 @@ describe("module assets", () => {
 
     expect(requests.some((request) => request.key === `DELETE ${ASSETS_URL}/asset-a`)).toBe(true);
     expect(await screen.findByText("Nothing uploaded yet.")).toBeInTheDocument();
+  });
+
+  it("warns harder when a published version still shows the image", async () => {
+    // A draft page losing an image is fixable in the editor. A published
+    // version is a frozen snapshot — there is no edit that puts it back.
+    const user = userEvent.setup();
+    queue("GET", PAGES_URL, { status: 200, body: pagesBody(5) });
+    queue("GET", ASSETS_URL, {
+      status: 200,
+      body: assetsBody([asset({ referenced_by_pages: 0, referenced_by_versions: 2 })]),
+    });
+
+    render(<AuthoringSurface />);
+    await user.click(await screen.findByRole("button", { name: "Delete diagram.png" }));
+
+    expect(
+      screen.getByText(
+        "Still shown in 2 published versions, which cannot be edited to remove it — delete anyway?",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("keeps the asset when the author backs out of the confirmation", async () => {

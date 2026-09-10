@@ -58,33 +58,72 @@ def asset_url(module_id: uuid.UUID, asset_id: uuid.UUID) -> str:
     return f"/api/modules/{module_id}/assets/{asset_id}"
 
 
-async def _reference_counts(db: AsyncSession, module_id: uuid.UUID) -> dict[uuid.UUID, int]:
-    """How many of the module's pages embed each of its assets.
+async def _reference_counts(
+    db: AsyncSession, module_id: uuid.UUID
+) -> dict[uuid.UUID, tuple[int, int]]:
+    """Who still points at each of this module's assets: draft pages, and
+    published versions.
 
-    One query rather than one per asset, and matched against the stored
-    document tree with a jsonpath rather than a substring search over the
-    serialized JSON — a `src` is a `src`, not a coincidence in some other
-    string.
+    Two counts rather than one, because they are two different warnings. A
+    draft page losing an image is something the author can see and fix in the
+    editor. A *published* version losing one cannot be fixed at all — a version
+    snapshot is immutable, so the image is simply gone from material learners
+    are reading right now, with no edit available that would put it back.
+
+    Matched against the stored document trees with a jsonpath rather than a
+    substring search over the serialized JSON — a `src` is a `src`, not a
+    coincidence in some other string — and across both the attributes a body
+    can reference an asset with, since a linked PDF breaks exactly as an
+    embedded image does.
     """
     rows = await db.execute(
         text(
             """
-            SELECT a.id AS asset_id, count(p.id) AS pages
-            FROM module_assets a
-            LEFT JOIN module_pages p
-              ON p.module_id = a.module_id
-             AND jsonb_path_exists(
-                   p.body,
-                   '$.**.src ? (@ == $src)',
-                   jsonb_build_object('src', :prefix || a.id::text)
-                 )
-            WHERE a.module_id = :module_id
-            GROUP BY a.id
+            WITH referenced AS (
+                SELECT
+                    a.id AS asset_id,
+                    :prefix || a.id::text AS url
+                FROM module_assets a
+                WHERE a.module_id = :module_id
+            )
+            SELECT
+                r.asset_id,
+                (
+                    SELECT count(*)
+                    FROM module_pages p
+                    WHERE p.module_id = :module_id
+                      AND (
+                        jsonb_path_exists(
+                            p.body, '$.**.src ? (@ == $url)',
+                            jsonb_build_object('url', r.url)
+                        )
+                        OR jsonb_path_exists(
+                            p.body, '$.**.href ? (@ == $url)',
+                            jsonb_build_object('url', r.url)
+                        )
+                      )
+                ) AS pages,
+                (
+                    SELECT count(*)
+                    FROM module_versions v
+                    WHERE v.module_id = :module_id
+                      AND (
+                        jsonb_path_exists(
+                            v.snapshot, '$.**.src ? (@ == $url)',
+                            jsonb_build_object('url', r.url)
+                        )
+                        OR jsonb_path_exists(
+                            v.snapshot, '$.**.href ? (@ == $url)',
+                            jsonb_build_object('url', r.url)
+                        )
+                      )
+                ) AS versions
+            FROM referenced r
             """
         ),
         {"module_id": module_id, "prefix": f"/api/modules/{module_id}/assets/"},
     )
-    return {row.asset_id: row.pages for row in rows}
+    return {row.asset_id: (row.pages, row.versions) for row in rows}
 
 
 async def _assets_response(db: AsyncSession, module: Module) -> AssetsResponse:
@@ -119,7 +158,8 @@ async def _assets_response(db: AsyncSession, module: Module) -> AssetsResponse:
                 original_filename=asset.original_filename,
                 uploaded_by=uploaders[asset.uploaded_by],
                 created_at=asset.created_at,
-                referenced_by_pages=references.get(asset.id, 0),
+                referenced_by_pages=references.get(asset.id, (0, 0))[0],
+                referenced_by_versions=references.get(asset.id, (0, 0))[1],
             )
             for asset in assets
         ],

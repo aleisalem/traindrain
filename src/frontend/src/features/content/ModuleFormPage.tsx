@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ModuleAssetsPanel } from "./ModuleAssetsPanel";
 import { ModuleEditorsPresence } from "./ModuleEditorsPresence";
 import { ModulePagesPanel } from "./ModulePagesPanel";
+import { ModulePublishPanel } from "./ModulePublishPanel";
 import { OverwriteWarningDialog } from "./OverwriteWarningDialog";
 import type { ModuleBody } from "./types";
 import { useModuleAssets } from "./useModuleAssets";
@@ -251,6 +252,9 @@ export function ModuleFormPage() {
           nothing to attach them to until the metadata has been saved once. */}
       {isEdit && moduleId && <ModulePagesPanel moduleId={moduleId} assets={assets} />}
       {isEdit && moduleId && <ModuleAssetsPanel assets={assets} />}
+      {/* Last, and after the pages: publishing is what everything above it is
+          for, and there is nothing to publish before the material exists. */}
+      {isEdit && module && <ModulePublishPanel module={module} onChanged={setModule} />}
 
       {module && (
         <dl className="flex flex-col gap-1 text-sm text-fg-muted">
