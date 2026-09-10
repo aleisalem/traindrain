@@ -241,6 +241,67 @@ class ModuleAsset(Base):
     )
 
 
+class ModuleProgress(Base):
+    """How far one learner has got through one body of material.
+
+    Keyed on the *translation group*, not the module: a learner has one record
+    per body of material however many language variants of it exist, so reading
+    the German variant and then switching to the English one is one journey
+    rather than two (ticket 6). `module_id` records the variant actually read,
+    so a report can say which text somebody was shown.
+
+    Deliberately **not** keyed on an assignment. Progress is something a person
+    did, and it has to survive an assignment being removed or the learner
+    leaving the group it was targeted at — the assignment is looked up at read
+    time (ticket 7) rather than baked into this row.
+    """
+
+    __tablename__ = "module_progress"
+    __table_args__ = (
+        UniqueConstraint("user_id", "translation_group_id", name="uq_module_progress_learner"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    translation_group_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("module_translation_groups.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # The variant actually read. Plain foreign key: a deleted module leaves a
+    # tombstone row behind (ticket 11), so this keeps resolving.
+    module_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("modules.id"), nullable=False
+    )
+    # The ids of the pages this learner has seen, as they appear in the version
+    # snapshot they were reading.
+    pages_viewed: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    # Where to put them back when they return. Deliberately *no* foreign key to
+    # `module_pages`: these ids come from an immutable snapshot, and the draft
+    # row one of them names may since have been deleted by an author. A
+    # constraint here would make a learner's bookmark something an author could
+    # break, or block a delete the author is entitled to make.
+    current_page_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Which version they attested to, so "who has read the current text" stays
+    # answerable after the module is revised.
+    completed_version_number: Mapped[int | None] = mapped_column(Integer)
+    # Set by a substantive republish (ticket 7) to mark a completion as no
+    # longer current. Never erases `completed_at` — the person did read v2.
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class ModuleEditSession(Base):
     """Who currently has a module open in the authoring screen.
 

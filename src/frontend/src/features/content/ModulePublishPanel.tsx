@@ -93,6 +93,32 @@ export function ModulePublishPanel({ module, onChanged }: Props) {
     if (unpublished) onChanged(unpublished);
   }
 
+  /** Put the module on the open catalog, or take it off again.
+
+      A PATCH rather than one of the lifecycle actions above, because it is
+      metadata: publishing decides whether the material exists for learners at
+      all, and this decides whether they can find it without being sent. */
+  async function setCatalogVisible(visible: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/content/modules/${module.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ catalog_visible: visible }),
+      });
+      if (!response.ok) {
+        setError(t("publish.error_unknown"));
+        return;
+      }
+      onChanged(await response.json());
+    } catch {
+      setError(t("publish.error_unknown"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function duplicate() {
     // The copy's name is chosen here rather than server-side: "(copy)" is a
     // word, and it has to be the reader's. The title is trimmed *before* the
@@ -153,6 +179,20 @@ export function ModulePublishPanel({ module, onChanged }: Props) {
           {t("publish.duplicate")}
         </button>
       </div>
+
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={module.catalog_visible}
+          disabled={busy}
+          onChange={(event) => void setCatalogVisible(event.target.checked)}
+          className="mt-0.5"
+        />
+        <span>
+          {t("publish.catalog_label")}
+          <span className="block text-fg-muted">{t("publish.catalog_hint")}</span>
+        </span>
+      </label>
 
       {versions.length > 0 && (
         <div className="flex flex-col gap-2">

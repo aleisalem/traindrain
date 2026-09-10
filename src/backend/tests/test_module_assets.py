@@ -461,7 +461,8 @@ async def test_an_asset_id_from_another_module_is_a_404(
 async def test_a_learner_gets_404_on_an_asset(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
-    """No learner access model exists yet, so implicit deny is the whole answer."""
+    """A learner reaches a module's assets only through the module. This one is
+    a draft nobody opened to the catalog, so there is nothing to reach."""
     module_id = await _author_with_module(client, db_session, email="asset-owner@example.com")
     upload = await _upload(client, module_id, data=PNG, filename="diagram.png")
     url = upload.json()["assets"][0]["url"]

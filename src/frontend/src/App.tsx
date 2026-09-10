@@ -20,6 +20,10 @@ import { ContentModulesPage } from "./features/content/ContentModulesPage";
 import { ContentShell } from "./features/content/ContentShell";
 import { ModuleFormPage } from "./features/content/ModuleFormPage";
 import { AcceptInvitePage } from "./features/invites/AcceptInvitePage";
+import { CatalogPage } from "./features/learning/CatalogPage";
+import { LearningShell } from "./features/learning/LearningShell";
+import { ModuleViewerPage } from "./features/learning/ModuleViewerPage";
+import { MyLearningPage } from "./features/learning/MyLearningPage";
 import { ProfilePage } from "./features/profile/ProfilePage";
 import i18n from "./i18n";
 import { resolveTheme, useAppliedTheme } from "./theme/useTheme";
@@ -75,6 +79,13 @@ function AuthenticatedRoutes({
           />
         }
       />
+      {/* Reading is not a privilege: every authenticated user has a learner
+          area, whatever else they can also do. */}
+      <Route path="/modules" element={<LearningShell onLogout={onLogout} />}>
+        <Route index element={<MyLearningPage />} />
+        <Route path="browse" element={<CatalogPage />} />
+        <Route path=":groupId" element={<ModuleViewerPage />} />
+      </Route>
       {isAdministrator && (
         <Route path="/admin" element={<AdminShell onLogout={onLogout} />}>
           <Route index element={<AdminOverview />} />

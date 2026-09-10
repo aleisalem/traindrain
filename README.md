@@ -185,7 +185,29 @@ Release 1 (learning modules) is in progress. So far:
   [docs/module-publishing.md](docs/module-publishing.md). Frontend:
   `src/frontend/src/features/content/ModulePublishPanel.tsx` and `PublishDialog.tsx`.
 
-The rest of Release 1 — assignment, the learner viewer — is still to come.
+- The learner viewer: an author opts a published module into an open catalog
+  (`catalog_visible`, default **false**, toggled from the publish panel), and a
+  learner browses it at `/modules/browse`, opens a module at
+  `/modules/{translation_group_id}`, and moves through its pages with a visible
+  progress indicator, resuming where they left off. `GET /api/catalog/modules`,
+  `GET /api/me/modules`, `GET /api/me/modules/{group_id}`,
+  `POST .../pages/{page_id}/view`, and `POST .../complete`. Learners read the
+  **published version snapshot, never the draft**, and material is addressed by
+  translation group rather than module, so which language variant they get is
+  resolved on open. A module an author never opened to everyone is genuinely
+  inaccessible — `may_read_module` in `app/access.py` is the single decision
+  point, asked both by the learner routes and by asset delivery, and anyone it
+  refuses gets a 404 rather than a 403. The attestation on the final page is
+  refused (409, and disabled in the UI) until every page has been viewed, and on
+  success records `completed_at` and the version number that was read. A module
+  withdrawn mid-read gives a clear "no longer available" state and **keeps** the
+  learner's progress row. The viewer moves focus to each new page's heading on
+  transition and announces progress through a live region. Full details in
+  [docs/learner-viewer.md](docs/learner-viewer.md). Frontend:
+  `src/frontend/src/features/learning/`.
+
+The rest of Release 1 — translations, assignment, reminders, reporting — is
+still to come.
 
 ## Project structure
 
@@ -199,6 +221,7 @@ src/
       routes/      API endpoints (FastAPI routers)
       schemas/     Pydantic request/response models
       security/    Passwords, sessions, tokens, rate limiting, audit logging
+      access.py    Who may read a module — one decision, asked by learners and by asset delivery
       storage.py   The private object store module assets live in (S3 / LocalStack S3)
       dependencies.py   Shared FastAPI dependencies (auth/session gates)
     alembic/       Database migrations
@@ -211,6 +234,7 @@ src/
                          preview, image/attachment panel, publish/version panel)
       content/         The checked-in ProseMirror schema and the Tiptap extension set built from it
       features/invites/  Public accept-invite page (set password, no session required)
+      features/learning/  The learner's area (open catalog, "my learning", module viewer)
       features/twoFactor/  Self-service TOTP enroll/disable UI (QR code, recovery codes)
       features/profile/  Self-service profile page (name, password, language/theme preferences)
       i18n/        react-i18next config and en/de locale files

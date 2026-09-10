@@ -57,6 +57,12 @@ function Dashboard({ user, onLogout, onRefreshUser }: Props) {
       </div>
 
       <div className="flex gap-2">
+        <Link
+          to="/modules"
+          className="rounded-full bg-[image:var(--gradient)] px-4 py-1.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
+        >
+          {t("learning.nav_link")}
+        </Link>
         <Link to="/profile" className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]">
           {t("profile.nav_link")}
         </Link>

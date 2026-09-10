@@ -38,6 +38,9 @@ export type ModuleBody = {
   description: string | null;
   estimated_duration_minutes: number | null;
   status: string;
+  /** Whether learners can find it in the open catalog. Separate from publishing:
+   *  a module can be live without being on offer to everybody. */
+  catalog_visible: boolean;
   /** The version learners are reading; `null` until the first publish. */
   current_version_number: number | null;
   created_by: ModuleActor;

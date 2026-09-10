@@ -16,6 +16,7 @@ const MODULE: ModuleBody = {
   description: "How to spot a phish.",
   estimated_duration_minutes: 15,
   status: "draft",
+  catalog_visible: false,
   current_version_number: null,
   created_by: { id: "user-1", display_name: "Cora Manager" },
   last_edited_by: { id: "user-1", display_name: "Cora Manager" },
@@ -199,6 +200,32 @@ describe("ModulePublishPanel", () => {
 
     expect(screen.queryByRole("button", { name: "Unpublish" })).not.toBeInTheDocument();
     expect(screen.getByText("Draft. Nothing here has reached a learner yet.")).toBeInTheDocument();
+  });
+
+  it("puts a module on the open catalog, and takes it off again", async () => {
+    const user = userEvent.setup();
+    const requested = mockBackend({
+      "GET /api/content/modules/module-1/versions": { status: 200, body: [] },
+      "PATCH /api/content/modules/module-1": {
+        status: 200,
+        body: { ...PUBLISHED, catalog_visible: true },
+      },
+    });
+    const onChanged = renderPanel(PUBLISHED);
+
+    const toggle = screen.getByRole("checkbox", { name: /Show in the open catalog/ });
+    // Off unless somebody says otherwise — the deny is the default, not a
+    // decision an author has to remember to make.
+    expect(toggle).not.toBeChecked();
+
+    await user.click(toggle);
+
+    await waitFor(() =>
+      expect(
+        requested.find((request) => request.key === "PATCH /api/content/modules/module-1")?.body,
+      ).toEqual({ catalog_visible: true }),
+    );
+    expect(onChanged).toHaveBeenCalledWith({ ...PUBLISHED, catalog_visible: true });
   });
 
   it("duplicating opens the copy, named as one", async () => {

@@ -98,6 +98,7 @@ def _to_module_response(
         description=module.description,
         estimated_duration_minutes=module.estimated_duration_minutes,
         status=module.status,
+        catalog_visible=module.catalog_visible,
         current_version_number=(
             version_numbers.get(module.current_version_id)
             if module.current_version_id
@@ -222,7 +223,11 @@ async def update_module(
     changes = payload.model_dump(exclude_unset=True)
     for field, value in changes.items():
         setattr(module, field, value)
-    module.last_edited_by = author.id
+    # Putting a module on the catalog, or taking it off, is a decision about
+    # circulation rather than about the text. Recording it as "last edited by"
+    # would put an author's name against words they did not write.
+    if changes.keys() - {"catalog_visible"}:
+        module.last_edited_by = author.id
 
     await record_audit_log(
         db,

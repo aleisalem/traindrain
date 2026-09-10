@@ -61,6 +61,10 @@ class ModuleUpdateRequest(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     estimated_duration_minutes: int | None = Field(default=None, ge=1, le=10_000)
+    # Whether learners may find this module in the open catalog and read it of
+    # their own accord. Defaults to false on the row, so a module reaches
+    # nobody until an author says here that it should.
+    catalog_visible: bool | None = None
 
     @field_validator("title")
     @classmethod
@@ -78,6 +82,18 @@ class ModuleUpdateRequest(BaseModel):
         if value is None:
             return None
         return value.strip() or None
+
+    @field_validator("catalog_visible")
+    @classmethod
+    def _catalog_visible_not_null(cls, value: bool | None) -> bool | None:
+        # `None` here means "left out", and a field left out is left alone. An
+        # explicit null is a different thing and would write NULL into a
+        # NOT NULL column, so it is refused at the edge rather than at the row.
+        # This only fires on a value the client actually sent — pydantic does
+        # not validate the default.
+        if value is None:
+            raise ValueError("catalog_visible must be true or false.")
+        return value
 
 
 class ModuleActor(BaseModel):
@@ -284,6 +300,10 @@ class ModuleResponse(BaseModel):
     description: str | None
     estimated_duration_minutes: int | None
     status: str
+    # Whether learners can find it in the open catalog. Published and
+    # catalog-visible are two different decisions: a module can be live for
+    # assigned learners (ticket 7) without being on offer to everybody.
+    catalog_visible: bool
     # The version learners are reading, or were reading when the module was
     # unpublished. `None` until the first publish.
     current_version_number: int | None

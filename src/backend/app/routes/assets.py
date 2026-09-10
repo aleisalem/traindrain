@@ -5,10 +5,10 @@ Two routers, because these are two different audiences on two different paths:
 * `router` (`/api/content/...`) is authoring — Content Managers and
   Administrators adding and removing material.
 * `delivery_router` (`/api/modules/{id}/assets/{asset_id}`) is *reading* one
-  asset. Every audience eventually arrives here: an author previewing, and (as
-  of ticket 5) a learner reading the published module. It is the path the
-  checked-in ProseMirror schema pins an `image` node's `src` to, so it is a
-  stable URL rather than an implementation detail.
+  asset. Every audience arrives here: an author previewing, and a learner
+  reading the published module. It is the path the checked-in ProseMirror
+  schema pins an `image` node's `src` to, so it is a stable URL rather than an
+  implementation detail.
 
 Nothing is ever served from the bucket directly. A read goes through the API,
 which authorizes the caller against the *module* and only then mints a
@@ -24,6 +24,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.access import may_read_module
 from app.content.uploads import UploadRejected, sniff_upload
 from app.core.config import get_settings
 from app.db import get_db
@@ -368,22 +369,19 @@ async def delete_module_asset(
 # --- Delivery -------------------------------------------------------------
 
 
-def authorize_asset_access(user: User, module: Module) -> None:
+async def authorize_asset_access(db: AsyncSession, user: User, module: Module) -> None:
     """May this user read this module's assets?
 
     Implicit deny: an authenticated user gets nothing until a rule admits them.
-    Today the only rule is authoring — Content Managers and Administrators may
-    read any module's assets, which is the same access they already have to its
-    pages.
+    The decision itself lives in `app.access.may_read_module`, which is also
+    what the learner routes ask — an image inside a page and the page around it
+    have to be reachable by exactly the same people, and two copies of that rule
+    would eventually part company.
 
-    Ticket 5 adds the learner branches (the module is catalog-visible, or it is
-    assigned to them) and this function is where they go, so there is exactly
-    one place that decides — expect it to grow an `AsyncSession` parameter and
-    become a coroutine then, since both of those branches need a lookup.
     Everyone else gets a 404 rather than a 403: whether a particular asset
     exists is not something to confirm to somebody who may not read it.
     """
-    if not {"Content Manager", "Administrator"} & {role.name for role in user.roles}:
+    if not await may_read_module(db, user, module):
         raise _ASSET_NOT_FOUND
 
 
@@ -406,7 +404,7 @@ async def get_asset(
     ).scalar_one_or_none()
     if module is None:
         raise _ASSET_NOT_FOUND
-    authorize_asset_access(user, module)
+    await authorize_asset_access(db, user, module)
 
     asset = (
         await db.execute(

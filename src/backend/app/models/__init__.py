@@ -7,6 +7,7 @@ from app.models.module import (
     ModuleAsset,
     ModuleEditSession,
     ModulePage,
+    ModuleProgress,
     ModuleTranslationGroup,
     ModuleVersion,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "ModuleAsset",
     "ModuleEditSession",
     "ModulePage",
+    "ModuleProgress",
     "ModuleTranslationGroup",
     "ModuleVersion",
     "PasswordResetToken",

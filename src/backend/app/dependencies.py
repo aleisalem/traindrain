@@ -9,6 +9,7 @@ from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.access import AUTHORING_ROLES
 from app.core.config import get_settings
 from app.db import get_db
 from app.models import Module, User
@@ -124,7 +125,7 @@ async def require_content_manager(user: User = Depends(require_active_user)) -> 
     moves — a Content Manager gets a 403 from `/api/admin/*` exactly as a
     Learner does.
     """
-    if not {"Content Manager", "Administrator"} & {role.name for role in user.roles}:
+    if not AUTHORING_ROLES & {role.name for role in user.roles}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden.")
     return user
 
