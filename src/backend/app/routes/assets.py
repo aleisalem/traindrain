@@ -369,7 +369,7 @@ async def delete_module_asset(
 # --- Delivery -------------------------------------------------------------
 
 
-async def authorize_asset_access(db: AsyncSession, user: User, module: Module) -> None:
+def authorize_asset_access(user: User, module: Module) -> None:
     """May this user read this module's assets?
 
     Implicit deny: an authenticated user gets nothing until a rule admits them.
@@ -381,7 +381,7 @@ async def authorize_asset_access(db: AsyncSession, user: User, module: Module) -
     Everyone else gets a 404 rather than a 403: whether a particular asset
     exists is not something to confirm to somebody who may not read it.
     """
-    if not await may_read_module(db, user, module):
+    if not may_read_module(user, module):
         raise _ASSET_NOT_FOUND
 
 
@@ -404,7 +404,7 @@ async def get_asset(
     ).scalar_one_or_none()
     if module is None:
         raise _ASSET_NOT_FOUND
-    await authorize_asset_access(db, user, module)
+    authorize_asset_access(user, module)
 
     asset = (
         await db.execute(

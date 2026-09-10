@@ -7,11 +7,19 @@ disagree. `authorize_asset_access` in `app.routes.assets` and the learner routes
 in `app.routes.learning` both come here and nowhere else.
 
 Implicit deny throughout: an authenticated user gets nothing until a rule admits
-them. Ticket 7's assignment branch goes in `may_read_module` alongside the
-catalog branch, which is why it already takes an `AsyncSession`.
-"""
+them.
 
-from sqlalchemy.ext.asyncio import AsyncSession
+Both functions here are pure predicates over data the caller already holds.
+That matters for what comes next: ticket 7's rule — "the module is assigned to
+you, directly or through a group you belong to" — is a fact about the *user*,
+one query per request, not a lookup per module. It belongs in a small audience
+value built once at the top of a request and asked per module:
+
+    ModuleAudience(is_author=..., assigned_groups=frozenset(...)).may_read(module)
+
+Putting that query inside this predicate instead would make one query per row
+the natural way to call it, which is exactly the shape to avoid.
+"""
 
 from app.models import Module, User
 
@@ -23,7 +31,7 @@ def is_author(user: User) -> bool:
     return bool(AUTHORING_ROLES & {role.name for role in user.roles})
 
 
-async def may_read_module(db: AsyncSession, user: User, module: Module) -> bool:
+def may_read_module(user: User, module: Module) -> bool:
     """May this user read this module?
 
     Authors may read any module, published or not: that is the access they
@@ -35,8 +43,9 @@ async def may_read_module(db: AsyncSession, user: User, module: Module) -> bool:
     that was never opened to everyone is genuinely unreachable rather than
     merely absent from a list — including for a learner who has the URL.
 
-    Ticket 7 adds the second learner branch here: the module is assigned to
-    them, directly or through a group they currently belong to.
+    Ticket 7 adds the second learner branch — the module is assigned to them —
+    as an extra term here, with the assigned groups precomputed by its caller
+    rather than looked up per module (see the module docstring).
     """
     if is_author(user):
         return True

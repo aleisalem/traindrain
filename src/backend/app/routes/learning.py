@@ -116,9 +116,7 @@ async def _resolve_readable_variant(
     """
     group = await db.get(ModuleTranslationGroup, group_id)
     candidates = await _published_variants(db, [group_id]) if group else []
-    readable = [
-        module for module in candidates if await may_read_module(db, user, module)
-    ]
+    readable = [module for module in candidates if may_read_module(user, module)]
     variant = _pick_variant(
         readable,
         preferred_language=user.preferred_language,
@@ -354,7 +352,7 @@ async def list_my_modules(
     available_groups = {
         module.translation_group_id
         for module in await _published_variants(db, group_ids)
-        if await may_read_module(db, user, module)
+        if may_read_module(user, module)
     }
 
     summaries = []

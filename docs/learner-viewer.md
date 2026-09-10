@@ -22,9 +22,10 @@ anywhere to change. Ticket 6 extends that resolution with an explicit switch.
 
 ## Who may read it
 
-One decision, in one function: `may_read_module` in `app/access.py`. It is asked
-by the learner routes and by the asset delivery route, because a page and the
-image inside it have to be reachable by exactly the same people.
+One decision, in one function: `may_read_module` in `app/access.py` — a pure
+predicate over a user and a module, asked by the learner routes and by the asset
+delivery route, because a page and the image inside it have to be reachable by
+exactly the same people.
 
 - **Authors** (Content Manager, Administrator) may read any module. Previewing
   through the learner's own viewer is the only way to see what a learner gets.
@@ -33,7 +34,10 @@ image inside it have to be reachable by exactly the same people.
   nobody until an author says it should — implicit deny as a property of the
   schema rather than a decision to remember.
 - Ticket 7 adds the second learner branch here: the module is assigned to them,
-  directly or through a group they currently belong to.
+  directly or through a group they currently belong to. That is a fact about the
+  *user* — one query per request, not a lookup per module — so it belongs in a
+  small audience value built once at the top of a request and asked per module,
+  keeping this predicate pure. `app/access.py`'s docstring carries the shape.
 
 A module nobody opened to the learner is a **404**, not a 403, and the same 404
 (`{"code": "module_unavailable"}`) answers an unknown group, an unpublished one,
