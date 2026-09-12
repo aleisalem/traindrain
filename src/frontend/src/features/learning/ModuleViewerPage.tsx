@@ -42,11 +42,30 @@ export function ModuleViewerPage() {
   const [superseded, setSuperseded] = useState(false);
   const [attesting, setAttesting] = useState(false);
   const [attestError, setAttestError] = useState<string | null>(null);
+  const [switching, setSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState<string | null>(null);
 
   const headingRef = useRef<HTMLHeadingElement>(null);
   // Focus follows a *transition*, not the arrival: yanking focus out of the
   // document the moment a page loads would be its own kind of rude.
   const settled = useRef(false);
+
+  // Shared by the initial load and an explicit language switch: both end with
+  // the same question — which page is this learner on, in the text they are
+  // now reading?
+  const applyModule = useCallback((body: LearnerModule) => {
+    setState({ status: "ready", module: body });
+    // `progress` is null until they have read a page: opening a module
+    // writes nothing, so a first visit simply has no record yet.
+    setViewed(body.progress?.pages_viewed ?? []);
+    setCompletedAt(body.progress?.completed_at ?? null);
+    setSuperseded(body.progress?.superseded_at != null);
+    // Resume: back at the page they left off on, not at the beginning of
+    // material they have already read. A language switch resets
+    // `current_page_id`, which lands this at the first page of the new text.
+    const resumeAt = body.pages.findIndex((page) => page.id === body.progress?.current_page_id);
+    setIndex(resumeAt >= 0 ? resumeAt : 0);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,19 +82,7 @@ export function ModuleViewerPage() {
           return;
         }
         const body: LearnerModule = await response.json();
-        if (cancelled) return;
-        setState({ status: "ready", module: body });
-        // `progress` is null until they have read a page: opening a module
-        // writes nothing, so a first visit simply has no record yet.
-        setViewed(body.progress?.pages_viewed ?? []);
-        setCompletedAt(body.progress?.completed_at ?? null);
-        setSuperseded(body.progress?.superseded_at != null);
-        // Resume: back at the page they left off on, not at the beginning of
-        // material they have already read.
-        const resumeAt = body.pages.findIndex(
-          (page) => page.id === body.progress?.current_page_id,
-        );
-        setIndex(resumeAt >= 0 ? resumeAt : 0);
+        if (!cancelled) applyModule(body);
       } catch {
         if (!cancelled) setState({ status: "error" });
       }
@@ -85,7 +92,33 @@ export function ModuleViewerPage() {
     return () => {
       cancelled = true;
     };
-  }, [groupId]);
+  }, [groupId, applyModule]);
+
+  const switchLanguage = useCallback(
+    async (language: string) => {
+      setSwitching(true);
+      setSwitchError(null);
+      try {
+        const response = await fetch(`/api/me/modules/${groupId}/language`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ language }),
+        });
+        if (!response.ok) {
+          setSwitchError(t("learning.language_switch_error"));
+          return;
+        }
+        const body: LearnerModule = await response.json();
+        settled.current = false;
+        applyModule(body);
+      } catch {
+        setSwitchError(t("learning.language_switch_error"));
+      } finally {
+        setSwitching(false);
+      }
+    },
+    [groupId, applyModule, t],
+  );
 
   const currentPage = state.status === "ready" ? state.module.pages[index] : undefined;
   const currentPageId = currentPage?.id;
@@ -194,6 +227,34 @@ export function ModuleViewerPage() {
             {t("learning.version_number", { version: module.version_number })}
           </p>
         </div>
+
+        {/* Only shown when there is genuinely a choice — a single-language
+            module has nothing to switch to. */}
+        {module.available_languages.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <label htmlFor="learner-language" className="text-fg-muted">
+              {t("learning.language_switch_label")}
+            </label>
+            <select
+              id="learner-language"
+              value={module.language}
+              disabled={switching}
+              onChange={(event) => void switchLanguage(event.target.value)}
+              className="rounded-xl border border-border bg-bg-elevated px-3 py-1.5 transition-colors focus:border-primary focus:outline-none disabled:opacity-50"
+            >
+              {module.available_languages.map((language) => (
+                <option key={language} value={language}>
+                  {t(`learning.language_${language}`, { defaultValue: language })}
+                </option>
+              ))}
+            </select>
+            {switchError && (
+              <p role="alert" className="text-danger">
+                {switchError}
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col gap-1">
           <div

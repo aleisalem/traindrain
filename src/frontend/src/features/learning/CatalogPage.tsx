@@ -58,10 +58,19 @@ export function CatalogPage() {
                     })}
                   </span>
                 )}
-                {entry.completed_at !== null && (
-                  <span className="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-medium text-success">
-                    {t("learning.badge_completed")}
+                {/* Superseded first: a module the learner has been asked to
+                    read again is not one they are finished with, and showing
+                    both badges would leave them to work out which one counts. */}
+                {entry.superseded_at !== null ? (
+                  <span className="rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning">
+                    {t("learning.badge_updated")}
                   </span>
+                ) : (
+                  entry.completed_at !== null && (
+                    <span className="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-medium text-success">
+                      {t("learning.badge_completed")}
+                    </span>
+                  )
                 )}
               </div>
               <div className="flex flex-col gap-1">
@@ -74,11 +83,13 @@ export function CatalogPage() {
                 to={`/modules/${entry.translation_group_id}`}
                 className="self-start rounded-full bg-[image:var(--gradient)] px-4 py-1.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
               >
-                {entry.completed_at !== null
-                  ? t("learning.open_again")
-                  : entry.started
-                    ? t("learning.continue")
-                    : t("learning.start")}
+                {entry.superseded_at !== null
+                  ? t("learning.read_again")
+                  : entry.completed_at !== null
+                    ? t("learning.open_again")
+                    : entry.started
+                      ? t("learning.continue")
+                      : t("learning.start")}
               </Link>
             </li>
           ))}

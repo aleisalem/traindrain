@@ -52,6 +52,23 @@ function mockBackend(editors: { id: string; display_name: string }[]) {
           { status: 200 },
         );
       }
+      // The translations panel offers other modules to link in; these tests
+      // are about presence, so there is nothing else to offer.
+      if (url.endsWith("/api/content/modules")) {
+        return new Response(JSON.stringify([MODULE]), { status: 200 });
+      }
+      // The authoring screen loads the module's translation group too; these
+      // tests are about presence, so a standalone group keeps that panel quiet.
+      if (url.includes("/translation-groups/")) {
+        return new Response(
+          JSON.stringify({
+            id: MODULE.translation_group_id,
+            primary_module_id: MODULE.id,
+            variants: [MODULE],
+          }),
+          { status: 200 },
+        );
+      }
       // The authoring screen loads the module's assets too; these tests are
       // about presence, so an empty set keeps that panel quiet.
       if (url.endsWith("/assets")) {

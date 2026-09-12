@@ -45,6 +45,7 @@ from app.schemas.learning import (
     LearnerModuleSummary,
     LearnerPage,
     ProgressState,
+    SwitchLanguageRequest,
 )
 
 catalog_router = APIRouter(prefix="/api/catalog", tags=["learning"])
@@ -81,21 +82,30 @@ async def _published_variants(db: AsyncSession, group_ids: list[uuid.UUID]) -> l
 
 
 def _pick_variant(
-    variants: list[Module], *, preferred_language: str | None, primary_module_id: uuid.UUID | None
+    variants: list[Module],
+    *,
+    preferred_language: str | None,
+    primary_module_id: uuid.UUID | None,
+    sticky_module_id: uuid.UUID | None = None,
 ) -> Module | None:
     """Which text of this material does this learner get?
 
-    The learner's own language if it exists; otherwise the group's primary
-    variant, so somebody whose language has no translation still gets the
-    material rather than nothing — being unable to complete required training
-    because it was never translated is not an acceptable outcome; otherwise any
-    published variant, picked deterministically so two requests agree.
-
-    Ticket 6 extends this with the learner's explicit choice of variant.
+    In priority order: the variant they are already reading, so a profile
+    language change (or simply asking twice) never pulls them onto a different
+    text mid-module than the one their `pages_viewed` was collected against —
+    an explicit switch (`switch_variant_language` below) is the only thing
+    allowed to move that. Absent that, their own language; absent that, the
+    group's primary, so somebody whose language has no translation still gets
+    the material rather than nothing; absent that, any published variant,
+    picked deterministically so two requests agree.
     """
     if not variants:
         return None
     ordered = sorted(variants, key=lambda module: (module.language, str(module.id)))
+    if sticky_module_id is not None:
+        for variant in ordered:
+            if variant.id == sticky_module_id:
+                return variant
     for variant in ordered:
         if preferred_language and variant.language == preferred_language:
             return variant
@@ -117,10 +127,12 @@ async def _resolve_readable_variant(
     group = await db.get(ModuleTranslationGroup, group_id)
     candidates = await _published_variants(db, [group_id]) if group else []
     readable = [module for module in candidates if may_read_module(user, module)]
+    existing = await _existing_progress(db, user, group_id)
     variant = _pick_variant(
         readable,
         preferred_language=user.preferred_language,
         primary_module_id=group.primary_module_id if group else None,
+        sticky_module_id=existing.module_id if existing else None,
     )
     if variant is None or variant.current_version_id is None:
         raise _UNAVAILABLE
@@ -143,6 +155,7 @@ def _to_progress_state(progress: ModuleProgress) -> ProgressState:
         started_at=progress.started_at,
         completed_at=progress.completed_at,
         completed_version_number=progress.completed_version_number,
+        completed_module_id=progress.completed_module_id,
         superseded_at=progress.superseded_at,
     )
 
@@ -271,7 +284,10 @@ async def list_catalog(
     progress = await _progress_rows(db, user, list(by_group))
 
     # One entry per body of material rather than one per text of it: two
-    # language variants of the same module are one thing to read, not two.
+    # language variants of the same module are one thing to read, not two. A
+    # learner already reading or having completed one variant sees that same
+    # one here too — the card and the viewer must never disagree about which
+    # text "completed" refers to.
     chosen = [
         variant
         for group_id, variants in by_group.items()
@@ -280,6 +296,9 @@ async def list_catalog(
                 variants,
                 preferred_language=user.preferred_language,
                 primary_module_id=primaries.get(group_id),
+                sticky_module_id=(
+                    progress[group_id].module_id if group_id in progress else None
+                ),
             )
         )
         is not None
@@ -305,6 +324,7 @@ async def list_catalog(
                 page_count=len(snapshot.get("pages", [])),
                 started=row is not None,
                 completed_at=row.completed_at if row else None,
+                superseded_at=row.superseded_at if row else None,
             )
         )
     return sorted(entries, key=lambda entry: entry.title.lower())
@@ -322,7 +342,8 @@ async def list_my_modules(
 
     Ticket 7 adds the rows for material assigned to them that they have not
     opened yet, with due dates and overdue flags; this list is what they have
-    actually touched.
+    actually touched — including anything a substantive republish has put back
+    in the outstanding pile, which `superseded_at` marks.
     """
     rows = list(
         (
@@ -337,14 +358,24 @@ async def list_my_modules(
         return []
 
     group_ids = [row.translation_group_id for row in rows]
+
+    def _display_module_id(row: ModuleProgress) -> uuid.UUID:
+        # The variant a completion names, once there is one — not whichever
+        # variant is currently being read, which an explicit language switch
+        # (ticket 6) can move on to a different variant with its own version
+        # numbering. Showing that one instead would pair `completed_version_number`
+        # with the wrong module's title and language.
+        return row.completed_module_id or row.module_id
+
     # The variant they actually read, not whichever one they would resolve to
-    # today. `module_progress.module_id` is a foreign key and a deleted module
-    # leaves a tombstone row behind, so every one of these resolves.
+    # today. `module_progress.module_id`/`completed_module_id` are foreign keys
+    # and a deleted module leaves a tombstone row behind, so every one of these
+    # resolves.
     read_modules = {
         module.id: module
         for module in (
             await db.execute(
-                select(Module).where(Module.id.in_([row.module_id for row in rows]))
+                select(Module).where(Module.id.in_([_display_module_id(row) for row in rows]))
             )
         ).scalars()
     }
@@ -357,7 +388,7 @@ async def list_my_modules(
 
     summaries = []
     for row in rows:
-        module = read_modules[row.module_id]
+        module = read_modules[_display_module_id(row)]
         version = published.get(module.current_version_id) if module.current_version_id else None
         snapshot = version.snapshot if version else {}
         summaries.append(
@@ -379,22 +410,23 @@ async def list_my_modules(
     return summaries
 
 
-@me_router.get("/modules/{translation_group_id}", response_model=LearnerModule)
-async def get_my_module(
-    translation_group_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_active_user),
+async def _readable_variants(
+    db: AsyncSession, user: User, group_id: uuid.UUID
+) -> list[Module]:
+    return [
+        module
+        for module in await _published_variants(db, [group_id])
+        if may_read_module(user, module)
+    ]
+
+
+async def _to_learner_module(
+    db: AsyncSession,
+    module: Module,
+    version: ModuleVersion,
+    progress: ModuleProgress | None,
+    available_languages: list[str],
 ) -> LearnerModule:
-    """Open a module: its frozen pages, its attachments, and where you were.
-
-    A read, and only a read: the progress record starts when the learner first
-    reads a *page*, which the viewer reports one page at a time. Making a GET
-    write would also make it something a prefetch or a stray click could record
-    on somebody's training history.
-    """
-    module, version = await _resolve_readable_variant(db, user, translation_group_id)
-    progress = await _existing_progress(db, user, module.translation_group_id)
-
     attachments = (
         await db.execute(
             select(ModuleAsset)
@@ -435,6 +467,72 @@ async def get_my_module(
             for asset in attachments
         ],
         progress=None if progress is None else _to_progress_state(progress),
+        # Every language this learner could switch to, so the viewer can offer
+        # the choice only when there is one to make.
+        available_languages=available_languages,
+    )
+
+
+@me_router.get("/modules/{translation_group_id}", response_model=LearnerModule)
+async def get_my_module(
+    translation_group_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_active_user),
+) -> LearnerModule:
+    """Open a module: its frozen pages, its attachments, and where you were.
+
+    A read, and only a read: the progress record starts when the learner first
+    reads a *page*, which the viewer reports one page at a time. Making a GET
+    write would also make it something a prefetch or a stray click could record
+    on somebody's training history.
+    """
+    module, version = await _resolve_readable_variant(db, user, translation_group_id)
+    progress = await _existing_progress(db, user, module.translation_group_id)
+    readable = await _readable_variants(db, user, translation_group_id)
+
+    return await _to_learner_module(
+        db, module, version, progress, sorted({variant.language for variant in readable})
+    )
+
+
+@me_router.post("/modules/{translation_group_id}/language", response_model=LearnerModule)
+async def switch_variant_language(
+    translation_group_id: uuid.UUID,
+    payload: SwitchLanguageRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_active_user),
+) -> LearnerModule:
+    """An explicit choice of which text to read, overriding automatic resolution.
+
+    Unlike opening a module, this writes: `pages_viewed` is reset to match the
+    newly-chosen text, because a page id only means the same page within the
+    variant it belongs to. `started_at`, `completed_at`, and
+    `completed_version_number` are left alone — switching text is not starting
+    over, and a prior completion still happened on the date it happened.
+    """
+    readable = await _readable_variants(db, user, translation_group_id)
+    target = next((module for module in readable if module.language == payload.language), None)
+    if target is None or target.current_version_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "variant_unavailable",
+                "message": "No published text in that language is available.",
+            },
+        )
+    version = await db.get(ModuleVersion, target.current_version_id)
+    if version is None:
+        raise _UNAVAILABLE
+
+    progress = await _claim_progress(db, user, target)
+    if progress.module_id != target.id:
+        progress.module_id = target.id
+        progress.pages_viewed = []
+        progress.current_page_id = None
+    await db.commit()
+
+    return await _to_learner_module(
+        db, target, version, progress, sorted({variant.language for variant in readable})
     )
 
 
@@ -482,7 +580,9 @@ async def complete_module(
     nothing to the person who later has to rely on it.
 
     Re-attesting after a revision is allowed and updates the record — that is
-    exactly what a substantive republish (ticket 7) asks a learner to do.
+    exactly what a substantive republish asks a learner to do, and by then the
+    publish has emptied their `pages_viewed`, so the check above is a real gate
+    on the new text rather than a formality satisfied by the old one.
     """
     module, version = await _resolve_readable_variant(db, user, translation_group_id)
     progress = await _claim_progress(db, user, module)
@@ -502,6 +602,7 @@ async def complete_module(
 
     progress.completed_at = datetime.now(UTC)
     progress.completed_version_number = version.version_number
+    progress.completed_module_id = module.id
     # A completion of the current text is current by definition, whatever a
     # previous substantive republish had marked.
     progress.superseded_at = None

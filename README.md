@@ -173,7 +173,14 @@ Release 1 (learning modules) is in progress. So far:
   published module edits the draft and nobody sees the work-in-progress until the next publish.
   Every publish requires an explicit `revision_kind` of `minor` or `substantive` — there is no
   default, so a request that omits it is a 422 and the publish dialog's two radios both start
-  unchecked. Version rows are immutable in the database, not just by convention: a `BEFORE UPDATE`
+  unchecked. **`substantive` is acted on, not just recorded**: it marks every completed learner
+  of that translation group superseded *and* clears their page-view progress, so they have to
+  read the new text before the attestation will accept them again — without that second half a
+  learner could jump to the last page and re-confirm, since page ids survive an edit. Their
+  previous `completed_at` and version number are kept; the completion is marked stale, never
+  erased. `GET /api/content/modules/{id}/revision-impact` tells the author how many learners
+  that is while they are still choosing, and the publish dialog shows it the moment
+  `substantive` is selected. Version rows are immutable in the database, not just by convention: a `BEFORE UPDATE`
   trigger refuses any update to one. `POST .../unpublish` returns a published module to `draft`
   reversibly, keeping every page, version, and stored file (and leaving `current_version_id` in
   place, so an existing completion record still resolves); `POST .../duplicate` produces a fresh
@@ -181,7 +188,8 @@ Release 1 (learning modules) is in progress. So far:
   stored asset objects — the copied pages' `src` attributes are rewritten to the duplicate's own
   assets, so deleting the original can never blank out the copy. `GET .../versions` lists the
   history for authors. `module_published`, `module_unpublished`, and `module_duplicated` are
-  audit-logged, publishes carrying `version_number` and `revision_kind`. Full details in
+  audit-logged, publishes carrying `version_number`, `revision_kind`, and the count of
+  completions the publish superseded. Full details in
   [docs/module-publishing.md](docs/module-publishing.md). Frontend:
   `src/frontend/src/features/content/ModulePublishPanel.tsx` and `PublishDialog.tsx`.
 
@@ -201,13 +209,40 @@ Release 1 (learning modules) is in progress. So far:
   refused (409, and disabled in the UI) until every page has been viewed, and on
   success records `completed_at` and the version number that was read. A module
   withdrawn mid-read gives a clear "no longer available" state and **keeps** the
-  learner's progress row. The viewer moves focus to each new page's heading on
+  learner's progress row. A module republished substantively comes back as
+  outstanding — a banner in the viewer, a line on "my learning", and an
+  "Updated" badge in place of "Completed" on the catalog card. The viewer moves focus to each new page's heading on
   transition and announces progress through a live region. Full details in
   [docs/learner-viewer.md](docs/learner-viewer.md). Frontend:
   `src/frontend/src/features/learning/`.
 
-The rest of Release 1 — translations, assignment, reminders, reporting — is
-still to come.
+- Translations: a Content Manager links an already-authored, standalone module
+  into another module's translation group as a new language variant
+  (`POST /api/content/translation-groups/{id}/variants`, taking the existing
+  module's id) and nominates which variant is primary
+  (`PATCH /api/content/translation-groups/{id}`); `GET /api/content/translation-groups/{id}`
+  lists a group's variants and its primary for the authoring screen. Linking is
+  refused (409) if the source module already has translation siblings of its
+  own, already has learner progress recorded against it, or would collide on
+  language with an existing variant — each a clear conflict, never a silently
+  merged duplicate. A learner opening a translation group is resolved to the
+  published variant matching their `preferred_language`, falling back to the
+  group's published primary, falling back to any published variant — and, once
+  a learner has a progress row, that same resolution **stays fixed** to the
+  variant they are already reading (their `pages_viewed` only means something
+  within that text), overridable only by an explicit switch
+  (`POST /api/me/modules/{translation_group_id}/language`), which resets
+  `pages_viewed` while preserving `started_at` and any prior completion. Each
+  variant is its own `modules` row with its own pages, versions, and
+  `current_version_id`, so publishing one never touches another. Full details
+  in [docs/translations.md](docs/translations.md). Frontend:
+  `src/frontend/src/features/content/TranslationsPanel.tsx` (sibling list,
+  "make primary", and linking another module in, shown on `/content/{id}`) and
+  a language switcher in the learner viewer
+  (`src/frontend/src/features/learning/ModuleViewerPage.tsx`), shown only when
+  a translation group has more than one variant to read.
+
+The rest of Release 1 — assignment, reminders, reporting — is still to come.
 
 ## Project structure
 

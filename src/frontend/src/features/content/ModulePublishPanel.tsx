@@ -215,6 +215,7 @@ export function ModulePublishPanel({ module, onChanged }: Props) {
 
       {choosing && (
         <PublishDialog
+          moduleId={module.id}
           republish={module.current_version_number !== null}
           onConfirm={(kind) => void publish(kind)}
           onCancel={() => setChoosing(false)}

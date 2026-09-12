@@ -84,7 +84,15 @@ seen the material would be worth nothing to whoever later has to rely on it.
 On success it stamps `completed_at` and `completed_version_number`, and clears
 `superseded_at` — a completion of the current text is current by definition.
 Re-attesting after a revision is allowed and updates the record, which is
-exactly what a substantive republish (ticket 7) asks a learner to do.
+exactly what a substantive republish asks a learner to do.
+
+That republish is also what makes this check a real gate rather than a
+formality. Page ids survive an edit, so a learner's viewed-page ids from v1
+would otherwise satisfy every page of v2 — which is why a substantive publish
+empties `pages_viewed` as well as marking the completion superseded. See
+[module-publishing.md](module-publishing.md). The learner is told in three
+places: a warning banner in the viewer, a line on "my learning", and an
+"Updated" badge in place of "Completed" on the catalog card.
 
 Release 2's quiz gate has its seam immediately above this control.
 

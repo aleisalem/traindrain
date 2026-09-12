@@ -250,6 +250,25 @@ class PublishRequest(BaseModel):
     revision_kind: RevisionKind
 
 
+class RevisionImpactResponse(BaseModel):
+    """Who a substantive republish would send back through the material.
+
+    Read before publishing, not after: "everyone who completed this will have
+    to read it again" is an abstraction until it says how many people that is,
+    and an author deciding between `minor` and `substantive` deserves the
+    number while the decision is still open.
+
+    Counted over the module's whole translation group, because that is what a
+    learner's progress record is keyed on — one person reading one body of
+    material, whichever language variant they happened to open.
+    """
+
+    # Completions a substantive publish would mark superseded.
+    completed_learners: int
+    # People part-way through, whose page-view progress it would reset.
+    in_progress_learners: int
+
+
 class DuplicateRequest(BaseModel):
     """An optional new title for the copy.
 
@@ -292,6 +311,27 @@ class VersionResponse(BaseModel):
     page_count: int
 
 
+class LinkVariantRequest(BaseModel):
+    """Bring an existing standalone module in as this group's translation.
+
+    The source module has to be genuinely standalone — the only module in its
+    own translation group — because linking it here would otherwise orphan
+    whatever else it was already grouped with.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    module_id: uuid.UUID
+
+
+class SetPrimaryVariantRequest(BaseModel):
+    """Which variant a learner whose own language has no translation gets."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    primary_module_id: uuid.UUID
+
+
 class ModuleResponse(BaseModel):
     id: uuid.UUID
     translation_group_id: uuid.UUID
@@ -311,3 +351,11 @@ class ModuleResponse(BaseModel):
     last_edited_by: ModuleActor
     created_at: datetime
     updated_at: datetime
+
+
+class TranslationGroupResponse(BaseModel):
+    """One body of material: every language it is written in, and which is primary."""
+
+    id: uuid.UUID
+    primary_module_id: uuid.UUID | None
+    variants: list[ModuleResponse]

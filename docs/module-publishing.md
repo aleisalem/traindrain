@@ -54,9 +54,50 @@ radio starts checked and the confirming button stays disabled until one is. A
 default would be the system deciding whether the whole workforce has to re-read
 the material while appearing to ask.
 
-The answer is only *recorded* here. Acting on it — marking completed learners
-outstanding again — arrives in ticket 7, where a live assignment exists to scope
-it to.
+The answer is acted on, not merely recorded. A `minor` publish leaves every
+learner exactly where they are. A `substantive` one calls
+`_send_learners_back`, which does two things to every `module_progress` row of
+the module's translation group:
+
+1. **Stamps `superseded_at` on completed rows.** `completed_at` and
+   `completed_version_number` are deliberately left alone — the person did read
+   v1 on that date, and a record that erased it would be lying about the past in
+   order to describe the present. The learner sees the module as outstanding
+   again, in the viewer, in "my learning", and on the catalog card.
+2. **Empties `pages_viewed` and clears `current_page_id`** — for completed and
+   part-read learners alike.
+
+The second half is what makes the first mean anything, and it is the easy half
+to leave out. A page keeps its id across an edit, so the page ids a learner
+viewed in v1 still name every page of v2. Superseding a completion without
+clearing that array re-opens the attestation while the "read every page first"
+check is *already satisfied*: the learner walks to the last page, clicks
+confirm, and has attested to material they have never seen. The array is the
+evidence that check rests on, so a substantive rewrite has to invalidate it.
+Part-read learners are reset for the same reason by a quieter route — pages read
+in v1 must not count towards attesting to v2.
+
+The scope is the whole translation group, because `module_progress` is keyed on
+it: one learner, one body of material, however many language variants exist.
+
+`GET /api/content/modules/{id}/revision-impact` returns
+`{completed_learners, in_progress_learners}` for that group, which the publish
+dialog shows the moment `substantive` is selected — and not before, since a
+warning standing permanently beside the question is noise, and noise is how a
+warning stops being read. It is a snapshot, not a promise: a learner may finish
+the module between that call and the publish. The count that actually happened
+goes into the `module_published` audit entry as `superseded_completions`.
+
+The reset runs *after* `current_version_id` is repointed, which is what makes it
+safe against a learner attesting at the same moment. `complete_module` takes a
+row lock on the progress row, so that attestation either lands before the reset
+(and is then superseded by it) or after it (and finds an emptied `pages_viewed`,
+so the learner is asked to read the new text). Both orders end with the new
+version unattested.
+
+Once assignments exist (ticket 7), a substantive publish will still supersede
+every learner of the group. An assignment decides who is *told* to read
+something, not whose completion of it is still current.
 
 ### 4. Unpublish keeps `current_version_id`; duplicate keeps nothing shared
 
@@ -119,7 +160,12 @@ duplicate path rewrites both for the same reason.
   ticket 11 introduces the status and, with it, the refusal of every mutating
   route on a deleted module. A partial guard now would leave that ticket with
   half a check to find.
-- **Anything that acts on `substantive`.** Ticket 7, as above.
+- **Scoping the supersede to an assignment.** There are no assignments yet
+  (ticket 7). Every learner of the translation group is superseded, which is
+  what that ticket will keep doing.
+- **Telling a superseded learner by email.** Ticket 9's reminders are where a
+  learner finds out without opening the platform; today the module reappears as
+  outstanding the next time they look.
 - **Publishing an empty module**, which is refused with a 409 (`empty_module`):
   a published module with nothing to read gives learners nothing, and would make
   ticket 5's "every page viewed" completion trivially true.

@@ -15,6 +15,9 @@ export type CatalogEntry = {
   page_count: number;
   started: boolean;
   completed_at: string | null;
+  /** Set when a substantive republish has asked this learner to read the
+   *  material again, so the card does not claim they are finished with it. */
+  superseded_at: string | null;
 };
 
 export type LearnerPage = {
@@ -41,6 +44,10 @@ export type ProgressState = {
   started_at: string;
   completed_at: string | null;
   completed_version_number: number | null;
+  /** The variant `completed_version_number` belongs to — not necessarily the
+   *  one being read now, since an explicit language switch can move that on to
+   *  a different variant with its own, unrelated version numbers. */
+  completed_module_id: string | null;
   superseded_at: string | null;
 };
 
@@ -55,6 +62,9 @@ export type LearnerModule = {
   pages: LearnerPage[];
   attachments: LearnerAttachment[];
   progress: ProgressState;
+  /** Every language of this material the learner may read — including the one
+   *  they are on — so the viewer offers a switch only when there is a choice. */
+  available_languages: string[];
 };
 
 export type LearnerModuleSummary = {

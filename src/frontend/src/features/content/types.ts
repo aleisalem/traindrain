@@ -52,6 +52,14 @@ export type ModuleBody = {
 /** Is this a typo fix, or does everyone have to read the module again? */
 export type RevisionKind = "minor" | "substantive";
 
+/** How many people the "everyone" in that question actually is.
+ *  Read while the author is still choosing, so the choice is made with the
+ *  number in front of them rather than after the fact. */
+export type RevisionImpact = {
+  completed_learners: number;
+  in_progress_learners: number;
+};
+
 export type ModuleVersion = {
   id: string;
   version_number: number;
@@ -61,4 +69,12 @@ export type ModuleVersion = {
   /** The title as it stood at publish time, not as it reads today. */
   title: string;
   page_count: number;
+};
+
+/** One body of material: every language it exists in, and which is primary —
+ *  the variant a learner whose own language has none of the others gets. */
+export type TranslationGroupBody = {
+  id: string;
+  primary_module_id: string | null;
+  variants: ModuleBody[];
 };

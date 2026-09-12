@@ -17,7 +17,17 @@ const PAGES = [
   { id: "page-2", position: 1, title: "Reporting it", schema_version: 1, body: paragraph("Use the report button.") },
 ];
 
-function moduleBody(progress: Partial<ProgressState> = {}): LearnerModule {
+function moduleBody(overrides: Partial<ProgressState> = {}): LearnerModule {
+  const progress: ProgressState = {
+    pages_viewed: [],
+    current_page_id: null,
+    started_at: "2026-09-09T10:00:00Z",
+    completed_at: null,
+    completed_version_number: null,
+    completed_module_id: null,
+    superseded_at: null,
+    ...overrides,
+  };
   return {
     translation_group_id: "group-1",
     module_id: "module-1",
@@ -28,15 +38,8 @@ function moduleBody(progress: Partial<ProgressState> = {}): LearnerModule {
     version_number: 2,
     pages: PAGES,
     attachments: [],
-    progress: {
-      pages_viewed: [],
-      current_page_id: null,
-      started_at: "2026-09-09T10:00:00Z",
-      completed_at: null,
-      completed_version_number: null,
-      superseded_at: null,
-      ...progress,
-    },
+    available_languages: ["en"],
+    progress,
   };
 }
 
@@ -78,6 +81,7 @@ function viewerBackend(module: LearnerModule, { refuseComplete = false } = {}) {
     started_at: module.progress?.started_at ?? "2026-09-09T10:00:00Z",
     completed_at: completedAt,
     completed_version_number: completedAt === null ? null : module.version_number,
+    completed_module_id: completedAt === null ? null : module.module_id,
     superseded_at: supersededAt,
   });
 
@@ -324,5 +328,111 @@ describe("ModuleViewerPage", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Anything you already completed is still recorded.",
     );
+  });
+
+  // --- Switching language --------------------------------------------------
+
+  const EN_VARIANT: LearnerModule = {
+    translation_group_id: "group-1",
+    module_id: "module-en",
+    language: "en",
+    title: "Phishing Awareness",
+    description: "How to spot a phish.",
+    estimated_duration_minutes: 15,
+    version_number: 1,
+    pages: [
+      {
+        id: "en-page-1",
+        position: 0,
+        title: "Spotting a phish",
+        schema_version: 1,
+        body: paragraph("Look at the sender."),
+      },
+    ],
+    attachments: [],
+    available_languages: ["en", "de"],
+    progress: {
+      pages_viewed: [],
+      current_page_id: null,
+      started_at: "2026-09-09T10:00:00Z",
+      completed_at: null,
+      completed_version_number: null,
+      completed_module_id: null,
+      superseded_at: null,
+    },
+  };
+
+  const DE_VARIANT: LearnerModule = {
+    ...EN_VARIANT,
+    module_id: "module-de",
+    language: "de",
+    title: "Phishing-Bewusstsein",
+    pages: [
+      {
+        id: "de-page-1",
+        position: 0,
+        title: "Eine Phishing-Mail erkennen",
+        schema_version: 1,
+        body: paragraph("Achten Sie auf den Absender."),
+      },
+    ],
+  };
+
+  it("only offers a language switch when there is more than one to read", async () => {
+    viewerBackend(moduleBody());
+    renderViewer();
+
+    await screen.findByRole("heading", { name: "Spotting a phish" });
+
+    expect(screen.queryByLabelText("Read in")).not.toBeInTheDocument();
+  });
+
+  it("lets a learner switch to another available language", async () => {
+    const user = userEvent.setup();
+    mockBackend({
+      "GET /api/me/modules/group-1": { status: 200, body: EN_VARIANT },
+      "POST /api/me/modules/group-1/pages/en-page-1/view": {
+        status: 200,
+        body: { ...EN_VARIANT.progress, pages_viewed: ["en-page-1"], current_page_id: "en-page-1" },
+      },
+      "POST /api/me/modules/group-1/language": { status: 200, body: DE_VARIANT },
+      "POST /api/me/modules/group-1/pages/de-page-1/view": {
+        status: 200,
+        body: { ...DE_VARIANT.progress, pages_viewed: ["de-page-1"], current_page_id: "de-page-1" },
+      },
+    });
+    renderViewer();
+    await screen.findByRole("heading", { name: "Spotting a phish" });
+
+    await user.selectOptions(screen.getByLabelText("Read in"), "de");
+
+    expect(
+      await screen.findByRole("heading", { name: "Eine Phishing-Mail erkennen" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Read in")).toHaveValue("de");
+  });
+
+  it("shows an error and keeps the current text if the switch fails", async () => {
+    const user = userEvent.setup();
+    mockBackend({
+      "GET /api/me/modules/group-1": { status: 200, body: EN_VARIANT },
+      "POST /api/me/modules/group-1/pages/en-page-1/view": {
+        status: 200,
+        body: { ...EN_VARIANT.progress, pages_viewed: ["en-page-1"], current_page_id: "en-page-1" },
+      },
+      "POST /api/me/modules/group-1/language": {
+        status: 404,
+        body: { detail: { code: "variant_unavailable" } },
+      },
+    });
+    renderViewer();
+    await screen.findByRole("heading", { name: "Spotting a phish" });
+
+    await user.selectOptions(screen.getByLabelText("Read in"), "de");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Couldn't switch language. Please try again.",
+    );
+    expect(screen.getByRole("heading", { name: "Spotting a phish" })).toBeInTheDocument();
   });
 });

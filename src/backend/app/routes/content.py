@@ -4,8 +4,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import delete, func, select
+from sqlalchemy import case, delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.content import (
@@ -23,6 +24,7 @@ from app.models import (
     ModuleAsset,
     ModuleEditSession,
     ModulePage,
+    ModuleProgress,
     ModuleTranslationGroup,
     ModuleVersion,
     User,
@@ -30,6 +32,7 @@ from app.models import (
 from app.routes.assets import asset_url
 from app.schemas.modules import (
     DuplicateRequest,
+    LinkVariantRequest,
     ModuleActor,
     ModuleCreateRequest,
     ModuleEditorsResponse,
@@ -42,7 +45,10 @@ from app.schemas.modules import (
     PagesResponse,
     PageUpdateRequest,
     PublishRequest,
+    RevisionImpactResponse,
     RevisionKind,
+    SetPrimaryVariantRequest,
+    TranslationGroupResponse,
     VersionResponse,
 )
 from app.security.audit import record_audit_log
@@ -512,6 +518,94 @@ def _build_snapshot(module: Module, pages: list[ModulePage]) -> dict[str, Any]:
     }
 
 
+async def _learner_counts(db: AsyncSession, module: Module) -> tuple[int, int]:
+    """(completed, in progress) learners for this module's body of material.
+
+    Scoped to the translation group rather than this one variant, because
+    `module_progress` is: a learner has one record per body of material however
+    many language variants of it exist.
+    """
+    row = (
+        await db.execute(
+            select(
+                func.count().filter(ModuleProgress.completed_at.is_not(None)),
+                func.count().filter(ModuleProgress.completed_at.is_(None)),
+            ).where(ModuleProgress.translation_group_id == module.translation_group_id)
+        )
+    ).one()
+    return int(row[0]), int(row[1])
+
+
+async def _send_learners_back(db: AsyncSession, module: Module) -> int:
+    """Put every learner of this material back at the start of it.
+
+    What a `substantive` revision means, made real. Two things happen, and both
+    are needed:
+
+    * `superseded_at` is stamped on completed rows, so a finished learner sees
+      the module as outstanding again. `completed_at` and
+      `completed_version_number` are deliberately **left alone** — the person
+      did read v2 on that date, and a record that erased it would be lying
+      about the past to describe the present.
+    * `pages_viewed` is emptied and `current_page_id` cleared, for completed and
+      part-read learners alike. This is the half that makes the obligation real.
+      A page keeps its id across an edit, so a v2 reader's viewed-page ids still
+      name every page of v3 — leaving them in place would re-open the
+      attestation while the "read every page first" check was already satisfied,
+      and the learner could confirm having read changed material by clicking
+      once on the last page. The array is the evidence that check rests on, so a
+      substantive rewrite has to invalidate it.
+
+    Returns the number of completions superseded, for the audit entry.
+
+    Every learner of the group is reset, not only the completed ones: somebody
+    nine pages into v2 has read nine pages that no longer exist in the form they
+    read them, and letting those count towards attesting to v3 is the same hole
+    by a quieter route.
+    """
+    superseded_at = datetime.now(UTC)
+    rows = await db.execute(
+        update(ModuleProgress)
+        .where(ModuleProgress.translation_group_id == module.translation_group_id)
+        .values(
+            pages_viewed=[],
+            current_page_id=None,
+            superseded_at=case(
+                (ModuleProgress.completed_at.is_not(None), superseded_at),
+                # Never completed, so there is no completion to supersede.
+                else_=None,
+            ),
+        )
+        # No ORM state to keep in step: nothing in this request loaded a
+        # progress row, and the learner reading one holds their own session.
+        .execution_options(synchronize_session=False)
+        .returning(ModuleProgress.completed_at)
+    )
+    return sum(1 for (completed_at,) in rows if completed_at is not None)
+
+
+@router.get(
+    "/modules/{module_id}/revision-impact", response_model=RevisionImpactResponse
+)
+async def get_revision_impact(
+    module_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    author: User = Depends(require_content_manager),
+) -> RevisionImpactResponse:
+    """How many people a substantive publish of this module would affect.
+
+    Asked by the publish dialog while the author is still choosing between
+    `minor` and `substantive`. A read, and a snapshot: a learner may finish the
+    module between this call and the publish, so the number is what the choice
+    looks like now, not a promise about what the publish will do.
+    """
+    module = await get_module_or_404(db, module_id)
+    completed, in_progress = await _learner_counts(db, module)
+    return RevisionImpactResponse(
+        completed_learners=completed, in_progress_learners=in_progress
+    )
+
+
 @router.post("/modules/{module_id}/publish", response_model=ModuleResponse)
 async def publish_module(
     module_id: uuid.UUID,
@@ -521,10 +615,16 @@ async def publish_module(
 ) -> ModuleResponse:
     """Freeze the draft into a new version and point learners at it.
 
-    `revision_kind` is required — see `PublishRequest`. Recording it is all
-    this ticket does with it; ticket 7 is where `substantive` starts dragging
-    completed learners back through the material, once there is an assignment
-    to scope that to.
+    `revision_kind` is required — see `PublishRequest` — and it is acted on
+    here, not merely recorded. A `minor` publish leaves every learner exactly
+    where they are. A `substantive` one sends them back through the material:
+    see `_send_learners_back` for what that costs and why both halves of it are
+    necessary.
+
+    The scope is every learner of the module's translation group. Once
+    assignments exist (ticket 7), a substantive publish will still supersede all
+    of them — an assignment decides who is *told* to read something, not whose
+    completion of it is still current.
     """
     # The row lock is what makes version numbering safe: two simultaneous
     # publishes would otherwise both read "the highest version is 2" and both
@@ -561,6 +661,17 @@ async def publish_module(
     module.status = "published"
     module.current_version_id = version.id
 
+    # After `current_version_id` is repointed: a learner whose attestation is
+    # racing this publish takes the progress row's lock either before this runs
+    # (and completes against the old version, which the reset then supersedes)
+    # or after it (and finds an emptied `pages_viewed`, so they are asked to
+    # read the new text). Both orders end with the new version unattested.
+    superseded = (
+        await _send_learners_back(db, module)
+        if payload.revision_kind == "substantive"
+        else 0
+    )
+
     await record_audit_log(
         db,
         actor_user_id=author.id,
@@ -571,6 +682,8 @@ async def publish_module(
             "version_number": version.version_number,
             "revision_kind": version.revision_kind,
             "page_count": len(pages),
+            # The blast radius, recorded where it can be answered for later.
+            "superseded_completions": superseded,
         },
     )
     await db.commit()
@@ -844,6 +957,213 @@ async def list_versions(
         )
         for version in versions
     ]
+
+
+# --- Translations -----------------------------------------------------------
+#
+# A translation group is the body of material; a module is one language's text
+# of it. Every module already belongs to one (ticket 1) — what this adds is a
+# way to declare that two modules that were each authored standalone are, in
+# fact, the same material in two languages, and to say which one a learner
+# whose language is neither gets.
+
+
+async def _group_or_404(db: AsyncSession, group_id: uuid.UUID) -> ModuleTranslationGroup:
+    group = await db.get(ModuleTranslationGroup, group_id)
+    if group is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Translation group not found."
+        )
+    return group
+
+
+async def _group_variants(db: AsyncSession, group_id: uuid.UUID) -> list[Module]:
+    return list(
+        (
+            await db.execute(
+                select(Module)
+                .where(Module.translation_group_id == group_id)
+                .order_by(Module.language)
+            )
+        ).scalars()
+    )
+
+
+async def _translation_group_response(
+    db: AsyncSession, group: ModuleTranslationGroup
+) -> TranslationGroupResponse:
+    variants = await _group_variants(db, group.id)
+    return TranslationGroupResponse(
+        id=group.id,
+        primary_module_id=group.primary_module_id,
+        variants=await _module_responses(db, variants),
+    )
+
+
+@router.get("/translation-groups/{group_id}", response_model=TranslationGroupResponse)
+async def get_translation_group(
+    group_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    author: User = Depends(require_content_manager),
+) -> TranslationGroupResponse:
+    group = await _group_or_404(db, group_id)
+    return await _translation_group_response(db, group)
+
+
+@router.post(
+    "/translation-groups/{group_id}/variants",
+    response_model=TranslationGroupResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def link_variant(
+    group_id: uuid.UUID,
+    payload: LinkVariantRequest,
+    db: AsyncSession = Depends(get_db),
+    author: User = Depends(require_content_manager),
+) -> TranslationGroupResponse:
+    """Declare an existing module a translation of this group's material.
+
+    The source has to be genuinely standalone — the only module in its own
+    group — because linking it here would otherwise orphan whatever else it was
+    already grouped with. And it has to be untouched by any learner yet: a
+    completion is keyed on the translation group it was read under, and moving
+    the module out from under that group would strand that history behind a
+    group it no longer belongs to, unrecoverably.
+    """
+    await _group_or_404(db, group_id)
+    # Locked so a concurrent link of the same source cannot pass every check
+    # below before either has committed.
+    source = await get_module_or_404(db, payload.module_id, for_update=True)
+
+    if source.translation_group_id == group_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "already_a_variant",
+                "message": "This module is already a variant of this group.",
+            },
+        )
+    if source.status == "deleted":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "module_deleted",
+                "message": "A deleted module cannot be linked as a translation.",
+            },
+        )
+
+    sibling_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(Module)
+            .where(Module.translation_group_id == source.translation_group_id)
+        )
+    ).scalar_one()
+    if sibling_count > 1:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "source_not_standalone",
+                "message": "This module is already linked with other translation variants.",
+            },
+        )
+
+    existing_languages = {variant.language for variant in await _group_variants(db, group_id)}
+    if source.language in existing_languages:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "language_already_exists",
+                "message": f"This group already has a {source.language} variant.",
+            },
+        )
+
+    has_progress = (
+        await db.execute(
+            select(func.count())
+            .select_from(ModuleProgress)
+            .where(ModuleProgress.translation_group_id == source.translation_group_id)
+        )
+    ).scalar_one()
+    if has_progress:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "source_has_progress",
+                "message": (
+                    "This module already has learner progress recorded against it "
+                    "and cannot be relinked."
+                ),
+            },
+        )
+
+    old_group_id = source.translation_group_id
+    source.translation_group_id = group_id
+    source.last_edited_by = author.id
+    await db.flush()
+
+    # The source's own auto-created group now holds nothing. It existed only to
+    # satisfy "every module belongs to a group", which this module now does
+    # under the one it just joined.
+    old_group = await db.get(ModuleTranslationGroup, old_group_id)
+    if old_group is not None:
+        await db.delete(old_group)
+
+    await record_audit_log(
+        db,
+        actor_user_id=author.id,
+        action="translation_variant_linked",
+        detail={
+            "translation_group_id": str(group_id),
+            "module_id": str(source.id),
+            "language": source.language,
+            "previous_translation_group_id": str(old_group_id),
+        },
+    )
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        # A concurrent link raced this one to the same language in the same
+        # group — the unique constraint is the backstop the checks above
+        # cannot fully close.
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "language_already_exists",
+                "message": f"This group already has a {source.language} variant.",
+            },
+        ) from exc
+
+    return await _translation_group_response(db, await _group_or_404(db, group_id))
+
+
+@router.patch("/translation-groups/{group_id}", response_model=TranslationGroupResponse)
+async def set_primary_variant(
+    group_id: uuid.UUID,
+    payload: SetPrimaryVariantRequest,
+    db: AsyncSession = Depends(get_db),
+    author: User = Depends(require_content_manager),
+) -> TranslationGroupResponse:
+    """Nominate which variant a learner whose language has none of the others gets."""
+    group = await _group_or_404(db, group_id)
+    module = await get_module_or_404(db, payload.primary_module_id)
+    if module.translation_group_id != group_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="This module is not a variant of this translation group.",
+        )
+
+    group.primary_module_id = module.id
+
+    await record_audit_log(
+        db,
+        actor_user_id=author.id,
+        action="translation_primary_changed",
+        detail={"translation_group_id": str(group_id), "primary_module_id": str(module.id)},
+    )
+    await db.commit()
+    return await _translation_group_response(db, group)
 
 
 # --- Presence -------------------------------------------------------------

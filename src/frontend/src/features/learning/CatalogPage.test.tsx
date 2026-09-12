@@ -17,6 +17,7 @@ const ENTRY: CatalogEntry = {
   page_count: 3,
   started: false,
   completed_at: null,
+  superseded_at: null,
 };
 
 function mockJson(url: string, body: unknown) {
@@ -79,6 +80,24 @@ describe("the learner's lists", () => {
 
     expect(await screen.findByRole("link", { name: "Continue" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open again" })).toBeInTheDocument();
+  });
+
+  it("does not call a superseded module completed", async () => {
+    // The learner did complete it, and is being asked to read it again. A
+    // green "Completed" badge here would contradict the module it links to.
+    mockJson("/api/catalog/modules", [
+      {
+        ...ENTRY,
+        started: true,
+        completed_at: "2026-09-01T09:00:00Z",
+        superseded_at: "2026-09-05T09:00:00Z",
+      },
+    ]);
+    renderAt("/modules/browse");
+
+    expect(await screen.findByText("Updated")).toBeInTheDocument();
+    expect(screen.queryByText("Completed")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Read again" })).toBeInTheDocument();
   });
 
   it("keeps a completion on the learner's list after the module is withdrawn", async () => {

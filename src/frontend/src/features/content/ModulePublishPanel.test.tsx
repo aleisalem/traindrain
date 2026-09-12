@@ -247,4 +247,90 @@ describe("ModulePublishPanel", () => {
         ?.body,
     ).toEqual({ title: "Phishing Awareness (copy)" });
   });
+  it("names how many learners a substantive revision would send back", async () => {
+    const user = userEvent.setup();
+    mockBackend({
+      "GET /api/content/modules/module-1/versions": { status: 200, body: [VERSION] },
+      "GET /api/content/modules/module-1/revision-impact": {
+        status: 200,
+        body: { completed_learners: 12, in_progress_learners: 3 },
+      },
+    });
+    renderPanel(PUBLISHED);
+
+    await user.click(screen.getByRole("button", { name: "Publish changes" }));
+    const dialog = await screen.findByRole("dialog");
+
+    // Not before the author has chosen: a warning standing next to the
+    // question is noise, and noise is how a warning stops being read.
+    expect(within(dialog).queryByText(/will be sent back/)).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("radio", { name: /Substantive/ }));
+
+    const warning = await within(dialog).findByText(/15 learners will be sent back/);
+    expect(warning).toHaveTextContent("12 who completed it");
+    expect(warning).toHaveTextContent("3 part-way through");
+    // The count is a reason to think, not a reason to stop.
+    expect(within(dialog).getByRole("button", { name: "Publish" })).toBeEnabled();
+  });
+
+  it("does not warn about a substantive revision nobody has read", async () => {
+    const user = userEvent.setup();
+    mockBackend({
+      "GET /api/content/modules/module-1/versions": { status: 200, body: [] },
+      "GET /api/content/modules/module-1/revision-impact": {
+        status: 200,
+        body: { completed_learners: 0, in_progress_learners: 0 },
+      },
+    });
+    renderPanel(MODULE);
+
+    await user.click(screen.getByRole("button", { name: "Publish" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("radio", { name: /Substantive/ }));
+
+    expect(
+      await within(dialog).findByText(/Nobody has opened this module yet/),
+    ).toBeInTheDocument();
+  });
+
+  it("a minor revision is never given a blast radius", async () => {
+    const user = userEvent.setup();
+    mockBackend({
+      "GET /api/content/modules/module-1/versions": { status: 200, body: [VERSION] },
+      "GET /api/content/modules/module-1/revision-impact": {
+        status: 200,
+        body: { completed_learners: 12, in_progress_learners: 3 },
+      },
+    });
+    renderPanel(PUBLISHED);
+
+    await user.click(screen.getByRole("button", { name: "Publish changes" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("radio", { name: /Minor/ }));
+
+    expect(within(dialog).queryByText(/will be sent back/)).not.toBeInTheDocument();
+  });
+
+  it("publishes even when the impact count cannot be loaded", async () => {
+    const user = userEvent.setup();
+    const requested = mockBackend({
+      "GET /api/content/modules/module-1/versions": { status: 200, body: [] },
+      "GET /api/content/modules/module-1/revision-impact": { status: 500 },
+      "POST /api/content/modules/module-1/publish": { status: 200, body: PUBLISHED },
+    });
+    renderPanel(MODULE);
+
+    await user.click(screen.getByRole("button", { name: "Publish" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("radio", { name: /Substantive/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Publish" }));
+
+    await waitFor(() =>
+      expect(
+        requested.find((request) => request.key === "POST /api/content/modules/module-1/publish")
+          ?.body,
+      ).toEqual({ revision_kind: "substantive" }),
+    );
+  });
 });

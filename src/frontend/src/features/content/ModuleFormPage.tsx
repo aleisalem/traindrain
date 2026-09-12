@@ -7,9 +7,11 @@ import { ModuleEditorsPresence } from "./ModuleEditorsPresence";
 import { ModulePagesPanel } from "./ModulePagesPanel";
 import { ModulePublishPanel } from "./ModulePublishPanel";
 import { OverwriteWarningDialog } from "./OverwriteWarningDialog";
+import { TranslationsPanel } from "./TranslationsPanel";
 import type { ModuleBody } from "./types";
 import { useModuleAssets } from "./useModuleAssets";
 import { useModuleEditors } from "./useModuleEditors";
+import { useTranslationGroup } from "./useTranslationGroup";
 
 const inputClassName =
   "rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none";
@@ -49,6 +51,7 @@ export function ModuleFormPage() {
   // One owner of the module's assets: the page editor inserts from this list,
   // and the panel below manages it. Two fetches would let the two disagree.
   const assets = useModuleAssets(moduleId);
+  const translations = useTranslationGroup(module?.translation_group_id);
 
   const load = useCallback(async () => {
     if (!moduleId) return;
@@ -255,6 +258,7 @@ export function ModuleFormPage() {
       {/* Last, and after the pages: publishing is what everything above it is
           for, and there is nothing to publish before the material exists. */}
       {isEdit && module && <ModulePublishPanel module={module} onChanged={setModule} />}
+      {isEdit && module && <TranslationsPanel translations={translations} />}
 
       {module && (
         <dl className="flex flex-col gap-1 text-sm text-fg-muted">

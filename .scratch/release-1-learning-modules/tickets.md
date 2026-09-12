@@ -119,15 +119,15 @@ Modules an author never opened to everyone are genuinely inaccessible, not merel
 
 **Blocked by:** 5
 
-- [ ] `POST /api/content/translation-groups/{id}/variants` adds a language variant to an existing group; `PATCH /api/content/translation-groups/{id}` sets the primary variant
-- [ ] The unique constraint on `(translation_group_id, language)` is enforced end to end — a second variant in the same language is a clear conflict, not a duplicate row
-- [ ] Variant resolution on open: the published variant matching the learner's `preferred_language`; otherwise the group's published primary; otherwise any published variant
-- [ ] The variant actually read is written to `module_progress.module_id`, so reports can show what was read
-- [ ] A learner can switch variant explicitly: `pages_viewed` resets because the pages are different rows, while `started_at` and any prior completion are preserved
-- [ ] Each variant publishes independently — publishing the German variant does not touch the English variant's `current_version_id`
-- [ ] Authoring UI shows a module's sibling variants, which is primary, and each variant's own status
-- [ ] Backend tests: all three resolution branches; the variant recorded on the progress row; a language switch resetting `pages_viewed` without erasing `started_at` or a prior completion; independent versioning of the two variants
-- [ ] README updated
+- [x] `POST /api/content/translation-groups/{id}/variants` adds a language variant to an existing group; `PATCH /api/content/translation-groups/{id}` sets the primary variant
+- [x] The unique constraint on `(translation_group_id, language)` is enforced end to end — a second variant in the same language is a clear conflict, not a duplicate row
+- [x] Variant resolution on open: the published variant matching the learner's `preferred_language`; otherwise the group's published primary; otherwise any published variant
+- [x] The variant actually read is written to `module_progress.module_id`, so reports can show what was read
+- [x] A learner can switch variant explicitly: `pages_viewed` resets because the pages are different rows, while `started_at` and any prior completion are preserved
+- [x] Each variant publishes independently — publishing the German variant does not touch the English variant's `current_version_id`
+- [x] Authoring UI shows a module's sibling variants, which is primary, and each variant's own status
+- [x] Backend tests: all three resolution branches; the variant recorded on the progress row; a language switch resetting `pages_viewed` without erasing `started_at` or a prior completion; independent versioning of the two variants
+- [x] README updated
 
 ## 7. Assignment: groups, individuals, due dates, emails, the learner's assigned list
 
@@ -135,19 +135,19 @@ Modules an author never opened to everyone are genuinely inaccessible, not merel
 
 A Content Manager can do all of this without ever seeing the staff directory: they see group names, descriptions, and member **counts**, and nothing else. That boundary is enforced server-side, not by hiding a column.
 
-This ticket also makes `substantive` mean something: republishing substantively marks completed learners with a live assignment as outstanding again, without erasing what they already did.
+~~This ticket also makes `substantive` mean something~~ — **done ahead of this ticket.** A substantive republish already supersedes every completed learner of the translation group and clears everyone's page-view progress, so the attestation is a real gate on the new text rather than one click on the last page; the publish dialog states how many learners are affected, and the audit entry records the count. Scoping any of that to a *live assignment* is still this ticket's job, though the intended answer is that it stays group-wide: an assignment decides who is told to read something, not whose completion is still current. See `docs/module-publishing.md`.
 
 **Blocked by:** 5
 
-- [ ] Migration creates `assignments` per the spec, targeting a `translation_group_id` and never a bare module, and adds `superseded_at` handling to `module_progress`
+- [ ] Migration creates `assignments` per the spec, targeting a `translation_group_id` and never a bare module (`superseded_at` handling on `module_progress` is already done — the column existed from ticket 5's migration and is now written)
 - [ ] **Membership is not expanded at assign time** — the target is stored, and a learner's list is computed against their current group memberships at read time
 - [ ] `GET|POST /api/content/modules/{id}/assignments` and `DELETE /api/content/assignments/{id}`; `GET` shows which groups a module is already assigned to
 - [ ] `target_type: "user"` is rejected with 403 for a non-Administrator
 - [ ] `GET /api/content/groups` returns group names, descriptions, and member **counts** only, so Content Managers never touch the admin member-list endpoints
 - [ ] On assignment creation, every currently-targeted learner is emailed in their own `preferred_language` through the existing mailer (SES in production, LocalStack SES locally), reusing the invite/password-reset pattern; learners who join a targeted group later are not emailed retroactively
 - [ ] `GET /api/me/modules` returns the union of directly-assigned and group-assigned material, deduplicated by translation group with the nearest due date winning, with due dates and overdue flags
-- [ ] A `substantive` publish sets `superseded_at` on every completed progress row for that translation group with a live assignment, **without erasing** `completed_at` or `completed_version_number`; the publish dialog states how many learners will be affected before confirming
-- [ ] `assignment_created` and `assignment_removed` audit entries; a substantive publish's audit detail carries the count of superseded completions
+- [x] A `substantive` publish sets `superseded_at` on every completed progress row for that translation group, **without erasing** `completed_at` or `completed_version_number`, and clears `pages_viewed` for every learner of the group so the material has to be read again rather than merely re-confirmed; the publish dialog states how many learners will be affected before confirming (`GET /api/content/modules/{id}/revision-impact`)
+- [ ] `assignment_created` and `assignment_removed` audit entries — ~~a substantive publish's audit detail carries the count of superseded completions~~ (done: `superseded_completions`)
 - [ ] Backend tests: a user added to a targeted group after assignment sees the module; a user removed from it loses the assignment but keeps their progress; a Content Manager gets 403 assigning to an individual; removing an assignment does not delete progress; a substantive republish supersedes without erasing the prior completion
 - [ ] Frontend tests: the assignment screen, and the learner's assigned list showing due dates and overdue state
 - [ ] README and a brief `docs/` summary updated

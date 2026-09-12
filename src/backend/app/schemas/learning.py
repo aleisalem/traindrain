@@ -10,7 +10,9 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+from app.schemas.modules import ModuleLanguage
 
 
 class CatalogEntry(BaseModel):
@@ -31,6 +33,10 @@ class CatalogEntry(BaseModel):
     # "start" without a second round trip.
     started: bool
     completed_at: datetime | None
+    # Sent alongside `completed_at` rather than folded into it: a card that
+    # showed "completed" for material the learner has been asked to read again
+    # would be contradicting the module it links to.
+    superseded_at: datetime | None
 
 
 class LearnerPage(BaseModel):
@@ -75,8 +81,12 @@ class ProgressState(BaseModel):
     started_at: datetime
     completed_at: datetime | None
     completed_version_number: int | None
-    # Set when a substantive republish (ticket 7) puts a completed learner back
-    # in the outstanding pile. The completion itself is never erased.
+    # The variant `completed_version_number` belongs to — not necessarily the
+    # module a learner is reading now, since an explicit language switch moves
+    # that on to a different variant with its own, unrelated version numbers.
+    completed_module_id: uuid.UUID | None
+    # Set when a substantive republish puts a completed learner back in the
+    # outstanding pile. The completion itself is never erased.
     superseded_at: datetime | None
 
 
@@ -96,6 +106,17 @@ class LearnerModule(BaseModel):
     # read and stays one — it writes nothing — so nothing is recorded about
     # somebody who clicked the wrong card and left again.
     progress: ProgressState | None
+    # Every language of this material the learner may read, so the viewer can
+    # offer a switch only when there is genuinely a choice to make.
+    available_languages: list[str]
+
+
+class SwitchLanguageRequest(BaseModel):
+    """An explicit request to read a different language of this material."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    language: ModuleLanguage
 
 
 class LearnerModuleSummary(BaseModel):

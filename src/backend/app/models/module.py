@@ -190,8 +190,9 @@ class ModuleVersion(Base):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     # minor | substantive — the author's answer to "does everyone have to read
-    # this again?". Recorded here; acted on in ticket 7, where a live
-    # assignment exists to scope it to.
+    # this again?". Acted on at publish time: `substantive` supersedes every
+    # completion of this translation group and resets its learners' page-view
+    # progress (`_send_learners_back` in `app.routes.content`).
     revision_kind: Mapped[str] = mapped_column(String(20), nullable=False)
     # Title, description, language, estimated duration, and the full page
     # array — including each page's id — as they stood at publish time.
@@ -276,7 +277,9 @@ class ModuleProgress(Base):
         UUID(as_uuid=True), ForeignKey("modules.id"), nullable=False
     )
     # The ids of the pages this learner has seen, as they appear in the version
-    # snapshot they were reading.
+    # snapshot they were reading. Emptied by a substantive republish: a page
+    # keeps its id across an edit, so views collected against the old text would
+    # otherwise satisfy the new one's "read every page" check unread.
     pages_viewed: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     # Where to put them back when they return. Deliberately *no* foreign key to
     # `module_pages`: these ids come from an immutable snapshot, and the draft
@@ -291,8 +294,16 @@ class ModuleProgress(Base):
     # Which version they attested to, so "who has read the current text" stays
     # answerable after the module is revised.
     completed_version_number: Mapped[int | None] = mapped_column(Integer)
-    # Set by a substantive republish (ticket 7) to mark a completion as no
-    # longer current. Never erases `completed_at` — the person did read v2.
+    # Which variant that version number belongs to. `module_id` above moves on
+    # an explicit language switch (ticket 6) and no longer necessarily names
+    # the variant that was completed — its own version numbering means
+    # something else — so this is set only by completion, and a switch leaves
+    # it alone.
+    completed_module_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("modules.id")
+    )
+    # Set by a substantive republish to mark a completion as no longer current.
+    # Never erases `completed_at` — the person did read v2, and that stays true.
     superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
