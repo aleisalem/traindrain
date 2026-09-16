@@ -10,12 +10,12 @@ once at the top of a request and asks it — never inside a loop over modules.
 
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import date
 
 from sqlalchemy import ColumnElement, and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Assignment, User
+from app.models import Assignment, Group, User, group_members
 
 
 def _target_conditions(user: User) -> list[ColumnElement[bool]]:
@@ -96,15 +96,45 @@ async def assignments_for_user(
     }
 
 
-def is_overdue(due_date: date | None, *, completed: bool) -> bool:
+def is_overdue(due_date: date | None, *, completed: bool, today: date) -> bool:
     """Has this due date passed, for material not currently completed?
 
     A completed learner is never overdue, whatever the date says — the
-    obligation the date was chasing has been met. `datetime.now(UTC).date()`
-    stands in for "today" here; ticket 8 introduces a deployment-wide
-    timezone setting for what "today" means and this is the one place that
-    will need to change to read it.
+    obligation the date was chasing has been met. `today` is never computed
+    here: it comes from `app.security.system_settings.deployment_today`, the
+    deployment-wide timezone setting ticket 8 introduced, so "overdue" means
+    the same moment here as it does for the reminder job chasing the same
+    due date.
     """
     if due_date is None or completed:
         return False
-    return due_date < datetime.now(UTC).date()
+    return due_date < today
+
+
+async def resolve_target_users(
+    db: AsyncSession, *, target_type: str, target_id: uuid.UUID
+) -> list[User]:
+    """Who an assignment's target actually names, right now.
+
+    Shared by assignment creation (the one-time notification email) and the
+    reminder job (`app.reminders`) — both need "who is targeted today", never
+    a membership list expanded and stored, per `Assignment`'s own docstring.
+    """
+    if target_type == "group":
+        group = await db.get(Group, target_id)
+        if group is None:
+            return []
+        return list(
+            (
+                await db.execute(
+                    select(User)
+                    .join(group_members, group_members.c.user_id == User.id)
+                    .where(group_members.c.group_id == group.id)
+                )
+            ).scalars()
+        )
+
+    target_user = await db.get(User, target_id)
+    if target_user is None or target_user.erased_at is not None:
+        return []
+    return [target_user]

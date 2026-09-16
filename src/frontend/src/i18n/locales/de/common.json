@@ -448,6 +448,11 @@
     "member_count_other": "{{count}} Mitglieder",
     "error_already_assigned": "Dieses Modul ist diesem Ziel bereits zugewiesen.",
     "error_forbidden_individual": "Nur ein Administrator darf ein Modul einer Einzelperson zuweisen.",
-    "error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
+    "error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+    "remind_button": "Alle Ausstehenden erinnern",
+    "remind_success_one": "1 Lernende(r) erinnert.",
+    "remind_success_other": "{{count}} Lernende erinnert.",
+    "remind_rate_limited": "Dieses Modul wurde heute bereits erinnert.",
+    "remind_error": "Die Erinnerung konnte nicht gesendet werden. Bitte versuchen Sie es erneut."
   }
 }

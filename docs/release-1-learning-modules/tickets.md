@@ -160,16 +160,17 @@ The job runs locally on the same entrypoint production will invoke, so the sched
 
 **Blocked by:** 7
 
-- [ ] Migration creates `module_reminders` (`assignment_id`, `user_id`, `kind`, `sent_at`), which both paths consult for idempotency and the daily cap
-- [ ] Scheduled cadence: 7 days before, 1 day before, on the due date, and weekly thereafter while overdue — for `mandatory` assignments with `auto_reminders` enabled only
-- [ ] `POST /api/content/modules/{id}/remind` sends a reminder to everyone outstanding, is **Administrator-only**, is rate-limited to once per module per day, and is audit-logged as `reminder_sent`
-- [ ] A hard cap of one email per learner per module per day applies across both the scheduled and the manual path
-- [ ] The job is idempotent: running it twice in a day sends nothing the second time
-- [ ] "Today" is evaluated in a deployment-wide timezone stored in `system_settings` (default `Europe/Berlin`), readable and settable by Administrators through the same pattern Release 0 used for invite expiry
-- [ ] Reminder emails render in the recipient's `preferred_language`
-- [ ] `docker-compose` gains an interval-runner service invoking the same entrypoint production will use, and `docker-compose up` still produces a fully working environment
-- [ ] Backend tests: each cadence boundary fires exactly once; the one-per-learner-per-module-per-day cap holds across both paths; a second run of the job in the same day is a no-op; a recommended assignment and an assignment with reminders off are never reminded; a non-Administrator gets 403 on the manual nudge
-- [ ] README updated with how to run the reminder job locally
+- [x] Migration creates `module_reminders` (`assignment_id`, `user_id`, `kind`, `sent_at`), which both paths consult for idempotency and the daily cap
+- [x] Scheduled cadence: 7 days before, 1 day before, on the due date, and weekly thereafter while overdue — for `mandatory` assignments with `auto_reminders` enabled only
+- [x] `POST /api/content/modules/{id}/remind` sends a reminder to everyone outstanding, is **Administrator-only**, is rate-limited to once per module per day, and is audit-logged as `reminder_sent`
+- [x] A hard cap of one email per learner per module per day applies across both the scheduled and the manual path
+- [x] The job is idempotent: running it twice in a day sends nothing the second time
+- [x] "Today" is evaluated in a deployment-wide timezone stored in `system_settings` (default `Europe/Berlin`), readable and settable by Administrators through the same pattern Release 0 used for invite expiry — and `app.assignments.is_overdue` (My Learning's own overdue flag) reads the same setting, per its own docstring's instruction
+- [x] Reminder emails render in the recipient's `preferred_language`
+- [x] `docker-compose` gains an interval-runner service (`reminder-runner`) invoking the same entrypoint production will use, and `docker-compose up` still produces a fully working environment
+- [x] Backend tests: each cadence boundary fires exactly once; the one-per-learner-per-module-per-day cap holds across both paths; a second run of the job in the same day is a no-op; a recommended assignment and an assignment with reminders off are never reminded; a non-Administrator gets 403 on the manual nudge. 17 tests in `test_reminders.py`
+- [x] README updated with how to run the reminder job locally
+- [x] Frontend: an Administrator-only "Remind everyone outstanding" button on the assignment panel (not in this ticket's original scope, but small enough to include alongside the endpoint it calls), with its own tests in `AssignmentsPanel.test.tsx`
 
 ## 9. Reporting: completion report and CSV roster
 

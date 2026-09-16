@@ -53,6 +53,21 @@ function mockGroups(groups: ContentGroup[]) {
   );
 }
 
+function mockGroupsAndRemind(groups: ContentGroup[], remindResponse: Response) {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.endsWith("/remind") && init?.method === "POST") {
+      return remindResponse;
+    }
+    if (url.endsWith("/api/content/groups")) {
+      return new Response(JSON.stringify(groups), { status: 200 });
+    }
+    return new Response(JSON.stringify([]), { status: 200 });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
 describe("AssignmentsPanel", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("en");
@@ -155,6 +170,65 @@ describe("AssignmentsPanel", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "This module is already assigned to this target.",
+    );
+  });
+
+  it("only offers the manual nudge to an Administrator", async () => {
+    mockGroups([]);
+    const cmAssignments = stateWith();
+    const { unmount } = render(
+      <AssignmentsPanel moduleId="module-1" assignments={cmAssignments} isAdministrator={false} />,
+    );
+    expect(screen.queryByRole("button", { name: "Remind everyone outstanding" })).not.toBeInTheDocument();
+    unmount();
+
+    const adminAssignments = stateWith();
+    render(
+      <AssignmentsPanel moduleId="module-1" assignments={adminAssignments} isAdministrator={true} />,
+    );
+    expect(
+      await screen.findByRole("button", { name: "Remind everyone outstanding" }),
+    ).toBeInTheDocument();
+  });
+
+  it("nudges outstanding learners and reports how many were reminded", async () => {
+    const fetchMock = mockGroupsAndRemind(
+      [],
+      new Response(JSON.stringify({ sent_count: 3 }), { status: 200 }),
+    );
+    const user = userEvent.setup();
+    const assignments = stateWith();
+
+    render(
+      <AssignmentsPanel moduleId="module-1" assignments={assignments} isAdministrator={true} />,
+    );
+    await user.click(await screen.findByRole("button", { name: "Remind everyone outstanding" }));
+
+    expect(await screen.findByText("Reminded 3 learners.")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/content/modules/module-1/remind",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("shows the daily rate limit when the module was already nudged today", async () => {
+    mockGroupsAndRemind(
+      [],
+      new Response(
+        JSON.stringify({ detail: { code: "reminder_already_sent_today" } }),
+        { status: 429 },
+      ),
+    );
+    const user = userEvent.setup();
+    const assignments = stateWith();
+
+    render(
+      <AssignmentsPanel moduleId="module-1" assignments={assignments} isAdministrator={true} />,
+    );
+    await user.click(await screen.findByRole("button", { name: "Remind everyone outstanding" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This module has already been nudged today.",
     );
   });
 });

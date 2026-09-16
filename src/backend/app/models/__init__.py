@@ -13,6 +13,7 @@ from app.models.module import (
     ModuleVersion,
 )
 from app.models.password_reset_token import PasswordResetToken
+from app.models.reminder import ModuleReminder
 from app.models.role import Role, user_roles
 from app.models.session import Session
 from app.models.system_setting import SystemSetting
@@ -30,6 +31,7 @@ __all__ = [
     "ModuleEditSession",
     "ModulePage",
     "ModuleProgress",
+    "ModuleReminder",
     "ModuleTranslationGroup",
     "ModuleVersion",
     "PasswordResetToken",

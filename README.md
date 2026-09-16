@@ -290,7 +290,38 @@ Release 1 (learning modules) is in progress. So far:
   `src/frontend/src/features/learning/MyLearningPage.tsx`, which now shows a not-started assigned
   module alongside started and completed ones, with its due date and an overdue flag.
 
-The rest of Release 1 — reminders, reporting — is still to come.
+- Reminders: a daily job chases mandatory, not-yet-completed training as its due date approaches
+  and after it passes, and an Administrator can trigger the same nudge immediately instead of
+  waiting for the next scheduled run. Only `mandatory` assignments with `auto_reminders` on and a
+  due date set are ever reminded automatically — a `recommended` assignment or one with reminders
+  turned off is never touched by either path. The cadence is 7 days before, 1 day before, on the
+  due date, then weekly for as long as it stays overdue (`app.reminders.scheduled_kind_for_due_date`);
+  a learner who has already completed the material (and is not superseded) is skipped. Every send —
+  scheduled or manual — writes a `module_reminders` row, which is what makes a second run of the
+  job on the same day a no-op and what the **one-email-per-learner-per-module-per-day cap** is
+  checked against, joined across every assignment (a group one and an individual one can both name
+  the same learner) that targets the module's translation group.
+  `POST /api/content/modules/{id}/remind` is the manual nudge — Administrator-only, reaching the
+  same audience the scheduled cadence would, and itself rate-limited to once per module per day
+  (independently of the per-learner cap, and checked against its own `reminder_sent` audit entry
+  rather than `module_reminders` — the entry is written even when the nudge reaches nobody, which a
+  send-log check would miss) so a doubled click can't retrigger a second round of mail the moment
+  the first lands; both paths are audited as `reminder_sent`. "Today" — for the cadence
+  math and for the `overdue` flag on a learner's own list (`app.assignments.is_overdue`) — is
+  evaluated in a deployment-wide timezone (default `Europe/Berlin`), readable and settable by
+  Administrators through `GET|PUT /api/admin/settings/reminder-timezone`, the same pattern Release 0
+  used for invite expiry. Reminder emails render in the recipient's `preferred_language`
+  (`app.security.mailer.send_reminder_email`). The job itself
+  (`app.reminders.run_scheduled_reminders`) is invoked by `python -m app.jobs.send_reminders` — the
+  exact entrypoint production's scheduled task will call (ticket 14) — which `docker-compose`'s
+  `reminder-runner` service loops locally (see "Running locally" below) to stand in for a scheduler
+  without emulating one. Frontend: an Administrator-only "Remind everyone outstanding" button on
+  `src/frontend/src/features/content/AssignmentsPanel.tsx`, reporting how many learners were
+  actually reached (fewer than "everyone assigned" whenever the daily cap already covered some of
+  them) or the day's rate limit if the module was already nudged today. Full details in
+  [docs/reminders.md](docs/reminders.md).
+
+Release 1's reporting is still to come.
 
 ## Project structure
 
@@ -307,6 +338,10 @@ src/
       access.py    Who may read a module — one decision, asked by learners and by asset delivery
       assignments.py    Who a learner is assigned to read, resolved live against current group
                    membership — what `may_read_module` admits and what "my learning" lists
+      reminders.py Scheduled cadence and manual-nudge logic shared by the daily job and the
+                   Administrator's remind endpoint — the daily one-email-per-learner-per-module cap
+      jobs/        Entrypoints invoked as scripts rather than through the API — `send_reminders.py`
+                   is what `docker-compose`'s reminder-runner loops and production's scheduled task calls
       storage.py   The private object store module assets live in (S3 / LocalStack S3)
       dependencies.py   Shared FastAPI dependencies (auth/session gates)
     alembic/       Database migrations
@@ -357,6 +392,13 @@ This starts:
   `nginx.conf.template` is rendered at container start so the Content-Security-Policy's `img-src`
   can name `ASSET_ORIGIN` — the origin presigned asset URLs are served from, deliberately not the
   application's own.
+- A `reminder-runner` service: the same backend image, looping `python -m app.jobs.send_reminders`
+  hourly. That command is the exact entrypoint a production scheduled task invokes (ticket 14); the
+  loop is only a local stand-in for that scheduler, and the job itself is idempotent, so a rerun
+  within the same day sends nothing. To trigger it once by hand instead of waiting for the loop:
+  ```bash
+  docker-compose run --rm reminder-runner python -m app.jobs.send_reminders
+  ```
 
 For day-to-day frontend development with hot-module-reload, run the Vite dev server natively on
 the host instead of relying on the containerized build:

@@ -86,6 +86,35 @@ export function AssignmentsPanel({ moduleId, assignments, isAdministrator }: Pro
   const [dueDate, setDueDate] = useState("");
   const [requirement, setRequirement] = useState<Requirement>("mandatory");
   const [autoReminders, setAutoReminders] = useState(true);
+  const [reminding, setReminding] = useState(false);
+  const [remindMessage, setRemindMessage] = useState<{ kind: "success" | "error"; text: string } | null>(
+    null,
+  );
+
+  async function handleRemind() {
+    setReminding(true);
+    setRemindMessage(null);
+    try {
+      const response = await fetch(`/api/content/modules/${moduleId}/remind`, { method: "POST" });
+      if (response.status === 429) {
+        setRemindMessage({ kind: "error", text: t("assignments.remind_rate_limited") });
+        return;
+      }
+      if (!response.ok) {
+        setRemindMessage({ kind: "error", text: t("assignments.remind_error") });
+        return;
+      }
+      const body: { sent_count: number } = await response.json();
+      setRemindMessage({
+        kind: "success",
+        text: t("assignments.remind_success", { count: body.sent_count }),
+      });
+    } catch {
+      setRemindMessage({ kind: "error", text: t("assignments.remind_error") });
+    } finally {
+      setReminding(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -171,10 +200,31 @@ export function AssignmentsPanel({ moduleId, assignments, isAdministrator }: Pro
 
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-border bg-bg-elevated p-5 shadow-[var(--shadow)]">
-      <div>
-        <h3 className="text-lg font-medium">{t("assignments.heading")}</h3>
-        <p className="text-sm text-fg-muted">{t("assignments.description")}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-medium">{t("assignments.heading")}</h3>
+          <p className="text-sm text-fg-muted">{t("assignments.description")}</p>
+        </div>
+        {isAdministrator && (
+          <button
+            type="button"
+            disabled={reminding}
+            onClick={() => void handleRemind()}
+            className="shrink-0 rounded-full border border-border px-4 py-2 text-xs font-medium transition hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:translate-y-0"
+          >
+            {t("assignments.remind_button")}
+          </button>
+        )}
       </div>
+
+      {remindMessage && (
+        <p
+          role={remindMessage.kind === "error" ? "alert" : "status"}
+          className={remindMessage.kind === "error" ? "text-sm text-danger" : "text-sm text-fg-muted"}
+        >
+          {remindMessage.text}
+        </p>
+      )}
 
       {assignments.assignments.length === 0 ? (
         <p className="text-sm text-fg-muted">{t("assignments.empty")}</p>

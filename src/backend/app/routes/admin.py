@@ -18,13 +18,20 @@ from app.schemas.invites import (
     InviteResponse,
     RoleResponse,
 )
+from app.schemas.reminders import ReminderTimezoneSettingRequest, ReminderTimezoneSettingResponse
 from app.schemas.two_factor import AdminTwoFactorDisableRequest
 from app.schemas.users import UserListItem
 from app.security.audit import record_audit_log
 from app.security.mailer import SESClient, send_invite_email
 from app.security.passwords import hash_password
 from app.security.sessions import revoke_other_sessions
-from app.security.system_settings import get_invite_expiry_days, set_invite_expiry_days
+from app.security.system_settings import (
+    InvalidTimezoneError,
+    get_invite_expiry_days,
+    get_reminder_timezone,
+    set_invite_expiry_days,
+    set_reminder_timezone,
+)
 from app.security.tokens import generate_token, hash_token
 from app.security.two_factor import delete_two_factor_credential
 
@@ -100,6 +107,30 @@ async def update_invite_expiry_setting(
     await set_invite_expiry_days(db, payload.days)
     await db.commit()
     return InviteExpirySettingResponse(days=payload.days)
+
+
+@router.get("/settings/reminder-timezone", response_model=ReminderTimezoneSettingResponse)
+async def get_reminder_timezone_setting(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> ReminderTimezoneSettingResponse:
+    return ReminderTimezoneSettingResponse(timezone=await get_reminder_timezone(db))
+
+
+@router.put("/settings/reminder-timezone", response_model=ReminderTimezoneSettingResponse)
+async def update_reminder_timezone_setting(
+    payload: ReminderTimezoneSettingRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> ReminderTimezoneSettingResponse:
+    try:
+        await set_reminder_timezone(db, payload.timezone)
+    except InvalidTimezoneError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+    await db.commit()
+    return ReminderTimezoneSettingResponse(timezone=payload.timezone)
 
 
 @router.post("/users/2fa/disable", status_code=status.HTTP_204_NO_CONTENT)

@@ -17,10 +17,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.access import is_administrator
+from app.assignments import resolve_target_users
 from app.core.config import get_settings
 from app.db import get_db
-from app.dependencies import get_module_or_404, get_ses_client, require_content_manager
-from app.models import Assignment, Group, User, group_members
+from app.dependencies import (
+    get_module_or_404,
+    get_ses_client,
+    require_administrator,
+    require_content_manager,
+)
+from app.models import Assignment, AuditLog, Group, User, group_members
+from app.reminders import deployment_day_bounds, send_manual_reminders
 from app.schemas.assignments import (
     AssignmentCreateRequest,
     AssignmentResponse,
@@ -28,6 +35,7 @@ from app.schemas.assignments import (
     ContentGroupResponse,
 )
 from app.schemas.modules import ModuleActor
+from app.schemas.reminders import RemindResponse
 from app.security.audit import record_audit_log
 from app.security.mailer import SESClient, send_assignment_email
 
@@ -114,26 +122,20 @@ async def _targeted_learners(db: AsyncSession, payload: AssignmentCreateRequest)
 
     Membership is never expanded into the assignment row itself (see
     `Assignment`'s docstring) — this is only for the one-time notification,
-    not for what a learner's list resolves against later.
+    not for what a learner's list resolves against later. A 404 here (an
+    unknown group or user) is checked explicitly, ahead of the shared
+    resolver, which stays silent (empty list) for the reminder job's use.
     """
     if payload.target_type == "group":
-        group = await db.get(Group, payload.target_id)
-        if group is None:
+        if await db.get(Group, payload.target_id) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found.")
-        return list(
-            (
-                await db.execute(
-                    select(User).join(group_members, group_members.c.user_id == User.id).where(
-                        group_members.c.group_id == group.id
-                    )
-                )
-            ).scalars()
-        )
-
-    target_user = await db.get(User, payload.target_id)
-    if target_user is None or target_user.erased_at is not None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
-    return [target_user]
+    else:
+        target_user = await db.get(User, payload.target_id)
+        if target_user is None or target_user.erased_at is not None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    return await resolve_target_users(
+        db, target_type=payload.target_type, target_id=payload.target_id
+    )
 
 
 @router.post(
@@ -237,6 +239,77 @@ async def delete_assignment(
     await db.delete(assignment)
     await record_audit_log(db, actor_user_id=caller.id, action="assignment_removed", detail=detail)
     await db.commit()
+
+
+async def _manual_nudge_already_invoked_today(
+    db: AsyncSession, *, translation_group_id: uuid.UUID
+) -> bool:
+    """Has this endpoint already run for this module's material today?
+
+    Checked against the `reminder_sent` audit entry, not `module_reminders` —
+    the endpoint writes that entry on *every* successful call, including one
+    that reaches nobody (everyone already capped, or nothing published yet).
+    Keying the rate limit on an actual send instead would let a zero-reach
+    call slip through the "once per module per day" rule entirely, since it
+    would leave no `module_reminders` row to have been capped against.
+    """
+    window = await deployment_day_bounds(db)
+    count = await db.scalar(
+        select(func.count())
+        .select_from(AuditLog)
+        .where(
+            AuditLog.action == "reminder_sent",
+            AuditLog.detail["translation_group_id"].astext == str(translation_group_id),
+            AuditLog.timestamp >= window.start,
+            AuditLog.timestamp < window.end,
+        )
+    )
+    return bool(count)
+
+
+@router.post("/modules/{module_id}/remind", response_model=RemindResponse)
+async def remind_outstanding_learners(
+    module_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+    ses_client: SESClient = Depends(get_ses_client),
+) -> RemindResponse:
+    """Nudge everyone still outstanding on this module's material, right now.
+
+    Administrator-only — a Content Manager can turn `auto_reminders` on or
+    off when assigning, but triggering an immediate send is the same
+    escalation individual-targeting is: reaching into when and how a specific
+    person is emailed. Rate-limited to once per module per day regardless of
+    how many learners it actually reaches, so a doubled click can't retrigger
+    a second round of mail the moment the first one lands.
+    """
+    module = await get_module_or_404(db, module_id)
+    if await _manual_nudge_already_invoked_today(
+        db, translation_group_id=module.translation_group_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "code": "reminder_already_sent_today",
+                "message": "This module has already been nudged today.",
+            },
+        )
+
+    sent_count = await send_manual_reminders(
+        db, ses_client, translation_group_id=module.translation_group_id
+    )
+    await record_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="reminder_sent",
+        detail={
+            "module_id": str(module.id),
+            "translation_group_id": str(module.translation_group_id),
+            "sent_count": sent_count,
+        },
+    )
+    await db.commit()
+    return RemindResponse(sent_count=sent_count)
 
 
 @router.get("/groups", response_model=list[ContentGroupResponse])

@@ -18,7 +18,7 @@ able to name exactly what was read.
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -53,6 +53,7 @@ from app.schemas.learning import (
     ProgressState,
     SwitchLanguageRequest,
 )
+from app.security.system_settings import deployment_today
 
 catalog_router = APIRouter(prefix="/api/catalog", tags=["learning"])
 me_router = APIRouter(prefix="/api/me", tags=["learning"])
@@ -353,6 +354,7 @@ async def _unstarted_assigned_summaries(
     group_ids: list[uuid.UUID],
     assignments: dict[uuid.UUID, AssignedModule],
     assigned_group_ids: frozenset[uuid.UUID],
+    today: date,
 ) -> list[LearnerModuleSummary]:
     """Rows for material assigned to this learner that they have not opened.
 
@@ -425,7 +427,7 @@ async def _unstarted_assigned_summaries(
                 available=True,
                 due_date=assignment.due_date,
                 requirement=assignment.requirement,
-                overdue=is_overdue(assignment.due_date, completed=False),
+                overdue=is_overdue(assignment.due_date, completed=False, today=today),
             )
         )
     return summaries
@@ -452,6 +454,7 @@ async def list_my_modules(
 
     assignments = await assignments_for_user(db, user)
     assigned_group_ids = frozenset(assignments)
+    today = await deployment_today(db)
 
     if not rows and not assignments:
         return []
@@ -509,14 +512,18 @@ async def list_my_modules(
                 available=row.translation_group_id in available_groups,
                 due_date=assignment.due_date if assignment else None,
                 requirement=assignment.requirement if assignment else None,
-                overdue=is_overdue(assignment.due_date, completed=completed) if assignment else False,
+                overdue=(
+                    is_overdue(assignment.due_date, completed=completed, today=today)
+                    if assignment
+                    else False
+                ),
             )
         )
 
     unstarted_group_ids = sorted(assigned_group_ids - started_group_ids)
     summaries.extend(
         await _unstarted_assigned_summaries(
-            db, user, unstarted_group_ids, assignments, assigned_group_ids
+            db, user, unstarted_group_ids, assignments, assigned_group_ids, today
         )
     )
     return summaries

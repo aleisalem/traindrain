@@ -448,6 +448,11 @@
     "member_count_other": "{{count}} members",
     "error_already_assigned": "This module is already assigned to this target.",
     "error_forbidden_individual": "Only an Administrator may assign a module to an individual.",
-    "error_unknown": "Something went wrong. Please try again."
+    "error_unknown": "Something went wrong. Please try again.",
+    "remind_button": "Remind everyone outstanding",
+    "remind_success_one": "Reminded 1 learner.",
+    "remind_success_other": "Reminded {{count}} learners.",
+    "remind_rate_limited": "This module has already been nudged today.",
+    "remind_error": "The reminder couldn't be sent. Please try again."
   }
 }
