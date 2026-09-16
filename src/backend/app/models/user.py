@@ -25,6 +25,7 @@ class User(Base):
     must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     preferred_language: Mapped[str | None] = mapped_column(String(5))
     preferred_theme: Mapped[str | None] = mapped_column(String(20))
+    nav_position: Mapped[str | None] = mapped_column(String(10))
     disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     erased_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(

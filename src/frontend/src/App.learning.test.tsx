@@ -51,15 +51,14 @@ describe("Learner area routing", () => {
     vi.unstubAllGlobals();
   });
 
-  it("lets a Learner reach their own material from the dashboard and browse the catalog", async () => {
+  it("lands a Learner on their own material and lets them browse the catalog", async () => {
     const user = userEvent.setup();
     mockBackend({ "/api/me/modules": [], "/api/catalog/modules": [CATALOG_ENTRY] });
 
     render(<App />);
-    await screen.findByText("Signed in as learner@example.com");
 
-    // Reading is not a privilege: no role gates this, unlike /admin and /content.
-    await user.click(screen.getByRole("link", { name: "My learning" }));
+    // Reading is not a privilege: no role gates this, unlike /admin and
+    // /content — and it's every Learner's landing page, reached with no click.
     expect(await screen.findByText("You haven't opened anything yet.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("link", { name: "Browse catalog" }));

@@ -155,6 +155,7 @@ async def me(
         two_factor_enabled=await _has_enabled_two_factor(db, user_id=user.id),
         preferred_language=user.preferred_language,
         preferred_theme=user.preferred_theme,
+        nav_position=user.nav_position,
     )
 
 

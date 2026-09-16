@@ -28,6 +28,7 @@ class UpdatePreferencesRequest(BaseModel):
 
     preferred_language: Literal["en", "de"]
     preferred_theme: Literal["light", "dark", "colorblind"]
+    nav_position: Literal["left", "top"]
 
 
 class ProfileResponse(BaseModel):
@@ -37,3 +38,4 @@ class ProfileResponse(BaseModel):
     last_name: str | None
     preferred_language: str | None
     preferred_theme: str | None
+    nav_position: str | None

@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
 
 import { SUPPORTED_LANGUAGES } from "../../i18n";
+import { NAV_POSITIONS, resolveNavPosition, type NavPosition } from "../../theme/useNavPosition";
 import { resolveTheme, THEMES, type Theme } from "../../theme/useTheme";
 import type { AuthUser } from "../auth/useAuth";
+import { TwoFactorSettings } from "../twoFactor/TwoFactorSettings";
 
 type Language = (typeof SUPPORTED_LANGUAGES)[number];
 
@@ -17,11 +18,22 @@ type PasswordResult =
 type Props = {
   user: AuthUser;
   onUpdateName: (firstName: string, lastName: string) => Promise<NameResult>;
-  onUpdatePreferences: (language: Language, theme: Theme) => Promise<PreferencesResult>;
+  onUpdatePreferences: (
+    language: Language,
+    theme: Theme,
+    navPosition: NavPosition,
+  ) => Promise<PreferencesResult>;
   onChangePassword: (currentPassword: string, newPassword: string) => Promise<PasswordResult>;
+  onRefreshUser: () => void | Promise<void>;
 };
 
-export function ProfilePage({ user, onUpdateName, onUpdatePreferences, onChangePassword }: Props) {
+export function ProfilePage({
+  user,
+  onUpdateName,
+  onUpdatePreferences,
+  onChangePassword,
+  onRefreshUser,
+}: Props) {
   const { t, i18n } = useTranslation();
 
   const [firstName, setFirstName] = useState(user.firstName ?? "");
@@ -38,6 +50,7 @@ export function ProfilePage({ user, onUpdateName, onUpdatePreferences, onChangeP
 
   const currentTheme = resolveTheme(user.preferredTheme);
   const currentLanguage = (user.preferredLanguage as Language | null) ?? (i18n.resolvedLanguage as Language);
+  const currentNavPosition = resolveNavPosition(user.navPosition);
 
   async function handleNameSubmit(event: FormEvent) {
     event.preventDefault();
@@ -72,10 +85,7 @@ export function ProfilePage({ user, onUpdateName, onUpdatePreferences, onChangeP
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-10 p-8">
       <div>
-        <Link to="/" className="text-sm text-fg-muted hover:text-fg">
-          {t("profile.back_to_dashboard")}
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold">{t("profile.heading")}</h1>
+        <h1 className="text-2xl font-semibold">{t("profile.heading")}</h1>
         <p className="text-sm text-fg-muted">{user.email}</p>
       </div>
 
@@ -165,7 +175,7 @@ export function ProfilePage({ user, onUpdateName, onUpdatePreferences, onChangeP
             <button
               key={language}
               type="button"
-              onClick={() => void onUpdatePreferences(language, currentTheme)}
+              onClick={() => void onUpdatePreferences(language, currentTheme, currentNavPosition)}
               aria-pressed={currentLanguage === language}
               className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition aria-pressed:border-transparent aria-pressed:bg-[image:var(--gradient)] aria-pressed:text-primary-fg hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
             >
@@ -182,7 +192,7 @@ export function ProfilePage({ user, onUpdateName, onUpdatePreferences, onChangeP
             <button
               key={theme}
               type="button"
-              onClick={() => void onUpdatePreferences(currentLanguage, theme)}
+              onClick={() => void onUpdatePreferences(currentLanguage, theme, currentNavPosition)}
               aria-pressed={currentTheme === theme}
               className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition aria-pressed:border-transparent aria-pressed:bg-[image:var(--gradient)] aria-pressed:text-primary-fg hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
             >
@@ -191,6 +201,28 @@ export function ProfilePage({ user, onUpdateName, onUpdatePreferences, onChangeP
           ))}
         </div>
       </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-semibold">{t("profile.navigation_heading")}</h2>
+        <p className="text-sm text-fg-muted">{t("profile.navigation_hint")}</p>
+        <div className="flex gap-2">
+          {NAV_POSITIONS.map((navPosition) => (
+            <button
+              key={navPosition}
+              type="button"
+              onClick={() =>
+                void onUpdatePreferences(currentLanguage, currentTheme, navPosition)
+              }
+              aria-pressed={currentNavPosition === navPosition}
+              className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition aria-pressed:border-transparent aria-pressed:bg-[image:var(--gradient)] aria-pressed:text-primary-fg hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
+            >
+              {t(`profile.navigation_position_${navPosition}`)}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <TwoFactorSettings enabled={user.twoFactorEnabled} onChanged={onRefreshUser} />
     </div>
   );
 }

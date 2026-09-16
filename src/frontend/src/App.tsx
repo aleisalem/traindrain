@@ -1,12 +1,10 @@
 import { useEffect } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 
-import Dashboard from "./Dashboard";
 import { AdminDisableTwoFactorPage } from "./features/admin/AdminDisableTwoFactorPage";
 import { AdminGroupsPage } from "./features/admin/AdminGroupsPage";
 import { AdminOverview } from "./features/admin/AdminOverview";
 import { AdminRolesPage } from "./features/admin/AdminRolesPage";
-import { AdminShell } from "./features/admin/AdminShell";
 import { AdminUsersPage } from "./features/admin/AdminUsersPage";
 import { InviteUserPage } from "./features/admin/InviteUserPage";
 import { ForcedPasswordChangeForm } from "./features/auth/ForcedPasswordChangeForm";
@@ -17,15 +15,15 @@ import { TwoFactorVerifyForm } from "./features/auth/TwoFactorVerifyForm";
 import type { AuthUser } from "./features/auth/useAuth";
 import { ADMINISTRATOR_ROLE, canAuthorContent, useAuth } from "./features/auth/useAuth";
 import { ContentModulesPage } from "./features/content/ContentModulesPage";
-import { ContentShell } from "./features/content/ContentShell";
 import { ModuleFormPage } from "./features/content/ModuleFormPage";
 import { AcceptInvitePage } from "./features/invites/AcceptInvitePage";
 import { CatalogPage } from "./features/learning/CatalogPage";
-import { LearningShell } from "./features/learning/LearningShell";
 import { ModuleViewerPage } from "./features/learning/ModuleViewerPage";
 import { MyLearningPage } from "./features/learning/MyLearningPage";
 import { ProfilePage } from "./features/profile/ProfilePage";
 import i18n from "./i18n";
+import { AppShell } from "./shell/AppShell";
+import { getLandingPath } from "./shell/navConfig";
 import { resolveTheme, useAppliedTheme } from "./theme/useTheme";
 
 type AuthenticatedRoutesProps = {
@@ -64,45 +62,47 @@ function AuthenticatedRoutes({
 
   return (
     <Routes>
-      <Route
-        path="/"
-        element={<Dashboard user={user} onLogout={onLogout} onRefreshUser={onRefreshUser} />}
-      />
-      <Route
-        path="/profile"
-        element={
-          <ProfilePage
-            user={user}
-            onUpdateName={onUpdateName}
-            onUpdatePreferences={onUpdatePreferences}
-            onChangePassword={onChangePassword}
-          />
-        }
-      />
-      {/* Reading is not a privilege: every authenticated user has a learner
-          area, whatever else they can also do. */}
-      <Route path="/modules" element={<LearningShell onLogout={onLogout} />}>
-        <Route index element={<MyLearningPage />} />
-        <Route path="browse" element={<CatalogPage />} />
-        <Route path=":groupId" element={<ModuleViewerPage />} />
+      <Route element={<AppShell user={user} onLogout={onLogout} />}>
+        <Route
+          path="/profile"
+          element={
+            <ProfilePage
+              user={user}
+              onUpdateName={onUpdateName}
+              onUpdatePreferences={onUpdatePreferences}
+              onChangePassword={onChangePassword}
+              onRefreshUser={onRefreshUser}
+            />
+          }
+        />
+        {/* Reading is not a privilege: every authenticated user has a learner
+            area, whatever else they can also do. */}
+        <Route path="/modules" element={<Outlet />}>
+          <Route index element={<MyLearningPage />} />
+          <Route path="browse" element={<CatalogPage />} />
+          <Route path=":groupId" element={<ModuleViewerPage />} />
+        </Route>
+        {isAdministrator && (
+          <Route path="/admin" element={<Outlet />}>
+            <Route index element={<AdminOverview />} />
+            <Route path="users" element={<AdminUsersPage currentUserId={user.id} />} />
+            <Route path="roles" element={<AdminRolesPage />} />
+            <Route path="groups" element={<AdminGroupsPage />} />
+            <Route path="invites" element={<InviteUserPage />} />
+            <Route path="two-factor" element={<AdminDisableTwoFactorPage />} />
+          </Route>
+        )}
+        {canAuthor && (
+          <Route path="/content" element={<Outlet />}>
+            <Route index element={<ContentModulesPage />} />
+            <Route path="new" element={<ModuleFormPage />} />
+            <Route path=":moduleId" element={<ModuleFormPage />} />
+          </Route>
+        )}
       </Route>
-      {isAdministrator && (
-        <Route path="/admin" element={<AdminShell onLogout={onLogout} />}>
-          <Route index element={<AdminOverview />} />
-          <Route path="users" element={<AdminUsersPage currentUserId={user.id} />} />
-          <Route path="roles" element={<AdminRolesPage />} />
-          <Route path="groups" element={<AdminGroupsPage />} />
-          <Route path="invites" element={<InviteUserPage />} />
-          <Route path="two-factor" element={<AdminDisableTwoFactorPage />} />
-        </Route>
-      )}
-      {canAuthor && (
-        <Route path="/content" element={<ContentShell onLogout={onLogout} />}>
-          <Route index element={<ContentModulesPage />} />
-          <Route path="new" element={<ModuleFormPage />} />
-          <Route path=":moduleId" element={<ModuleFormPage />} />
-        </Route>
-      )}
+      {/* Every user's homepage depends on their role — the highest-privilege
+          area they hold, not a shared placeholder. */}
+      <Route path="/" element={<Navigate to={getLandingPath(user.roles)} replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

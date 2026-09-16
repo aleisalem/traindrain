@@ -2,12 +2,8 @@
   "app": {
     "name": "TrainDrain"
   },
-  "scaffold": {
-    "heading": "TrainDrain läuft",
-    "description": "Diese Platzhalterseite bestätigt, dass Frontend, i18n und Theming korrekt verbunden sind.",
-    "backend_health_button": "Backend-Status prüfen",
-    "backend_health_ok": "Backend meldet: {{status}}",
-    "backend_health_error": "Backend konnte nicht erreicht werden."
+  "shell": {
+    "group_learning": "Lernen"
   },
   "auth": {
     "login_heading": "Anmelden",
@@ -54,8 +50,7 @@
   },
   "admin": {
     "nav_link": "Admin-Bereich",
-    "shell_heading": "Admin",
-    "back_to_dashboard": "Zurück zum Dashboard",
+    "nav_overview": "Übersicht",
     "overview_heading": "Übersicht",
     "overview_description": "Diese Platzhalterseite bestätigt, dass der Admin-Bereich und sein Backend korrekt verbunden und auf Administratoren beschränkt sind.",
     "ping_button": "Admin-Zugriff prüfen",
@@ -180,9 +175,8 @@
     "error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
   },
   "profile": {
-    "nav_link": "Mein Profil",
-    "back_to_dashboard": "Zurück zum Dashboard",
-    "heading": "Ihr Profil",
+    "nav_link": "Einstellungen",
+    "heading": "Einstellungen",
     "name_heading": "Name",
     "first_name_label": "Vorname",
     "last_name_label": "Nachname",
@@ -197,7 +191,11 @@
     "theme_heading": "Thema",
     "theme_light": "Hell",
     "theme_dark": "Dunkel",
-    "theme_colorblind": "Farbenblindenfreundlich"
+    "theme_colorblind": "Farbenblindenfreundlich",
+    "navigation_heading": "Navigationsplatzierung",
+    "navigation_hint": "Wählen Sie, wo Ihre Navigationslinks angezeigt werden.",
+    "navigation_position_left": "Seitenleiste links",
+    "navigation_position_top": "Obere Leiste"
   },
   "adminTwoFactor": {
     "nav_link": "2FA eines Benutzers deaktivieren",
@@ -212,9 +210,7 @@
   },
   "content": {
     "nav_link": "Inhaltsbereich",
-    "shell_heading": "Inhalte",
     "nav_modules": "Module",
-    "back_to_dashboard": "Zurück zum Dashboard",
     "modules_heading": "Lernmodule",
     "modules_description": "Erstellen und bearbeiten Sie die Materialien, die Lernende lesen werden.",
     "load_error": "Das konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
@@ -372,10 +368,8 @@
   },
   "learning": {
     "nav_link": "Meine Lerninhalte",
-    "shell_heading": "Lernen",
     "nav_my_learning": "Meine Lerninhalte",
     "nav_catalog": "Katalog durchsuchen",
-    "back_to_dashboard": "Zurück zum Dashboard",
     "back_to_mine": "Zurück zu meinen Lerninhalten",
     "load_error": "Das konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
     "catalog_heading": "Offener Katalog",

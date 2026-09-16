@@ -84,16 +84,18 @@ async def test_update_preferences(client: AsyncClient, db_session: AsyncSession)
 
     response = await client.patch(
         "/api/profile/preferences",
-        json={"preferred_language": "de", "preferred_theme": "dark"},
+        json={"preferred_language": "de", "preferred_theme": "dark", "nav_position": "top"},
     )
 
     assert response.status_code == 200
     assert response.json()["preferred_language"] == "de"
     assert response.json()["preferred_theme"] == "dark"
+    assert response.json()["nav_position"] == "top"
 
     await db_session.refresh(user)
     assert user.preferred_language == "de"
     assert user.preferred_theme == "dark"
+    assert user.nav_position == "top"
 
 
 async def test_preferences_persist_across_a_new_session(
@@ -103,7 +105,7 @@ async def test_preferences_persist_across_a_new_session(
     await _login(client, email=user.email)
     await client.patch(
         "/api/profile/preferences",
-        json={"preferred_language": "de", "preferred_theme": "dark"},
+        json={"preferred_language": "de", "preferred_theme": "dark", "nav_position": "top"},
     )
 
     # A fresh login (a different session than the one that set the
@@ -116,6 +118,7 @@ async def test_preferences_persist_across_a_new_session(
     assert me.status_code == 200
     assert me.json()["preferred_language"] == "de"
     assert me.json()["preferred_theme"] == "dark"
+    assert me.json()["nav_position"] == "top"
 
 
 async def test_update_preferences_rejects_an_unsupported_theme(
@@ -126,7 +129,21 @@ async def test_update_preferences_rejects_an_unsupported_theme(
 
     response = await client.patch(
         "/api/profile/preferences",
-        json={"preferred_language": "en", "preferred_theme": "neon"},
+        json={"preferred_language": "en", "preferred_theme": "neon", "nav_position": "left"},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_update_preferences_rejects_an_unsupported_nav_position(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    user = await _make_user(db_session, email="profile-bad-nav-position@example.com")
+    await _login(client, email=user.email)
+
+    response = await client.patch(
+        "/api/profile/preferences",
+        json={"preferred_language": "en", "preferred_theme": "light", "nav_position": "bottom"},
     )
 
     assert response.status_code == 422
@@ -143,6 +160,7 @@ async def test_new_user_has_no_stored_preferences(
     assert me.status_code == 200
     assert me.json()["preferred_language"] is None
     assert me.json()["preferred_theme"] is None
+    assert me.json()["nav_position"] is None
 
 
 async def test_profile_endpoints_require_authentication(client: AsyncClient) -> None:
@@ -151,7 +169,7 @@ async def test_profile_endpoints_require_authentication(client: AsyncClient) -> 
     )
     preferences_response = await client.patch(
         "/api/profile/preferences",
-        json={"preferred_language": "en", "preferred_theme": "light"},
+        json={"preferred_language": "en", "preferred_theme": "light", "nav_position": "left"},
     )
 
     assert name_response.status_code == 401

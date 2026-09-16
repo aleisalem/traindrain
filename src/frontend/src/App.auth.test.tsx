@@ -67,12 +67,13 @@ describe("App auth flow", () => {
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
   });
 
-  it("shows the dashboard directly for a session that doesn't need a password change", async () => {
+  it("lands on My Learning directly for a session that doesn't need a password change", async () => {
     queue("GET", "/api/auth/me", { status: 200, body: USER_BODY });
+    queue("GET", "/api/me/modules", { status: 200, body: [] });
 
     render(<App />);
 
-    expect(await screen.findByText("Signed in as learner@example.com")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "My learning" })).toBeInTheDocument();
   });
 
   it("shows a generic error for invalid credentials", async () => {
@@ -107,7 +108,7 @@ describe("App auth flow", () => {
     );
   });
 
-  it("walks a forced first-login password change through to the dashboard", async () => {
+  it("walks a forced first-login password change through to the landing page", async () => {
     const user = userEvent.setup();
     queue("GET", "/api/auth/me", { status: 401, body: {} });
     queue("POST", "/api/auth/login", { status: 200, body: { must_change_password: true } });
@@ -132,12 +133,13 @@ describe("App auth flow", () => {
       body: { must_change_password: false },
     });
     queue("GET", "/api/auth/me", { status: 200, body: USER_BODY });
+    queue("GET", "/api/me/modules", { status: 200, body: [] });
 
     await user.type(screen.getByLabelText("Current password"), "one-time-random-password");
     await user.type(screen.getByLabelText("New password"), "a-brand-new-passphrase");
     await user.click(screen.getByRole("button", { name: "Set new password" }));
 
-    expect(await screen.findByText("Signed in as learner@example.com")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "My learning" })).toBeInTheDocument();
   });
 
   it("shows an error when the current password is wrong", async () => {
@@ -164,10 +166,11 @@ describe("App auth flow", () => {
   it("logs out back to the login form", async () => {
     const user = userEvent.setup();
     queue("GET", "/api/auth/me", { status: 200, body: USER_BODY });
+    queue("GET", "/api/me/modules", { status: 200, body: [] });
     queue("POST", "/api/auth/logout", { status: 204, body: {} });
 
     render(<App />);
-    await screen.findByText("Signed in as learner@example.com");
+    await screen.findByRole("heading", { name: "My learning" });
 
     await user.click(screen.getByRole("button", { name: "Log out" }));
 

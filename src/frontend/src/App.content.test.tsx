@@ -57,6 +57,9 @@ function mockBackend(user: unknown, modules: unknown[] = [MODULE]) {
       if (url === "/api/content/modules") {
         return new Response(JSON.stringify(modules), { status: 200 });
       }
+      if (url === "/api/me/modules") {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
       throw new Error(`No mocked response for ${url}`);
     }),
   );
@@ -73,14 +76,10 @@ describe("Content area routing", () => {
     vi.unstubAllGlobals();
   });
 
-  it("lets a Content Manager reach the content area from the dashboard", async () => {
-    const user = userEvent.setup();
+  it("lands a Content Manager on the content area directly", async () => {
     mockBackend(CONTENT_MANAGER_USER);
 
     render(<App />);
-    await screen.findByText("Signed in as author@example.com");
-
-    await user.click(screen.getByRole("link", { name: "Content area" }));
 
     expect(
       await screen.findByRole("heading", { name: "Learning modules" }),
@@ -93,31 +92,31 @@ describe("Content area routing", () => {
     mockBackend(ADMIN_USER);
 
     render(<App />);
-    await screen.findByText("Signed in as admin@example.com");
+    await screen.findByRole("heading", { name: "Overview" });
 
-    await user.click(screen.getByRole("link", { name: "Content area" }));
+    await user.click(screen.getByRole("link", { name: "Modules" }));
 
     expect(
       await screen.findByRole("heading", { name: "Learning modules" }),
     ).toBeInTheDocument();
   });
 
-  it("hides the content-area nav link from a Learner", async () => {
+  it("hides the content-area nav group from a Learner", async () => {
     mockBackend(LEARNER_USER);
 
     render(<App />);
-    await screen.findByText("Signed in as learner@example.com");
+    await screen.findByRole("heading", { name: "My learning" });
 
-    expect(screen.queryByRole("link", { name: "Content area" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Content area")).not.toBeInTheDocument();
   });
 
-  it("redirects a Learner who navigates straight to /content back to the dashboard", async () => {
+  it("redirects a Learner who navigates straight to /content back to their own landing page", async () => {
     window.history.pushState({}, "", "/content");
     mockBackend(LEARNER_USER);
 
     render(<App />);
 
-    expect(await screen.findByText("Signed in as learner@example.com")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "My learning" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Learning modules" })).not.toBeInTheDocument();
   });
 
@@ -127,7 +126,7 @@ describe("Content area routing", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Signed in as learner@example.com")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "My learning" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Module details" })).not.toBeInTheDocument();
   });
 
@@ -135,10 +134,10 @@ describe("Content area routing", () => {
     mockBackend(LEARNER_USER);
 
     render(<App />);
-    await screen.findByText("Signed in as learner@example.com");
+    await screen.findByRole("heading", { name: "My learning" });
 
-    // The Learner's dashboard never fetched the authoring API at all — the
-    // route isn't mounted, so nothing behind it renders.
+    // The Learner's landing page never fetched the authoring API at all —
+    // the route isn't mounted, so nothing behind it renders.
     const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
     const requested = fetchMock.mock.calls.map((call) => String(call[0]));
     expect(requested).not.toContain("/api/content/modules");

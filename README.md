@@ -10,7 +10,8 @@ Release 0 is in progress. So far:
 
 - Local dev environment: Postgres, a FastAPI backend, LocalStack (S3 + SES emulation), and a
   prod-style static frontend build, all runnable via `docker-compose up`.
-- Backend health-check endpoint (`GET /api/health`) with Alembic migrations wired to Postgres.
+- Backend health-check endpoint (`GET /api/health`, used by infrastructure/monitoring — not
+  shown anywhere in the UI) with Alembic migrations wired to Postgres.
 - Frontend i18n (English/German via react-i18next) and a Tailwind CSS-variable theme system
   (light, dark, colorblind-friendly) with a bold gradient-accented visual language — pill
   buttons/inputs, elevated cards, and a `Space Grotesk`/`Manrope` type pairing (see
@@ -103,9 +104,11 @@ Release 0 is in progress. So far:
   policy validator, invalidates your other active sessions). A user with no stored theme
   preference gets an OS-based light/dark default the moment they log in — never the colorblind
   theme, which is always an explicit opt-in. Frontend:
-  `src/frontend/src/features/profile/ProfilePage.tsx` (`/profile`, linked from the dashboard) —
-  the app-wide theme/language application itself now lives in `src/frontend/src/App.tsx` rather
-  than the dashboard, so it applies consistently across every authenticated screen.
+  `src/frontend/src/features/profile/ProfilePage.tsx` (`/profile`, reachable from the profile
+  control in the nav shell — see the unified navigation shell bullet below, which also merged
+  two-factor settings and a navigation-placement preference onto this same page) — the app-wide
+  theme/language application itself lives in `src/frontend/src/App.tsx`, so it applies
+  consistently across every authenticated screen.
 
 Release 1 (learning modules) is in progress. So far:
 
@@ -242,6 +245,21 @@ Release 1 (learning modules) is in progress. So far:
   (`src/frontend/src/features/learning/ModuleViewerPage.tsx`), shown only when
   a translation group has more than one variant to read.
 
+- A single navigation shell (`AppShell`) replaced the three near-identical, role-scoped headers
+  `/admin`, `/content`, and `/modules` used to render separately. Its nav shows the union of what
+  a user's roles unlock — every authenticated user holds Learner, so "My learning"/"Browse
+  catalog" are always there; "Content area" appears for Content Managers and Administrators;
+  "Admin area" only for Administrators — and its placement (left sidebar or top bar) is a
+  per-user preference (`PATCH /api/profile/preferences`, `nav_position: "left" | "top"`, default
+  left), changed from the preferences page. A profile control (initials avatar, since there's no
+  photo-upload feature yet) sits in the nav and opens `/profile`, now a single **Preferences**
+  page combining name, password, language/theme, navigation placement, and two-factor
+  authentication (previously split across the profile page and the old dashboard). Signing in
+  lands a user on the highest-privilege area they hold — Administrator → Admin area, Content
+  Manager → Content area, otherwise → My learning — rather than a shared placeholder dashboard,
+  which is gone along with the backend-health-check button it used to show. Frontend:
+  `src/frontend/src/shell/AppShell.tsx`, `navConfig.tsx`, `icons.tsx`.
+
 The rest of Release 1 — assignment, reminders, reporting — is still to come.
 
 ## Project structure
@@ -263,18 +281,19 @@ src/
     tests/         pytest suite, run against a real Postgres instance
   frontend/        React + Vite SPA (TypeScript)
     src/
+      shell/       AppShell (the one nav+profile chrome every authenticated route renders inside), its per-role nav config, and its icon set
       features/auth/   Login / forced-password-change / forgot-, reset-password, and 2FA-verify UI, auth state hook
-      features/admin/  Admin-only route tree (shell nav, overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page, groups page)
+      features/admin/  Admin-only route tree (overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page, groups page)
       features/content/  Content Manager authoring area (module list, metadata form, page editor,
                          preview, image/attachment panel, publish/version panel)
       content/         The checked-in ProseMirror schema and the Tiptap extension set built from it
       features/invites/  Public accept-invite page (set password, no session required)
       features/learning/  The learner's area (open catalog, "my learning", module viewer)
-      features/twoFactor/  Self-service TOTP enroll/disable UI (QR code, recovery codes)
-      features/profile/  Self-service profile page (name, password, language/theme preferences)
+      features/twoFactor/  Self-service TOTP enroll/disable UI (QR code, recovery codes), embedded in the Preferences page
+      features/profile/  The Preferences page (name, password, language/theme/navigation-placement, two-factor authentication)
       i18n/        react-i18next config and en/de locale files
       styles/      Tailwind CSS-variable theme definitions (light/dark/colorblind)
-      theme/       Theme-selection hook
+      theme/       Theme- and nav-placement-selection hooks
 docs/              Feature summaries and research notes
 .scratch/          Working specs/tickets for the release currently in progress
 ```

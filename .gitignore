@@ -220,3 +220,6 @@ __marimo__/
 # Node / frontend
 node_modules/
 .vite/
+
+# Misc AI-related
+.scratch/

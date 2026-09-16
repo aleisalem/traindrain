@@ -17,6 +17,7 @@ def _to_response(user: User) -> ProfileResponse:
         last_name=user.last_name,
         preferred_language=user.preferred_language,
         preferred_theme=user.preferred_theme,
+        nav_position=user.nav_position,
     )
 
 
@@ -40,5 +41,6 @@ async def update_preferences(
 ) -> ProfileResponse:
     user.preferred_language = payload.preferred_language
     user.preferred_theme = payload.preferred_theme
+    user.nav_position = payload.nav_position
     await db.commit()
     return _to_response(user)

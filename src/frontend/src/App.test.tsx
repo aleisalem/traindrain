@@ -14,60 +14,66 @@ const AUTHENTICATED_USER = {
   roles: ["Learner"],
 };
 
+function mockBackend(user: unknown = AUTHENTICATED_USER) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url === "/api/auth/me") return new Response(JSON.stringify(user), { status: 200 });
+      if (url === "/api/me/modules") return new Response(JSON.stringify([]), { status: 200 });
+      throw new Error(`No mocked response for ${url}`);
+    }),
+  );
+}
+
 describe("App", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("en");
     document.documentElement.removeAttribute("data-theme");
-    // These tests exercise the post-login dashboard, so start from an
+    window.history.pushState({}, "", "/");
+    // These tests exercise the post-login landing page, so start from an
     // already-authenticated session — the login/logout journey itself is
     // covered by App.auth.test.tsx.
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(JSON.stringify(AUTHENTICATED_USER), { status: 200 })),
-    );
+    mockBackend();
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("renders the placeholder heading via t()", async () => {
+  it("lands a Learner on My Learning, not a shared placeholder", async () => {
     render(<App />);
-    expect(await screen.findByText("TrainDrain is up and running")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "My learning" })).toBeInTheDocument();
+  });
+
+  it("does not show a backend health-check on the landing page", async () => {
+    render(<App />);
+    await screen.findByRole("heading", { name: "My learning" });
+
+    expect(screen.queryByText(/backend/i)).not.toBeInTheDocument();
   });
 
   it("falls back to the OS light/dark theme for a user with no stored preference", async () => {
     render(<App />);
-    await screen.findByText("TrainDrain is up and running");
+    await screen.findByRole("heading", { name: "My learning" });
 
     // jsdom's default matchMedia reports no match, i.e. "not dark" -> light.
     expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   });
 
   it("applies a user's persisted theme preference on login, without any interaction", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        new Response(
-          JSON.stringify({ ...AUTHENTICATED_USER, preferred_theme: "dark" }),
-          { status: 200 },
-        ),
-      ),
-    );
+    mockBackend({ ...AUTHENTICATED_USER, preferred_theme: "dark" });
 
     render(<App />);
-    await screen.findByText("TrainDrain is up and running");
+    await screen.findByRole("heading", { name: "My learning" });
 
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   });
 
-  it("links to the profile page from the dashboard", async () => {
+  it("links the profile control to the preferences page", async () => {
     render(<App />);
-    await screen.findByText("TrainDrain is up and running");
+    await screen.findByRole("heading", { name: "My learning" });
 
-    expect(screen.getByRole("link", { name: "My profile" })).toHaveAttribute(
-      "href",
-      "/profile",
-    );
+    expect(screen.getByRole("link", { name: /Preferences/ })).toHaveAttribute("href", "/profile");
   });
 });
