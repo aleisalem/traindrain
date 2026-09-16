@@ -111,6 +111,9 @@ describe("the learner's lists", () => {
       completed_version_number: 2,
       superseded_at: null,
       available: false,
+      due_date: null,
+      requirement: null,
+      overdue: false,
     };
     mockJson("/api/me/modules", [summary]);
     renderAt("/modules");
@@ -119,5 +122,74 @@ describe("the learner's lists", () => {
     expect(await screen.findByText(/Completed/)).toBeInTheDocument();
     expect(screen.getByText("No longer available")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Open again" })).not.toBeInTheDocument();
+  });
+
+  it("shows an assigned module nobody has opened yet, with its due date", async () => {
+    const summary: LearnerModuleSummary = {
+      translation_group_id: "group-1",
+      title: "Fire Safety",
+      language: "en",
+      estimated_duration_minutes: 10,
+      started_at: null,
+      completed_at: null,
+      completed_version_number: null,
+      superseded_at: null,
+      available: true,
+      due_date: "2026-12-01",
+      requirement: "mandatory",
+      overdue: false,
+    };
+    mockJson("/api/me/modules", [summary]);
+    renderAt("/modules");
+
+    expect(await screen.findByText("Not started")).toBeInTheDocument();
+    expect(screen.getByText("Mandatory · Due 2026-12-01")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Start" })).toHaveAttribute(
+      "href",
+      "/modules/group-1",
+    );
+  });
+
+  it("flags an assignment past its due date as overdue", async () => {
+    const summary: LearnerModuleSummary = {
+      translation_group_id: "group-1",
+      title: "Fire Safety",
+      language: "en",
+      estimated_duration_minutes: 10,
+      started_at: null,
+      completed_at: null,
+      completed_version_number: null,
+      superseded_at: null,
+      available: true,
+      due_date: "2026-01-01",
+      requirement: "mandatory",
+      overdue: true,
+    };
+    mockJson("/api/me/modules", [summary]);
+    renderAt("/modules");
+
+    expect(await screen.findByText("Mandatory · Due 2026-01-01 · Overdue")).toBeInTheDocument();
+  });
+
+  it("never calls a completed assignment overdue", async () => {
+    const summary: LearnerModuleSummary = {
+      translation_group_id: "group-1",
+      title: "Fire Safety",
+      language: "en",
+      estimated_duration_minutes: 10,
+      started_at: "2026-01-01T09:00:00Z",
+      completed_at: "2026-01-02T09:00:00Z",
+      completed_version_number: 1,
+      superseded_at: null,
+      available: true,
+      due_date: "2025-01-01",
+      requirement: "mandatory",
+      overdue: false,
+    };
+    mockJson("/api/me/modules", [summary]);
+    renderAt("/modules");
+
+    expect(await screen.findByText(/Completed/)).toBeInTheDocument();
+    expect(screen.queryByText(/Overdue/)).not.toBeInTheDocument();
   });
 });

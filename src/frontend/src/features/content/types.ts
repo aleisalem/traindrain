@@ -78,3 +78,35 @@ export type TranslationGroupBody = {
   primary_module_id: string | null;
   variants: ModuleBody[];
 };
+
+/** A group as far as a Content Manager may see one: a name, a description,
+ *  and how many people are in it — never who they are. */
+export type ContentGroup = {
+  id: string;
+  name: string;
+  description: string | null;
+  member_count: number;
+};
+
+export type AssignmentTargetType = "user" | "group";
+export type Requirement = "mandatory" | "recommended";
+
+/** Who an assignment names. `name` is `null` for a "user" target the caller
+ *  may not identify — a Content Manager, reading someone else's assignment to
+ *  an individual. */
+export type AssignmentTarget = {
+  type: AssignmentTargetType;
+  id: string;
+  name: string | null;
+};
+
+export type Assignment = {
+  id: string;
+  translation_group_id: string;
+  target: AssignmentTarget;
+  due_date: string | null;
+  requirement: Requirement;
+  auto_reminders: boolean;
+  assigned_by: ModuleActor;
+  created_at: string;
+};

@@ -25,6 +25,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.access import may_read_module
+from app.assignments import assigned_translation_group_ids
 from app.content.uploads import UploadRejected, sniff_upload
 from app.core.config import get_settings
 from app.db import get_db
@@ -369,7 +370,7 @@ async def delete_module_asset(
 # --- Delivery -------------------------------------------------------------
 
 
-def authorize_asset_access(user: User, module: Module) -> None:
+async def authorize_asset_access(db: AsyncSession, user: User, module: Module) -> None:
     """May this user read this module's assets?
 
     Implicit deny: an authenticated user gets nothing until a rule admits them.
@@ -381,7 +382,8 @@ def authorize_asset_access(user: User, module: Module) -> None:
     Everyone else gets a 404 rather than a 403: whether a particular asset
     exists is not something to confirm to somebody who may not read it.
     """
-    if not may_read_module(user, module):
+    assigned = await assigned_translation_group_ids(db, user)
+    if not may_read_module(user, module, assigned_group_ids=assigned):
         raise _ASSET_NOT_FOUND
 
 
@@ -404,7 +406,7 @@ async def get_asset(
     ).scalar_one_or_none()
     if module is None:
         raise _ASSET_NOT_FOUND
-    authorize_asset_access(user, module)
+    await authorize_asset_access(db, user, module)
 
     asset = (
         await db.execute(

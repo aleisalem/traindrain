@@ -95,8 +95,11 @@ function AuthenticatedRoutes({
         {canAuthor && (
           <Route path="/content" element={<Outlet />}>
             <Route index element={<ContentModulesPage />} />
-            <Route path="new" element={<ModuleFormPage />} />
-            <Route path=":moduleId" element={<ModuleFormPage />} />
+            <Route path="new" element={<ModuleFormPage isAdministrator={isAdministrator} />} />
+            <Route
+              path=":moduleId"
+              element={<ModuleFormPage isAdministrator={isAdministrator} />}
+            />
           </Route>
         )}
       </Route>

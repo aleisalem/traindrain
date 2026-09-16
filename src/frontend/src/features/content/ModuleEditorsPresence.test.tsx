@@ -83,6 +83,11 @@ function mockBackend(editors: { id: string; display_name: string }[]) {
           { status: 200 },
         );
       }
+      // The assignment panel loads its own list and the group picker too;
+      // these tests are about presence, so both come back empty.
+      if (url.endsWith("/assignments") || url.endsWith("/api/content/groups")) {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
       if (method === "PATCH") return new Response(JSON.stringify(MODULE), { status: 200 });
       return new Response(JSON.stringify(MODULE), { status: 200 });
     }),
@@ -94,7 +99,7 @@ function renderFormPage() {
   return render(
     <MemoryRouter initialEntries={["/content/module-1"]}>
       <Routes>
-        <Route path="/content/:moduleId" element={<ModuleFormPage />} />
+        <Route path="/content/:moduleId" element={<ModuleFormPage isAdministrator={false} />} />
       </Routes>
     </MemoryRouter>,
   );

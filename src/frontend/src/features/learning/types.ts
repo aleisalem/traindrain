@@ -67,12 +67,16 @@ export type LearnerModule = {
   available_languages: string[];
 };
 
+export type Requirement = "mandatory" | "recommended";
+
 export type LearnerModuleSummary = {
   translation_group_id: string;
   title: string;
   language: string;
   estimated_duration_minutes: number | null;
-  started_at: string;
+  /** `null` for a row that exists only because the material is assigned and
+   *  nobody has opened it yet. */
+  started_at: string | null;
   completed_at: string | null;
   completed_version_number: number | null;
   superseded_at: string | null;
@@ -80,4 +84,9 @@ export type LearnerModuleSummary = {
    *  list, because the completion is the learner's, but reopening is not on
    *  offer. */
   available: boolean;
+  /** From the assignment with the nearest due date covering this material, if
+   *  any — a module only ever opened via the catalog carries neither. */
+  due_date: string | null;
+  requirement: Requirement | null;
+  overdue: boolean;
 };

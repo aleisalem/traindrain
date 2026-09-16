@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { AssignmentsPanel } from "./AssignmentsPanel";
 import { ModuleAssetsPanel } from "./ModuleAssetsPanel";
 import { ModuleEditorsPresence } from "./ModuleEditorsPresence";
 import { ModulePagesPanel } from "./ModulePagesPanel";
@@ -9,6 +10,7 @@ import { ModulePublishPanel } from "./ModulePublishPanel";
 import { OverwriteWarningDialog } from "./OverwriteWarningDialog";
 import { TranslationsPanel } from "./TranslationsPanel";
 import type { ModuleBody } from "./types";
+import { useAssignments } from "./useAssignments";
 import { useModuleAssets } from "./useModuleAssets";
 import { useModuleEditors } from "./useModuleEditors";
 import { useTranslationGroup } from "./useTranslationGroup";
@@ -31,7 +33,13 @@ const EMPTY_FORM: FormState = { title: "", description: "", language: "en", dura
  * the text-search configuration a module's pages are indexed under, so a
  * translation is a new variant rather than an edit.
  */
-export function ModuleFormPage() {
+type Props = {
+  /** Whether this caller may name an individual on the assignment panel —
+   *  the frontend half of the server's Administrator-only check. */
+  isAdministrator: boolean;
+};
+
+export function ModuleFormPage({ isAdministrator }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { moduleId } = useParams();
@@ -52,6 +60,7 @@ export function ModuleFormPage() {
   // and the panel below manages it. Two fetches would let the two disagree.
   const assets = useModuleAssets(moduleId);
   const translations = useTranslationGroup(module?.translation_group_id);
+  const assignments = useAssignments(moduleId);
 
   const load = useCallback(async () => {
     if (!moduleId) return;
@@ -259,6 +268,13 @@ export function ModuleFormPage() {
           for, and there is nothing to publish before the material exists. */}
       {isEdit && module && <ModulePublishPanel module={module} onChanged={setModule} />}
       {isEdit && module && <TranslationsPanel translations={translations} />}
+      {isEdit && moduleId && (
+        <AssignmentsPanel
+          moduleId={moduleId}
+          assignments={assignments}
+          isAdministrator={isAdministrator}
+        />
+      )}
 
       {module && (
         <dl className="flex flex-col gap-1 text-sm text-fg-muted">

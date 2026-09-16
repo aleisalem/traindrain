@@ -27,6 +27,12 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.access import may_read_module
+from app.assignments import (
+    AssignedModule,
+    assigned_translation_group_ids,
+    assignments_for_user,
+    is_overdue,
+)
 from app.db import get_db
 from app.dependencies import require_active_user
 from app.models import (
@@ -116,17 +122,25 @@ def _pick_variant(
 
 
 async def _resolve_readable_variant(
-    db: AsyncSession, user: User, group_id: uuid.UUID
+    db: AsyncSession,
+    user: User,
+    group_id: uuid.UUID,
+    assigned_group_ids: frozenset[uuid.UUID],
 ) -> tuple[Module, ModuleVersion]:
     """The module this learner opens, and the frozen text they read of it.
 
     Raises the one 404 above if there is nothing they may read — an unknown
     group, a group with no published variant, and a module the author never
-    opened to anybody are the same answer on purpose.
+    opened to anybody (by catalog or by assignment) are the same answer on
+    purpose.
     """
     group = await db.get(ModuleTranslationGroup, group_id)
     candidates = await _published_variants(db, [group_id]) if group else []
-    readable = [module for module in candidates if may_read_module(user, module)]
+    readable = [
+        module
+        for module in candidates
+        if may_read_module(user, module, assigned_group_ids=assigned_group_ids)
+    ]
     existing = await _existing_progress(db, user, group_id)
     variant = _pick_variant(
         readable,
@@ -333,17 +347,98 @@ async def list_catalog(
 # --- The learner's own material -------------------------------------------
 
 
+async def _unstarted_assigned_summaries(
+    db: AsyncSession,
+    user: User,
+    group_ids: list[uuid.UUID],
+    assignments: dict[uuid.UUID, AssignedModule],
+    assigned_group_ids: frozenset[uuid.UUID],
+) -> list[LearnerModuleSummary]:
+    """Rows for material assigned to this learner that they have not opened.
+
+    Nothing is written here — this is a read composing the same resolution the
+    viewer uses (`_pick_variant`) over material the learner has no progress
+    row for yet, so the list can say "you have this to do" before they have
+    clicked into it once.
+    """
+    if not group_ids:
+        return []
+
+    candidates = await _published_variants(db, group_ids)
+    readable = [
+        module
+        for module in candidates
+        if may_read_module(user, module, assigned_group_ids=assigned_group_ids)
+    ]
+    by_group: dict[uuid.UUID, list[Module]] = {}
+    for module in readable:
+        by_group.setdefault(module.translation_group_id, []).append(module)
+    if not by_group:
+        return []
+
+    groups = {
+        group.id: group
+        for group in (
+            await db.execute(
+                select(ModuleTranslationGroup).where(
+                    ModuleTranslationGroup.id.in_(list(by_group))
+                )
+            )
+        ).scalars()
+    }
+    chosen = {
+        group_id: variant
+        for group_id, variants in by_group.items()
+        if (
+            variant := _pick_variant(
+                variants,
+                preferred_language=user.preferred_language,
+                primary_module_id=(
+                    groups[group_id].primary_module_id if group_id in groups else None
+                ),
+            )
+        )
+        is not None
+    }
+    versions = await _versions_by_id(db, list(chosen.values()))
+
+    summaries = []
+    for group_id, variant in chosen.items():
+        version = versions.get(variant.current_version_id) if variant.current_version_id else None
+        if version is None:
+            # Assigned material with nothing published yet has nothing to show.
+            continue
+        assignment = assignments[group_id]
+        snapshot = version.snapshot
+        summaries.append(
+            LearnerModuleSummary(
+                translation_group_id=group_id,
+                title=snapshot.get("title", variant.title),
+                language=variant.language,
+                estimated_duration_minutes=snapshot.get(
+                    "estimated_duration_minutes", variant.estimated_duration_minutes
+                ),
+                started_at=None,
+                completed_at=None,
+                completed_version_number=None,
+                superseded_at=None,
+                available=True,
+                due_date=assignment.due_date,
+                requirement=assignment.requirement,
+                overdue=is_overdue(assignment.due_date, completed=False),
+            )
+        )
+    return summaries
+
+
 @me_router.get("/modules", response_model=list[LearnerModuleSummary])
 async def list_my_modules(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_active_user),
 ) -> list[LearnerModuleSummary]:
-    """What this learner has started and what they have completed.
-
-    Ticket 7 adds the rows for material assigned to them that they have not
-    opened yet, with due dates and overdue flags; this list is what they have
-    actually touched — including anything a substantive republish has put back
-    in the outstanding pile, which `superseded_at` marks.
+    """What this learner has started, what they have completed, and what they
+    have been assigned but not opened yet — the union the PRD calls their
+    assigned list, with the nearest due date and an overdue flag on each row.
     """
     rows = list(
         (
@@ -354,10 +449,15 @@ async def list_my_modules(
             )
         ).scalars()
     )
-    if not rows:
+
+    assignments = await assignments_for_user(db, user)
+    assigned_group_ids = frozenset(assignments)
+
+    if not rows and not assignments:
         return []
 
-    group_ids = [row.translation_group_id for row in rows]
+    started_group_ids = {row.translation_group_id for row in rows}
+    group_ids = sorted(started_group_ids | assigned_group_ids)
 
     def _display_module_id(row: ModuleProgress) -> uuid.UUID:
         # The variant a completion names, once there is one — not whichever
@@ -378,12 +478,12 @@ async def list_my_modules(
                 select(Module).where(Module.id.in_([_display_module_id(row) for row in rows]))
             )
         ).scalars()
-    }
+    } if rows else {}
     published = await _versions_by_id(db, list(read_modules.values()))
     available_groups = {
         module.translation_group_id
         for module in await _published_variants(db, group_ids)
-        if may_read_module(user, module)
+        if may_read_module(user, module, assigned_group_ids=assigned_group_ids)
     }
 
     summaries = []
@@ -391,6 +491,8 @@ async def list_my_modules(
         module = read_modules[_display_module_id(row)]
         version = published.get(module.current_version_id) if module.current_version_id else None
         snapshot = version.snapshot if version else {}
+        assignment = assignments.get(row.translation_group_id)
+        completed = row.completed_at is not None and row.superseded_at is None
         summaries.append(
             LearnerModuleSummary(
                 translation_group_id=row.translation_group_id,
@@ -405,18 +507,31 @@ async def list_my_modules(
                 completed_version_number=row.completed_version_number,
                 superseded_at=row.superseded_at,
                 available=row.translation_group_id in available_groups,
+                due_date=assignment.due_date if assignment else None,
+                requirement=assignment.requirement if assignment else None,
+                overdue=is_overdue(assignment.due_date, completed=completed) if assignment else False,
             )
         )
+
+    unstarted_group_ids = sorted(assigned_group_ids - started_group_ids)
+    summaries.extend(
+        await _unstarted_assigned_summaries(
+            db, user, unstarted_group_ids, assignments, assigned_group_ids
+        )
+    )
     return summaries
 
 
 async def _readable_variants(
-    db: AsyncSession, user: User, group_id: uuid.UUID
+    db: AsyncSession,
+    user: User,
+    group_id: uuid.UUID,
+    assigned_group_ids: frozenset[uuid.UUID],
 ) -> list[Module]:
     return [
         module
         for module in await _published_variants(db, [group_id])
-        if may_read_module(user, module)
+        if may_read_module(user, module, assigned_group_ids=assigned_group_ids)
     ]
 
 
@@ -486,9 +601,10 @@ async def get_my_module(
     write would also make it something a prefetch or a stray click could record
     on somebody's training history.
     """
-    module, version = await _resolve_readable_variant(db, user, translation_group_id)
+    assigned = await assigned_translation_group_ids(db, user)
+    module, version = await _resolve_readable_variant(db, user, translation_group_id, assigned)
     progress = await _existing_progress(db, user, module.translation_group_id)
-    readable = await _readable_variants(db, user, translation_group_id)
+    readable = await _readable_variants(db, user, translation_group_id, assigned)
 
     return await _to_learner_module(
         db, module, version, progress, sorted({variant.language for variant in readable})
@@ -510,7 +626,8 @@ async def switch_variant_language(
     `completed_version_number` are left alone — switching text is not starting
     over, and a prior completion still happened on the date it happened.
     """
-    readable = await _readable_variants(db, user, translation_group_id)
+    assigned = await assigned_translation_group_ids(db, user)
+    readable = await _readable_variants(db, user, translation_group_id, assigned)
     target = next((module for module in readable if module.language == payload.language), None)
     if target is None or target.current_version_id is None:
         raise HTTPException(
@@ -551,7 +668,8 @@ async def record_page_view(
     else is a 404 rather than a silently-accepted entry in the array, since
     that array is what the attestation is checked against.
     """
-    module, version = await _resolve_readable_variant(db, user, translation_group_id)
+    assigned = await assigned_translation_group_ids(db, user)
+    module, version = await _resolve_readable_variant(db, user, translation_group_id, assigned)
     page_ids = {page["id"] for page in _snapshot_pages(version)}
     if str(page_id) not in page_ids:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page not found.")
@@ -584,7 +702,8 @@ async def complete_module(
     publish has emptied their `pages_viewed`, so the check above is a real gate
     on the new text rather than a formality satisfied by the old one.
     """
-    module, version = await _resolve_readable_variant(db, user, translation_group_id)
+    assigned = await assigned_translation_group_ids(db, user)
+    module, version = await _resolve_readable_variant(db, user, translation_group_id, assigned)
     progress = await _claim_progress(db, user, module)
 
     page_ids = [page["id"] for page in _snapshot_pages(version)]

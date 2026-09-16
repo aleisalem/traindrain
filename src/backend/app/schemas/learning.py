@@ -7,11 +7,12 @@ snapshot, and who wrote it is not part of the material.
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.assignments import Requirement
 from app.schemas.modules import ModuleLanguage
 
 
@@ -120,17 +121,19 @@ class SwitchLanguageRequest(BaseModel):
 
 
 class LearnerModuleSummary(BaseModel):
-    """One line of "my learning": something started, finished, or both.
+    """One line of "my learning": something assigned, started, finished, or
+    any combination of those.
 
-    Ticket 7 adds the assigned-but-unstarted rows and the due dates; today this
-    is what the learner has actually opened.
+    `started_at` is `None` for a row that exists only because the material is
+    assigned and nobody has opened it yet — the union this list represents is
+    "what I have touched" plus "what I have been told to touch".
     """
 
     translation_group_id: uuid.UUID
     title: str
     language: str
     estimated_duration_minutes: int | None
-    started_at: datetime
+    started_at: datetime | None
     completed_at: datetime | None
     completed_version_number: int | None
     superseded_at: datetime | None
@@ -138,3 +141,8 @@ class LearnerModuleSummary(BaseModel):
     # read it stays on this list — the completion is theirs — but reopening it
     # is not on offer.
     available: bool
+    # From the assignment with the nearest due date covering this material, if
+    # any — a module only ever opened via the catalog carries neither.
+    due_date: date | None
+    requirement: Requirement | None
+    overdue: bool

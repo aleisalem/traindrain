@@ -8,6 +8,7 @@ from app.dependencies import get_s3_client, get_ses_client
 from app.routes.admin import router as admin_router
 from app.routes.assets import delivery_router as asset_delivery_router
 from app.routes.assets import router as content_assets_router
+from app.routes.assignments import router as assignments_router
 from app.routes.auth import router as auth_router
 from app.routes.content import router as content_router
 from app.routes.invites import router as invites_router
@@ -36,6 +37,7 @@ app = FastAPI(title="TrainDrain API", lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(content_router)
+app.include_router(assignments_router)
 app.include_router(content_assets_router)
 app.include_router(asset_delivery_router)
 app.include_router(catalog_router)

@@ -9,7 +9,7 @@ from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.access import is_author
+from app.access import is_administrator, is_author
 from app.core.config import get_settings
 from app.db import get_db
 from app.models import Module, User
@@ -111,7 +111,7 @@ async def require_active_user(user: User = Depends(get_current_user)) -> User:
 
 async def require_administrator(user: User = Depends(require_active_user)) -> User:
     """Gate for admin-only endpoints — implicit deny for every other role."""
-    if "Administrator" not in {role.name for role in user.roles}:
+    if not is_administrator(user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden.")
     return user
 

@@ -1,3 +1,4 @@
+from app.models.assignment import Assignment
 from app.models.audit_log import AuditLog
 from app.models.group import Group, group_members
 from app.models.invite import Invite, invite_groups, invite_roles
@@ -19,6 +20,7 @@ from app.models.two_factor import RecoveryCode, TwoFactorChallenge, TwoFactorCre
 from app.models.user import User
 
 __all__ = [
+    "Assignment",
     "AuditLog",
     "Group",
     "Invite",

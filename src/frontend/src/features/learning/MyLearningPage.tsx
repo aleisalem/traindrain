@@ -61,10 +61,20 @@ export function MyLearningPage() {
                         date: new Date(row.completed_at).toLocaleDateString(),
                         version: row.completed_version_number,
                       })
-                    : t("learning.in_progress")}
+                    : row.started_at !== null
+                      ? t("learning.in_progress")
+                      : t("learning.not_started")}
                 </p>
                 {row.superseded_at !== null && (
                   <p className="text-sm text-warning">{t("learning.superseded")}</p>
+                )}
+                {(row.due_date !== null || row.requirement !== null) && (
+                  <p className={`text-sm ${row.overdue ? "text-danger" : "text-fg-muted"}`}>
+                    {row.requirement !== null && t(`learning.requirement_${row.requirement}`)}
+                    {row.requirement !== null && row.due_date !== null && " · "}
+                    {row.due_date !== null && t("learning.due_on", { date: row.due_date })}
+                    {row.overdue && ` · ${t("learning.overdue_badge")}`}
+                  </p>
                 )}
               </div>
               {row.available ? (
@@ -72,7 +82,11 @@ export function MyLearningPage() {
                   to={`/modules/${row.translation_group_id}`}
                   className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
                 >
-                  {row.completed_at !== null ? t("learning.open_again") : t("learning.continue")}
+                  {row.completed_at !== null
+                    ? t("learning.open_again")
+                    : row.started_at !== null
+                      ? t("learning.continue")
+                      : t("learning.start")}
                 </Link>
               ) : (
                 <span className="text-sm text-fg-muted">{t("learning.unavailable_short")}</span>

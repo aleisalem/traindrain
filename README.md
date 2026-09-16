@@ -260,7 +260,37 @@ Release 1 (learning modules) is in progress. So far:
   which is gone along with the backend-health-check button it used to show. Frontend:
   `src/frontend/src/shell/AppShell.tsx`, `navConfig.tsx`, `icons.tsx`.
 
-The rest of Release 1 — assignment, reminders, reporting — is still to come.
+- Assignment: a Content Manager assigns a module's material to a user group — an Administrator
+  may additionally target a named individual — with an optional due date, a `mandatory` or
+  `recommended` requirement, and an automatic-reminders toggle.
+  `GET|POST /api/content/modules/{id}/assignments` and `DELETE /api/content/assignments/{id}`
+  manage assignments, always against the module's *translation group* rather than one language
+  variant, so a translation added later is automatically covered. **Membership is not expanded at
+  assignment time** — the target (a group or a person) is stored, and a learner's list is computed
+  against their *current* group memberships on every read, in `app.assignments`; a user added to a
+  targeted group afterwards sees the module with no change to the assignment, and one removed from
+  it loses the assignment but keeps whatever they already completed. This is also what makes an
+  otherwise catalog-invisible module reachable at all: `may_read_module` (`app/access.py`) grew a
+  second learner branch — assigned, directly or through a group — asked by the same one decision
+  point the learner routes and asset delivery already shared. `target_type: "user"` is a 403 for a
+  Content Manager, enforced both at creation and at removal; `GET /api/content/groups` gives a
+  Content Manager group names, descriptions, and member **counts** only, so assigning content
+  never requires touching `/api/admin/groups/{id}/members`, and an assignment's own read side never
+  reveals an individual target's identity to anyone but an Administrator. Every currently-targeted
+  learner is emailed once, at creation, in their own `preferred_language`, reusing
+  `app.security.mailer`; a learner who joins the group later is not emailed retroactively.
+  `GET /api/me/modules` now returns the union of what a learner has touched and what is assigned to
+  them but not yet opened, deduplicated by translation group (the nearest due date wins when more
+  than one assignment covers the same material), each row carrying its due date, its requirement,
+  and a server-computed `overdue` flag (never true for a completed row). `assignment_created` and
+  `assignment_removed` are audit-logged. Full details in
+  [docs/assignment.md](docs/assignment.md). Frontend:
+  `src/frontend/src/features/content/AssignmentsPanel.tsx` (shown on `/content/{id}`, the
+  individual-target option gated on the caller holding the Administrator role) and
+  `src/frontend/src/features/learning/MyLearningPage.tsx`, which now shows a not-started assigned
+  module alongside started and completed ones, with its due date and an overdue flag.
+
+The rest of Release 1 — reminders, reporting — is still to come.
 
 ## Project structure
 
@@ -275,6 +305,8 @@ src/
       schemas/     Pydantic request/response models
       security/    Passwords, sessions, tokens, rate limiting, audit logging
       access.py    Who may read a module — one decision, asked by learners and by asset delivery
+      assignments.py    Who a learner is assigned to read, resolved live against current group
+                   membership — what `may_read_module` admits and what "my learning" lists
       storage.py   The private object store module assets live in (S3 / LocalStack S3)
       dependencies.py   Shared FastAPI dependencies (auth/session gates)
     alembic/       Database migrations
@@ -285,7 +317,7 @@ src/
       features/auth/   Login / forced-password-change / forgot-, reset-password, and 2FA-verify UI, auth state hook
       features/admin/  Admin-only route tree (overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page, groups page)
       features/content/  Content Manager authoring area (module list, metadata form, page editor,
-                         preview, image/attachment panel, publish/version panel)
+                         preview, image/attachment panel, publish/version panel, assignment panel)
       content/         The checked-in ProseMirror schema and the Tiptap extension set built from it
       features/invites/  Public accept-invite page (set password, no session required)
       features/learning/  The learner's area (open catalog, "my learning", module viewer)

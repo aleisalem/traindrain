@@ -77,12 +77,30 @@ function queueEmptyPages(
   });
 }
 
-function renderAt(path: string) {
+/**
+ * The assignment panel loads its own list plus the group picker on mount,
+ * regardless of which test is exercising the metadata form around it.
+ */
+function queueEmptyAssignments(
+  queue: ReturnType<typeof createFetchMock>["queue"],
+  moduleId = "module-1",
+) {
+  queue("GET", `/api/content/modules/${moduleId}/assignments`, { status: 200, body: [] });
+  queue("GET", "/api/content/groups", { status: 200, body: [] });
+}
+
+function renderAt(path: string, isAdministrator = false) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/content/new" element={<ModuleFormPage />} />
-        <Route path="/content/:moduleId" element={<ModuleFormPage />} />
+        <Route
+          path="/content/new"
+          element={<ModuleFormPage isAdministrator={isAdministrator} />}
+        />
+        <Route
+          path="/content/:moduleId"
+          element={<ModuleFormPage isAdministrator={isAdministrator} />}
+        />
       </Routes>
     </MemoryRouter>,
   );
@@ -111,6 +129,7 @@ describe("ModuleFormPage", () => {
     // loads it — so that fetch is part of the flow under test.
     queue("GET", "/api/content/modules/module-1", { status: 200, body: MODULE });
     queueEmptyPages(queue);
+    queueEmptyAssignments(queue);
 
     renderAt("/content/new");
 
@@ -148,6 +167,7 @@ describe("ModuleFormPage", () => {
     const user = userEvent.setup();
     queue("GET", "/api/content/modules/module-1", { status: 200, body: MODULE });
     queueEmptyPages(queue);
+    queueEmptyAssignments(queue);
     queue("PATCH", "/api/content/modules/module-1", {
       status: 200,
       body: { ...MODULE, title: "Phishing-Bewusstsein 2026" },
@@ -174,6 +194,7 @@ describe("ModuleFormPage", () => {
   it("shows an existing module's language as fixed rather than editable", async () => {
     queue("GET", "/api/content/modules/module-1", { status: 200, body: MODULE });
     queueEmptyPages(queue);
+    queueEmptyAssignments(queue);
 
     renderAt("/content/module-1");
 
@@ -186,6 +207,7 @@ describe("ModuleFormPage", () => {
   it("names who created the module and who edited it last", async () => {
     queue("GET", "/api/content/modules/module-1", { status: 200, body: MODULE });
     queueEmptyPages(queue);
+    queueEmptyAssignments(queue);
 
     renderAt("/content/module-1");
 
