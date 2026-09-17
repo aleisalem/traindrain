@@ -479,5 +479,13 @@
     "overdue_flag": "Überfällig",
     "version_number": "v{{number}}",
     "no_due_date": "Kein Fälligkeitsdatum"
+  },
+  "contentReports": {
+    "nav_link": "Berichte",
+    "heading": "Berichte",
+    "description": "Suchen Sie nach einem Modul, um zu sehen, ob dessen Material ankommt.",
+    "search_label": "Module durchsuchen",
+    "search_placeholder": "Nach Titel oder Beschreibung suchen",
+    "no_results": "Keine Module entsprechen Ihrer Suche."
   }
 }

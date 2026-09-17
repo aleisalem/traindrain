@@ -479,5 +479,13 @@
     "overdue_flag": "Overdue",
     "version_number": "v{{number}}",
     "no_due_date": "No due date"
+  },
+  "contentReports": {
+    "nav_link": "Reports",
+    "heading": "Reports",
+    "description": "Search for a module to see whether its material is landing.",
+    "search_label": "Search modules",
+    "search_placeholder": "Search by title or description",
+    "no_results": "No modules match your search."
   }
 }

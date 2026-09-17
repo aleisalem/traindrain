@@ -88,17 +88,6 @@ function mockBackend(editors: { id: string; display_name: string }[]) {
       if (url.endsWith("/assignments") || url.endsWith("/api/content/groups")) {
         return new Response(JSON.stringify([]), { status: 200 });
       }
-      // The report panel loads on mount too; these tests are about presence,
-      // so an empty Content Manager report (no `isAdministrator` here) keeps
-      // it quiet. Matched before the generic catch-all below, which would
-      // otherwise hand it `MODULE` — a shape with neither `groups` nor
-      // `learners`, which the panel cannot render.
-      if (url.endsWith("/report")) {
-        return new Response(
-          JSON.stringify({ translation_group_id: MODULE.translation_group_id, groups: [] }),
-          { status: 200 },
-        );
-      }
       if (method === "PATCH") return new Response(JSON.stringify(MODULE), { status: 200 });
       return new Response(JSON.stringify(MODULE), { status: 200 });
     }),

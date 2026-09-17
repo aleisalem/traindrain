@@ -4,6 +4,7 @@ import type { TFunction } from "i18next";
 import { ADMINISTRATOR_ROLE, canAuthorContent } from "../features/auth/useAuth";
 import {
   BookIcon,
+  ChartIcon,
   CompassIcon,
   GroupsIcon,
   LayersIcon,
@@ -49,7 +50,10 @@ export function getNavGroups(roles: string[], t: TFunction): NavGroup[] {
     groups.push({
       key: "content",
       label: t("content.nav_link"),
-      items: [{ to: "/content", label: t("content.nav_modules"), icon: LayersIcon, end: true }],
+      items: [
+        { to: "/content", label: t("content.nav_modules"), icon: LayersIcon, end: true },
+        { to: "/content/reports", label: t("contentReports.nav_link"), icon: ChartIcon },
+      ],
     });
   }
 

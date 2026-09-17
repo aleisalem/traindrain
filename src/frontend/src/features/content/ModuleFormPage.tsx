@@ -7,14 +7,12 @@ import { ModuleAssetsPanel } from "./ModuleAssetsPanel";
 import { ModuleEditorsPresence } from "./ModuleEditorsPresence";
 import { ModulePagesPanel } from "./ModulePagesPanel";
 import { ModulePublishPanel } from "./ModulePublishPanel";
-import { ModuleReportPanel } from "./ModuleReportPanel";
 import { OverwriteWarningDialog } from "./OverwriteWarningDialog";
 import { TranslationsPanel } from "./TranslationsPanel";
 import type { ModuleBody } from "./types";
 import { useAssignments } from "./useAssignments";
 import { useModuleAssets } from "./useModuleAssets";
 import { useModuleEditors } from "./useModuleEditors";
-import { useModuleReport } from "./useModuleReport";
 import { useTranslationGroup } from "./useTranslationGroup";
 
 const inputClassName =
@@ -63,7 +61,6 @@ export function ModuleFormPage({ isAdministrator }: Props) {
   const assets = useModuleAssets(moduleId);
   const translations = useTranslationGroup(module?.translation_group_id);
   const assignments = useAssignments(moduleId);
-  const report = useModuleReport(moduleId);
 
   const load = useCallback(async () => {
     if (!moduleId) return;
@@ -277,11 +274,6 @@ export function ModuleFormPage({ isAdministrator }: Props) {
           assignments={assignments}
           isAdministrator={isAdministrator}
         />
-      )}
-      {/* Last: reporting on who has read the material only makes sense once
-          there is somewhere for that material to have reached them from. */}
-      {isEdit && moduleId && (
-        <ModuleReportPanel moduleId={moduleId} report={report} isAdministrator={isAdministrator} />
       )}
 
       {module && (

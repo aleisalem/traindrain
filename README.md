@@ -329,10 +329,14 @@ Release 1 (learning modules) is in progress. So far:
   a substantive republish superseded reports as outstanding (`in_progress`) rather than
   `completed`, but keeps its prior `completed_at` and version visible, so the roster still says
   what was read and when. Figures are counted across the whole translation group, the same scope
-  `module_progress` and assignments are already keyed on. Frontend:
-  `src/frontend/src/features/content/ModuleReportPanel.tsx`, shown on `/content/{id}` below the
-  assignment panel, with a plain `<a href>` CSV download offered only to an Administrator. Full
-  details in [docs/references/module-reporting.md](docs/references/module-reporting.md).
+  `module_progress` and assignments are already keyed on. Frontend: a dedicated `/content/reports`
+  page (`ModuleReportsPage.tsx`), reachable from its own "Reports" entry in the Content area nav —
+  an author searches their modules by title or description (client-side, over the same module list
+  `/content` already lists; server-side search is ticket 10's job) and picks one to read its
+  report, rendered by `ModuleReportPanel.tsx` and `useModuleReport.ts` — unchanged components, just
+  reached from the reports page instead of each module's own edit screen. A plain `<a href>` CSV
+  download is offered only to an Administrator. Full details in
+  [docs/references/module-reporting.md](docs/references/module-reporting.md).
 
 ## Project structure
 
@@ -367,7 +371,7 @@ src/
       features/admin/  Admin-only route tree (overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page, groups page)
       features/content/  Content Manager authoring area (module list, metadata form, page editor,
                          preview, image/attachment panel, publish/version panel, assignment panel,
-                         completion report panel)
+                         a searchable per-module reports page)
       content/         The checked-in ProseMirror schema and the Tiptap extension set built from it
       features/invites/  Public accept-invite page (set password, no session required)
       features/learning/  The learner's area (open catalog, "my learning", module viewer)

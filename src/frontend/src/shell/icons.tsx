@@ -149,6 +149,15 @@ export function SidebarTopIcon(props: IconProps) {
   );
 }
 
+export function ChartIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.5 16.5h13" />
+      <path d="M5.5 16.5v-5.2M10 16.5V6.3M14.5 16.5v-8.8" />
+    </Icon>
+  );
+}
+
 export function CameraIcon(props: IconProps) {
   return (
     <Icon {...props}>

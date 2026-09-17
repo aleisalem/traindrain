@@ -16,6 +16,7 @@ import type { AuthUser } from "./features/auth/useAuth";
 import { ADMINISTRATOR_ROLE, canAuthorContent, useAuth } from "./features/auth/useAuth";
 import { ContentModulesPage } from "./features/content/ContentModulesPage";
 import { ModuleFormPage } from "./features/content/ModuleFormPage";
+import { ModuleReportsPage } from "./features/content/ModuleReportsPage";
 import { AcceptInvitePage } from "./features/invites/AcceptInvitePage";
 import { CatalogPage } from "./features/learning/CatalogPage";
 import { ModuleViewerPage } from "./features/learning/ModuleViewerPage";
@@ -96,6 +97,10 @@ function AuthenticatedRoutes({
           <Route path="/content" element={<Outlet />}>
             <Route index element={<ContentModulesPage />} />
             <Route path="new" element={<ModuleFormPage isAdministrator={isAdministrator} />} />
+            <Route
+              path="reports"
+              element={<ModuleReportsPage isAdministrator={isAdministrator} />}
+            />
             <Route
               path=":moduleId"
               element={<ModuleFormPage isAdministrator={isAdministrator} />}

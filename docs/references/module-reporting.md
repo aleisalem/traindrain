@@ -50,13 +50,19 @@ a colleague's identity through a report even if the frontend were rewritten.
   `disabled_at is None and erased_at is None` before they are counted or
   listed — the same "who is really targeted right now" filter assignment
   notification and reminders already apply.
-- Frontend: `ModuleReportPanel.tsx` (rendered on `/content/{id}`, after the
-  assignment panel) and `useModuleReport.ts`. The panel branches on which
-  shape came back (`"groups" in report`) rather than on the `isAdministrator`
-  prop — the server's response is the source of truth, the prop only decides
-  whether the CSV export link is offered. `report.csv` is a plain `<a href>`,
-  followed by the browser with the existing session cookie, the same pattern
-  an asset download already uses.
+- Frontend: `ModuleReportPanel.tsx` and `useModuleReport.ts`. The panel
+  branches on which shape came back (`"groups" in report`) rather than on the
+  `isAdministrator` prop — the server's response is the source of truth, the
+  prop only decides whether the CSV export link is offered. `report.csv` is a
+  plain `<a href>`, followed by the browser with the existing session cookie,
+  the same pattern an asset download already uses. Originally shown on
+  `/content/{id}` itself; moved to its own `/content/reports` page
+  (`ModuleReportsPage.tsx`, reachable from a "Reports" entry in the Content
+  area nav) shortly after this ticket shipped, so an author can search across
+  every module's report — by title or description, client-side, over the
+  same list `/content` already fetches — without opening each module's edit
+  screen first. `ModuleReportPanel.tsx` and `useModuleReport.ts` themselves
+  did not change; only where they are mounted did.
 
 ## Why two routes, not one with a `role` check duplicated in three places
 
