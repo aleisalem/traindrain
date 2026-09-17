@@ -55,11 +55,14 @@ class AssignedModule:
     auto_reminders: bool
 
 
-def _nearer(candidate: date | None, current: date | None) -> bool:
+def nearer_due_date(candidate: date | None, current: date | None) -> bool:
     """Does `candidate` win the "nearest due date" tie-break over `current`?
 
     A due date beats no due date — a defined deadline is more urgent than
     material with none — and between two defined dates, the earlier one wins.
+    Shared with `app.reporting`, which resolves the same tie-break the other
+    way round: one learner's nearest date across many assignments there,
+    many learners' own nearest dates here.
     """
     if candidate is None:
         return False
@@ -82,7 +85,7 @@ async def assignments_for_user(
     winners: dict[uuid.UUID, Assignment] = {}
     for row in rows:
         current = winners.get(row.translation_group_id)
-        if current is None or _nearer(row.due_date, current.due_date):
+        if current is None or nearer_due_date(row.due_date, current.due_date):
             winners[row.translation_group_id] = row
 
     return {

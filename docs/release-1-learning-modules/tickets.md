@@ -180,14 +180,14 @@ The response shape differs by role on the server. The UI is not what withholds t
 
 **Blocked by:** 7
 
-- [ ] `GET /api/content/modules/{id}/report` returns aggregate counts per targeted group — completed, in progress, not started, overdue — for a Content Manager, and a full roster with per-person completion state for an Administrator
-- [ ] The Administrator roster shows which version number each person completed, so "who has read the current text" is answerable
-- [ ] `GET /api/content/modules/{id}/report.csv` is Administrator-only and exports the roster
-- [ ] Superseded completions are visible as outstanding while still showing the prior completion date and version
-- [ ] Report figures are computed across the whole translation group, so a mixed-language workforce reports as one population
-- [ ] Report UI on the authoring side, rendering both shapes, in both languages and all three themes
-- [ ] Backend tests: a Content Manager's response contains **no** user names or emails anywhere in the payload; a Content Manager gets 403 on the CSV route; the counts are correct across direct and group-derived assignment, including a learner who joined a targeted group after assignment
-- [ ] README updated
+- [x] `GET /api/content/modules/{id}/report` returns aggregate counts per targeted group — completed, in progress, not started, overdue — for a Content Manager, and a full roster with per-person completion state for an Administrator
+- [x] The Administrator roster shows which version number each person completed, so "who has read the current text" is answerable
+- [x] `GET /api/content/modules/{id}/report.csv` is Administrator-only and exports the roster
+- [x] Superseded completions are visible as outstanding while still showing the prior completion date and version
+- [x] Report figures are computed across the whole translation group, so a mixed-language workforce reports as one population
+- [x] Report UI on the authoring side, rendering both shapes, in both languages and all three themes
+- [x] Backend tests: a Content Manager's response contains **no** user names or emails anywhere in the payload; a Content Manager gets 403 on the CSV route; the counts are correct across direct and group-derived assignment, including a learner who joined a targeted group after assignment
+- [x] README updated
 
 ## 10. Search, filters, and tags
 

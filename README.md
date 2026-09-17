@@ -320,8 +320,19 @@ Release 1 (learning modules) is in progress. So far:
   actually reached (fewer than "everyone assigned" whenever the daily cap already covered some of
   them) or the day's rate limit if the module was already nudged today. Full details in
   [docs/reminders.md](docs/reminders.md).
-
-Release 1's reporting is still to come.
+- Reporting: `GET /api/content/modules/{id}/report` answers "did people do the training?" with a
+  different shape depending on who asks — decided on the server, never by the UI. A Content
+  Manager gets per-targeted-**group** counts (completed, in progress, not started, overdue) and
+  never a name or email. An Administrator gets the full roster: every targeted learner's name,
+  email, completion state, the version they completed, and their due date —
+  `GET /api/content/modules/{id}/report.csv` exports that roster, Administrator-only. A completion
+  a substantive republish superseded reports as outstanding (`in_progress`) rather than
+  `completed`, but keeps its prior `completed_at` and version visible, so the roster still says
+  what was read and when. Figures are counted across the whole translation group, the same scope
+  `module_progress` and assignments are already keyed on. Frontend:
+  `src/frontend/src/features/content/ModuleReportPanel.tsx`, shown on `/content/{id}` below the
+  assignment panel, with a plain `<a href>` CSV download offered only to an Administrator. Full
+  details in [docs/references/module-reporting.md](docs/references/module-reporting.md).
 
 ## Project structure
 
@@ -340,6 +351,9 @@ src/
                    membership — what `may_read_module` admits and what "my learning" lists
       reminders.py Scheduled cadence and manual-nudge logic shared by the daily job and the
                    Administrator's remind endpoint — the daily one-email-per-learner-per-module cap
+      reporting.py Who is targeted and where they stand, walked once per group (Content Manager)
+                   and once for the full roster (Administrator) — what the report endpoint and its
+                   CSV export both read
       jobs/        Entrypoints invoked as scripts rather than through the API — `send_reminders.py`
                    is what `docker-compose`'s reminder-runner loops and production's scheduled task calls
       storage.py   The private object store module assets live in (S3 / LocalStack S3)
@@ -352,7 +366,8 @@ src/
       features/auth/   Login / forced-password-change / forgot-, reset-password, and 2FA-verify UI, auth state hook
       features/admin/  Admin-only route tree (overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page, groups page)
       features/content/  Content Manager authoring area (module list, metadata form, page editor,
-                         preview, image/attachment panel, publish/version panel, assignment panel)
+                         preview, image/attachment panel, publish/version panel, assignment panel,
+                         completion report panel)
       content/         The checked-in ProseMirror schema and the Tiptap extension set built from it
       features/invites/  Public accept-invite page (set password, no session required)
       features/learning/  The learner's area (open catalog, "my learning", module viewer)

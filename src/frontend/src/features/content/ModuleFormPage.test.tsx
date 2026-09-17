@@ -89,6 +89,23 @@ function queueEmptyAssignments(
   queue("GET", "/api/content/groups", { status: 200, body: [] });
 }
 
+/**
+ * The report panel loads on mount too, exactly like the assignment panel
+ * above it — same reasoning: every test reaching the edit screen needs this
+ * mocked, whether or not it is the thing under test, or the fetch is left to
+ * reject and the failure can leak into whichever test happens to be running
+ * when the rejection is finally scheduled.
+ */
+function queueEmptyReport(
+  queue: ReturnType<typeof createFetchMock>["queue"],
+  moduleId = "module-1",
+) {
+  queue("GET", `/api/content/modules/${moduleId}/report`, {
+    status: 200,
+    body: { translation_group_id: "group-1", groups: [] },
+  });
+}
+
 function renderAt(path: string, isAdministrator = false) {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -130,6 +147,7 @@ describe("ModuleFormPage", () => {
     queue("GET", "/api/content/modules/module-1", { status: 200, body: MODULE });
     queueEmptyPages(queue);
     queueEmptyAssignments(queue);
+    queueEmptyReport(queue);
 
     renderAt("/content/new");
 
@@ -168,6 +186,7 @@ describe("ModuleFormPage", () => {
     queue("GET", "/api/content/modules/module-1", { status: 200, body: MODULE });
     queueEmptyPages(queue);
     queueEmptyAssignments(queue);
+    queueEmptyReport(queue);
     queue("PATCH", "/api/content/modules/module-1", {
       status: 200,
       body: { ...MODULE, title: "Phishing-Bewusstsein 2026" },
@@ -195,6 +214,7 @@ describe("ModuleFormPage", () => {
     queue("GET", "/api/content/modules/module-1", { status: 200, body: MODULE });
     queueEmptyPages(queue);
     queueEmptyAssignments(queue);
+    queueEmptyReport(queue);
 
     renderAt("/content/module-1");
 
@@ -208,6 +228,7 @@ describe("ModuleFormPage", () => {
     queue("GET", "/api/content/modules/module-1", { status: 200, body: MODULE });
     queueEmptyPages(queue);
     queueEmptyAssignments(queue);
+    queueEmptyReport(queue);
 
     renderAt("/content/module-1");
 

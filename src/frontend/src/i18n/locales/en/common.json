@@ -454,5 +454,30 @@
     "remind_success_other": "Reminded {{count}} learners.",
     "remind_rate_limited": "This module has already been nudged today.",
     "remind_error": "The reminder couldn't be sent. Please try again."
+  },
+  "report": {
+    "heading": "Report",
+    "description": "Did this module's material land?",
+    "load_error": "We couldn't load this. Please try again.",
+    "empty": "Nobody has been assigned this material yet.",
+    "export_csv": "Export CSV",
+    "column_group": "Group",
+    "column_completed": "Completed",
+    "column_in_progress": "In progress",
+    "column_not_started": "Not started",
+    "column_overdue": "Overdue",
+    "column_name": "Name",
+    "column_email": "Email",
+    "column_status": "Status",
+    "column_completed_version": "Version completed",
+    "column_due_date": "Due date",
+    "member_count_one": "1 member",
+    "member_count_other": "{{count}} members",
+    "state_completed": "Completed",
+    "state_in_progress": "In progress",
+    "state_not_started": "Not started",
+    "overdue_flag": "Overdue",
+    "version_number": "v{{number}}",
+    "no_due_date": "No due date"
   }
 }

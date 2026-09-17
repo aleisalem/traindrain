@@ -110,3 +110,48 @@ export type Assignment = {
   assigned_by: ModuleActor;
   created_at: string;
 };
+
+/** Where one targeted learner stands. A completed learner whose completion was
+ *  superseded by a substantive republish reports as `in_progress`, never
+ *  `completed` — see `completed_at` below, which stays set regardless. */
+export type LearnerState = "completed" | "in_progress" | "not_started";
+
+/** One targeted group's material, aggregated — a Content Manager's view, so
+ *  no member is ever named here. `overdue` overlaps `in_progress`/`not_started`
+ *  rather than being a fourth exclusive bucket. */
+export type ModuleReportGroupSummary = {
+  group_id: string;
+  group_name: string;
+  member_count: number;
+  completed: number;
+  in_progress: number;
+  not_started: number;
+  overdue: number;
+};
+
+export type ContentManagerModuleReport = {
+  translation_group_id: string;
+  groups: ModuleReportGroupSummary[];
+};
+
+/** One targeted learner, as far as an Administrator may see one. */
+export type ModuleReportLearner = {
+  user_id: string;
+  name: string;
+  email: string;
+  state: LearnerState;
+  overdue: boolean;
+  due_date: string | null;
+  completed_at: string | null;
+  completed_version_number: number | null;
+};
+
+export type AdministratorModuleReport = {
+  translation_group_id: string;
+  learners: ModuleReportLearner[];
+};
+
+/** `GET /api/content/modules/{id}/report`'s response shape differs by the
+ *  caller's role on the server — never a client-side choice. `"groups"` only
+ *  appears on the Content Manager shape, so it doubles as the discriminant. */
+export type ModuleReport = ContentManagerModuleReport | AdministratorModuleReport;

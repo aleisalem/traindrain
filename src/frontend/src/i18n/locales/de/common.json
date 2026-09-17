@@ -454,5 +454,30 @@
     "remind_success_other": "{{count}} Lernende erinnert.",
     "remind_rate_limited": "Dieses Modul wurde heute bereits erinnert.",
     "remind_error": "Die Erinnerung konnte nicht gesendet werden. Bitte versuchen Sie es erneut."
+  },
+  "report": {
+    "heading": "Bericht",
+    "description": "Ist dieses Material angekommen?",
+    "load_error": "Das konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
+    "empty": "Diesem Material wurde noch niemand zugewiesen.",
+    "export_csv": "CSV exportieren",
+    "column_group": "Gruppe",
+    "column_completed": "Abgeschlossen",
+    "column_in_progress": "In Bearbeitung",
+    "column_not_started": "Nicht begonnen",
+    "column_overdue": "Überfällig",
+    "column_name": "Name",
+    "column_email": "E-Mail",
+    "column_status": "Status",
+    "column_completed_version": "Abgeschlossene Version",
+    "column_due_date": "Fälligkeitsdatum",
+    "member_count_one": "1 Mitglied",
+    "member_count_other": "{{count}} Mitglieder",
+    "state_completed": "Abgeschlossen",
+    "state_in_progress": "In Bearbeitung",
+    "state_not_started": "Nicht begonnen",
+    "overdue_flag": "Überfällig",
+    "version_number": "v{{number}}",
+    "no_due_date": "Kein Fälligkeitsdatum"
   }
 }
