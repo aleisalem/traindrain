@@ -305,6 +305,71 @@ async def test_a_superseded_completion_is_reported_as_outstanding_but_keeps_its_
 # --- CSV export ---------------------------------------------------------------
 
 
+async def test_counts_aggregate_across_every_language_variant_of_the_group(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A translation group is one body of material however many languages it is
+    written in — the report has to count a German reader and an English reader
+    of the same group as the same population, not two."""
+    await _login_with_role(client, db_session, email="i18n-cm@example.com", role_name="Content Manager")
+    en_created = await client.post(
+        "/api/content/modules", json={"title": "Fire Safety", "language": "en"}
+    )
+    en_module = en_created.json()
+    de_created = await client.post(
+        "/api/content/modules", json={"title": "Brandschutz", "language": "de"}
+    )
+    de_module = de_created.json()
+
+    for module in (en_module, de_module):
+        page = await client.post(
+            f"/api/content/modules/{module['id']}/pages",
+            json={
+                "draft_revision": 1,
+                "title": "Page 1",
+                "schema_version": SCHEMA_VERSION,
+                "body": _doc("Text."),
+            },
+        )
+        assert page.status_code == 201, page.text
+        published = await client.post(
+            f"/api/content/modules/{module['id']}/publish", json={"revision_kind": "minor"}
+        )
+        assert published.status_code == 200, published.text
+
+    linked = await client.post(
+        f"/api/content/translation-groups/{en_module['translation_group_id']}/variants",
+        json={"module_id": de_module["id"]},
+    )
+    assert linked.status_code == 201, linked.text
+    translation_group_id = en_module["translation_group_id"]
+
+    group = await _make_group(db_session, name="i18n workforce")
+    english_learner = await _make_user_with_role(
+        db_session, email="i18n-en-learner@example.com", role_name="Learner", preferred_language="en"
+    )
+    german_learner = await _make_user_with_role(
+        db_session, email="i18n-de-learner@example.com", role_name="Learner", preferred_language="de"
+    )
+    for learner in (english_learner, german_learner):
+        await _add_to_group(db_session, learner, group)
+
+    await _login_with_role(client, db_session, email="i18n-assign@example.com", role_name="Content Manager")
+    await _assign_to_group(client, module_id=en_module["id"], group_id=str(group.id))
+
+    # Each learner is resolved to their own preferred language, but both read
+    # the same translation group's material.
+    await _complete_every_page(client, translation_group_id=translation_group_id, email=english_learner.email)
+    await _complete_every_page(client, translation_group_id=translation_group_id, email=german_learner.email)
+
+    await _login_with_role(client, db_session, email="i18n-viewer@example.com", role_name="Content Manager")
+    response = await client.get(f"/api/content/modules/{en_module['id']}/report")
+
+    group_row = response.json()["groups"][0]
+    assert group_row["member_count"] == 2
+    assert group_row["completed"] == 2
+
+
 async def test_the_csv_export_lists_the_roster_and_is_administrator_only(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
