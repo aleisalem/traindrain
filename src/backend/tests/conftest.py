@@ -77,6 +77,16 @@ def sent_emails() -> list[dict[str, Any]]:
     return []
 
 
+class _FakeBody:
+    """Stands in for botocore's `StreamingBody` — just enough to support `.read()`."""
+
+    def __init__(self, data: bytes) -> None:
+        self._data = data
+
+    def read(self) -> bytes:
+        return self._data
+
+
 class FakeS3Client:
     """Stands in for the boto3 S3 client, so tests never need LocalStack.
 
@@ -112,6 +122,10 @@ class FakeS3Client:
     def put_object(self, **kwargs: Any) -> dict[str, str]:
         self.objects[kwargs["Key"]] = kwargs
         return {"ETag": "fake-etag"}
+
+    def get_object(self, **kwargs: Any) -> dict[str, Any]:
+        stored = self.objects[kwargs["Key"]]
+        return {"Body": _FakeBody(stored["Body"])}
 
     def copy_object(self, **kwargs: Any) -> dict[str, str]:
         source = kwargs["CopySource"]["Key"]

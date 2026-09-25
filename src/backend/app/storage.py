@@ -24,6 +24,8 @@ from app.core.config import get_settings
 class S3Client(Protocol):
     def put_object(self, **kwargs: Any) -> Any: ...
 
+    def get_object(self, **kwargs: Any) -> Any: ...
+
     def copy_object(self, **kwargs: Any) -> Any: ...
 
     def delete_object(self, **kwargs: Any) -> Any: ...
@@ -92,6 +94,23 @@ async def put_asset(
         s3_client.put_object(**arguments)
 
     await run_in_threadpool(_put)
+
+
+async def get_asset_bytes(s3_client: S3Client, *, key: str) -> bytes:
+    """Read one stored object's bytes back out.
+
+    Server-side only — this is what an export packages into its `.zip`, never
+    a path a browser reaches. Unlike every other read in this module, it does
+    not go through a presigned URL, because the caller here already *is* the
+    application, not something the application is authorizing.
+    """
+    settings = get_settings()
+
+    def _get() -> bytes:
+        response = s3_client.get_object(Bucket=settings.assets_bucket, Key=key)
+        return response["Body"].read()
+
+    return await run_in_threadpool(_get)
 
 
 async def copy_asset(s3_client: S3Client, *, source_key: str, key: str) -> None:

@@ -232,14 +232,14 @@ Our own format gets no shortcut: every imported page tree goes through the same 
 
 **Blocked by:** 3
 
-- [ ] `GET /api/content/modules/{id}/export` produces a `.zip` containing a `module.json` with `format: "traindrain.module/1"`, the metadata and page trees, plus the referenced assets
-- [ ] `POST /api/content/modules/import` accepts that archive, validates it against the export schema, and then validates **every page tree through the same server-side ProseMirror validator** ticket 2 built
-- [ ] Imports **always land as unpublished drafts** — there is no import-and-publish path
-- [ ] Total size, zip entry count, and compression-ratio caps are enforced (zip-bomb defense), and entry names are rejected on path traversal
-- [ ] Imported assets are re-keyed under the new module and re-checked against ticket 3's type sniffing and size caps
-- [ ] `module_exported` and `module_imported` audit entries
-- [ ] Backend tests: a full export/import round trip preserves pages, ordering, metadata, and assets; a zip bomb is rejected; a path-traversal entry name is rejected; an oversized archive is rejected; an archive containing a page tree with a `javascript:` link is rejected with 422 rather than imported and stripped
-- [ ] README updated
+- [x] `GET /api/content/modules/{id}/export` produces a `.zip` containing a `module.json` with `format: "traindrain.module/1"`, the metadata and page trees, plus the referenced assets
+- [x] `POST /api/content/modules/import` accepts that archive, validates it against the export schema, and then validates **every page tree through the same server-side ProseMirror validator** ticket 2 built
+- [x] Imports **always land as unpublished drafts** — there is no import-and-publish path
+- [x] Total size, zip entry count, and compression-ratio caps are enforced (zip-bomb defense), and entry names are rejected on path traversal
+- [x] Imported assets are re-keyed under the new module and re-checked against ticket 3's type sniffing and size caps
+- [x] `module_exported` and `module_imported` audit entries
+- [x] Backend tests: a full export/import round trip preserves pages, ordering, metadata, and assets; a zip bomb is rejected; a path-traversal entry name is rejected; an oversized archive is rejected; an archive containing a page tree with a `javascript:` link is rejected with 422 rather than imported and stripped
+- [x] README updated
 
 ## 13. Document import: Markdown, DOCX, PDF, with a conversion report
 

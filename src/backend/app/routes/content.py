@@ -329,8 +329,14 @@ def _claim_draft(module: Module, draft_revision: int, author: User) -> None:
     module.last_edited_by = author.id
 
 
-def _validated_body(body: Any, schema_version: int) -> tuple[dict[str, Any], str]:
-    """Validate a submitted page body, or raise the 422 that refuses it."""
+def validate_page_body(body: Any, schema_version: int) -> tuple[dict[str, Any], str]:
+    """Validate a submitted page body, or raise the 422 that refuses it.
+
+    Shared with `app.routes.transfer`: an imported page goes through exactly
+    this check, not a second, looser one — the schema-version gate and the
+    "rejected, never stripped" posture apply identically to a page an author
+    typed and a page that arrived inside a `.zip`.
+    """
     if schema_version != SCHEMA_VERSION:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -408,7 +414,7 @@ async def create_page(
 ) -> PagesResponse:
     module = await get_module_or_404(db, module_id, for_update=True)
     ensure_module_editable(module)
-    document, search_text = _validated_body(payload.body, payload.schema_version)
+    document, search_text = validate_page_body(payload.body, payload.schema_version)
 
     page_count = (
         await db.execute(
@@ -491,7 +497,7 @@ async def update_page(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="A page body must be sent with its `schema_version`.",
             )
-        validated = _validated_body(payload.body, payload.schema_version)
+        validated = validate_page_body(payload.body, payload.schema_version)
 
     _claim_draft(module, payload.draft_revision, author)
 

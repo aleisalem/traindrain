@@ -384,6 +384,27 @@ Release 1 (learning modules) is in progress. So far:
   also collapses to a plain deleted-state message (no publish/unpublish/duplicate/catalog
   controls) once a module's status is `deleted`. Full details in
   [docs/module-deletion.md](docs/module-deletion.md).
+- Native export and import: `GET /api/content/modules/{id}/export` packages a module's draft —
+  its metadata, its page trees in order, and its assets' actual bytes — into a self-contained
+  `.zip` (a `module.json` manifest tagged `format: "traindrain.module/1"`, plus each asset at
+  `assets/{asset_id}/{filename}`), for backup or for moving content between deployments.
+  `POST /api/content/modules/import` accepts that archive and **always** creates a fresh,
+  unpublished draft in its own new translation group — there is no import-and-publish path.
+  Nothing about our own format is trusted more than an ordinary upload: every imported page tree
+  goes through the exact same server-side ProseMirror validator authored content does (rejected,
+  never stripped, on anything from an unknown node to a `javascript:` link), and every asset is
+  re-sniffed from its actual bytes and re-checked against the same per-file and per-module size
+  caps a fresh upload faces — the manifest's own claims about content type and size are
+  informational only. Asset references inside a page body are rewritten to the new module's own
+  assets, matched by asset id rather than by the module id in the URL, since a manifest carries no
+  record of which module it used to live on. The archive itself is treated as hostile input:
+  `app/content/transfer.py` checks entry count and per-entry compression ratio before decompressing
+  anything, and additionally bounds every actual read against a shared byte budget that does not
+  trust that metadata, so an entry that lies about its own size still cannot exceed it; every entry
+  name is matched against a strict allowlist (`module.json`, or `assets/<uuid>/<basename>`) rather
+  than checked for `..`, and there is no `extractall` anywhere, so a hostile name can never be
+  written to disk under any name. `module_exported` and `module_imported` are audit-logged. Full
+  details in [docs/module-transfer.md](docs/module-transfer.md).
 
 ## Project structure
 

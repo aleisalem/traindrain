@@ -44,6 +44,19 @@ class Settings(BaseSettings):
     asset_max_attachment_bytes: int = 20 * 1024 * 1024
     asset_max_module_bytes: int = 100 * 1024 * 1024
 
+    # --- Module export/import (ticket 12) ---------------------------------
+    #
+    # A `.zip` is hostile input twice over: an attacker-sized upload, and an
+    # attacker-crafted archive that decompresses to far more than it claims.
+    # `import_max_archive_bytes` bounds the upload itself (the compressed
+    # bytes read from the request); the rest bound what parsing the archive
+    # is allowed to do to memory, independent of what the archive's own
+    # metadata claims about itself.
+    import_max_archive_bytes: int = 50 * 1024 * 1024
+    import_max_entries: int = 200
+    import_max_compression_ratio: int = 100
+    import_max_uncompressed_bytes: int = 150 * 1024 * 1024
+
     # Envelope-encryption key for TOTP secrets at rest (base64-encoded 32
     # bytes, AES-256-GCM) — AWS Secrets Manager in production (injected into
     # this env var by the ECS task definition), a local-only value in dev.

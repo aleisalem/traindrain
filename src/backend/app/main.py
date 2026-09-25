@@ -15,6 +15,7 @@ from app.routes.invites import router as invites_router
 from app.routes.learning import catalog_router, me_router
 from app.routes.profile import router as profile_router
 from app.routes.reports import router as reports_router
+from app.routes.transfer import router as transfer_router
 from app.routes.two_factor import router as two_factor_router
 from app.storage import ensure_assets_bucket
 
@@ -46,6 +47,7 @@ app.include_router(me_router)
 app.include_router(invites_router)
 app.include_router(profile_router)
 app.include_router(reports_router)
+app.include_router(transfer_router)
 app.include_router(two_factor_router)
 
 

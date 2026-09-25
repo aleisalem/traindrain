@@ -182,7 +182,7 @@ async def list_assets(
     return await _assets_response(db, module)
 
 
-async def _read_within_cap(upload: UploadFile, limit: int) -> bytes:
+async def read_upload_within_cap(upload: UploadFile, limit: int) -> bytes:
     """Read the upload, refusing it the moment it exceeds its cap.
 
     What this does guarantee is that nothing is *persisted* before the size is
@@ -192,6 +192,9 @@ async def _read_within_cap(upload: UploadFile, limit: int) -> bytes:
     1 MB to a temp file) before this handler is entered, so by the time the cap
     trips, the bytes have already been received. The guard that actually stops a
     hostile body reaching the application is `client_max_body_size` in nginx.
+
+    Shared with `app.routes.transfer`, which reads an uploaded `.zip` the same
+    way before parsing a single byte of it.
     """
     pieces: list[bytes] = []
     total = 0
@@ -239,7 +242,7 @@ async def upload_asset(
         if kind == "image"
         else settings.asset_max_attachment_bytes
     )
-    data = await _read_within_cap(file, limit)
+    data = await read_upload_within_cap(file, limit)
 
     # What the client *declared* the type to be is never consulted: this reads
     # the bytes, and requires the filename extension to agree with them.
