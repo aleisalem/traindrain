@@ -23,9 +23,27 @@ type FormState = {
   description: string;
   language: string;
   duration: string;
+  // Comma-separated, as typed — split and normalized only when saved. Tags
+  // can only be set on an existing module (the create request has nowhere to
+  // put them), so this stays empty through `/content/new`.
+  tags: string;
 };
 
-const EMPTY_FORM: FormState = { title: "", description: "", language: "en", duration: "" };
+const EMPTY_FORM: FormState = {
+  title: "",
+  description: "",
+  language: "en",
+  duration: "",
+  tags: "",
+};
+
+function parseTags(raw: string): string[] {
+  const tags = raw
+    .split(",")
+    .map((tag) => tag.trim().toLowerCase())
+    .filter((tag) => tag.length > 0);
+  return [...new Set(tags)];
+}
 
 /**
  * One screen for both `/content/new` and `/content/{id}` — the fields are the
@@ -55,6 +73,7 @@ export function ModuleFormPage({ isAdministrator }: Props) {
   // visibility: who else is here, and one deliberate confirmation before a
   // save that could land on their work.
   const [confirmingOverwrite, setConfirmingOverwrite] = useState(false);
+  const [existingTags, setExistingTags] = useState<string[]>([]);
   const editors = useModuleEditors(moduleId);
   // One owner of the module's assets: the page editor inserts from this list,
   // and the panel below manages it. Two fetches would let the two disagree.
@@ -76,12 +95,27 @@ export function ModuleFormPage({ isAdministrator }: Props) {
       description: body.description ?? "",
       language: body.language,
       duration: body.estimated_duration_minutes?.toString() ?? "",
+      tags: body.tags.join(", "),
     });
   }, [moduleId]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // The autocomplete list, not the module's own tags — a convenience that
+  // degrades quietly rather than a piece of the form's own state.
+  useEffect(() => {
+    if (!isEdit) return;
+    (async () => {
+      try {
+        const response = await fetch("/api/content/tags");
+        if (response.ok) setExistingTags(await response.json());
+      } catch {
+        // Suggestions are a nicety; their absence isn't a form error.
+      }
+    })();
+  }, [isEdit]);
 
   function update(field: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -112,7 +146,7 @@ export function ModuleFormPage({ isAdministrator }: Props) {
       estimated_duration_minutes: duration,
       // Only sent on create — the server rejects it on a PATCH, because a
       // module's language is fixed once its pages are indexed under it.
-      ...(isEdit ? {} : { language: form.language }),
+      ...(isEdit ? { tags: parseTags(form.tags) } : { language: form.language }),
     };
 
     const response = await fetch(
@@ -223,6 +257,25 @@ export function ModuleFormPage({ isAdministrator }: Props) {
             className={inputClassName}
           />
         </label>
+
+        {isEdit && (
+          <label className="flex flex-col gap-1 text-sm">
+            {t("content.tags_label")}
+            <input
+              type="text"
+              list="module-tags-suggestions"
+              value={form.tags}
+              onChange={(event) => update("tags", event.target.value)}
+              placeholder={t("content.tags_placeholder")}
+              className={inputClassName}
+            />
+            <datalist id="module-tags-suggestions">
+              {existingTags.map((tag) => (
+                <option key={tag} value={tag} />
+              ))}
+            </datalist>
+          </label>
+        )}
 
         {error && (
           <p role="alert" className="text-sm text-danger">

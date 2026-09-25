@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,6 +16,7 @@ const ENTRY: CatalogEntry = {
   description: "How to spot a phish.",
   estimated_duration_minutes: 15,
   page_count: 3,
+  tags: [],
   started: false,
   completed_at: null,
   superseded_at: null,
@@ -27,6 +29,45 @@ function mockJson(url: string, body: unknown) {
       const requested = typeof input === "string" ? input : input.toString();
       return new Response(JSON.stringify(requested === url ? body : {}), {
         status: requested === url ? 200 : 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }),
+  );
+}
+
+/**
+ * Filters a fixed catalog of entries the way the real
+ * `GET /api/catalog/modules` route does, so a test can drive the filter UI
+ * through several changes without pre-computing every intermediate query the
+ * component happens to fire along the way (the free-text fields are
+ * debounced, but `language` fires on every change).
+ */
+function mockCatalog(entries: CatalogEntry[]) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const requested = typeof input === "string" ? input : input.toString();
+      const [, query] = requested.split("?");
+      const search = new URLSearchParams(query ?? "");
+      const q = search.get("q")?.toLowerCase();
+      const language = search.get("language");
+      const requestedTags = search.getAll("tags");
+      const matched = entries.filter((entry) => {
+        if (language && entry.language !== language) return false;
+        if (
+          q &&
+          !entry.title.toLowerCase().includes(q) &&
+          !entry.description?.toLowerCase().includes(q)
+        ) {
+          return false;
+        }
+        if (requestedTags.length > 0 && !requestedTags.every((tag) => entry.tags.includes(tag))) {
+          return false;
+        }
+        return true;
+      });
+      return new Response(JSON.stringify(matched), {
+        status: 200,
         headers: { "Content-Type": "application/json" },
       });
     }),
@@ -191,5 +232,62 @@ describe("the learner's lists", () => {
 
     expect(await screen.findByText(/Completed/)).toBeInTheDocument();
     expect(screen.queryByText(/Overdue/)).not.toBeInTheDocument();
+  });
+
+  it("shows a catalog entry's tags", async () => {
+    mockJson("/api/catalog/modules", [{ ...ENTRY, tags: ["phishing", "security"] }]);
+    renderAt("/modules/browse");
+
+    expect(await screen.findByText("phishing")).toBeInTheDocument();
+    expect(screen.getByText("security")).toBeInTheDocument();
+  });
+
+  it("re-queries the catalog with a search term", async () => {
+    mockCatalog([ENTRY, { ...ENTRY, translation_group_id: "group-2", title: "Fire Safety" }]);
+    renderAt("/modules/browse");
+    await screen.findByText("Phishing Awareness");
+    expect(screen.getByText("Fire Safety")).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Search"), "fire");
+
+    // "Fire Safety" is already on screen from the initial, unfiltered load —
+    // the debounced re-query only proves itself once the non-matching entry
+    // is gone.
+    await waitFor(() => expect(screen.queryByText("Phishing Awareness")).not.toBeInTheDocument());
+    expect(screen.getByText("Fire Safety")).toBeInTheDocument();
+  });
+
+  it("combines the language and tag filters into one query", async () => {
+    mockCatalog([
+      ENTRY,
+      {
+        ...ENTRY,
+        translation_group_id: "group-3",
+        title: "Sicherheitsschulung",
+        language: "de",
+        tags: ["security"],
+      },
+    ]);
+    renderAt("/modules/browse");
+    await screen.findByText("Phishing Awareness");
+
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Language"), "de");
+    await user.type(screen.getByLabelText("Tags"), "security");
+
+    expect(await screen.findByText("Sicherheitsschulung")).toBeInTheDocument();
+    expect(screen.queryByText("Phishing Awareness")).not.toBeInTheDocument();
+  });
+
+  it("says nothing matches rather than the catalog being empty, when filters exclude everything", async () => {
+    mockCatalog([ENTRY]);
+    renderAt("/modules/browse");
+    await screen.findByText("Phishing Awareness");
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Search"), "nonexistent");
+
+    expect(await screen.findByText("Nothing matches these filters.")).toBeInTheDocument();
   });
 });

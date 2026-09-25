@@ -18,6 +18,7 @@ const MODULE: ModuleBody = {
   status: "draft",
   catalog_visible: false,
   current_version_number: null,
+  tags: [],
   created_by: { id: "user-1", display_name: "Cora Manager" },
   last_edited_by: { id: "user-1", display_name: "Cora Manager" },
   created_at: "2026-09-01T00:00:00Z",

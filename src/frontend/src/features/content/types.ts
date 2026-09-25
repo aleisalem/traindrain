@@ -43,6 +43,8 @@ export type ModuleBody = {
   catalog_visible: boolean;
   /** The version learners are reading; `null` until the first publish. */
   current_version_number: number | null;
+  /** Free-text labels for search and filtering, sorted. */
+  tags: string[];
   created_by: ModuleActor;
   last_edited_by: ModuleActor;
   created_at: string;

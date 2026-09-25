@@ -21,7 +21,7 @@ import uuid
 from datetime import UTC, date, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,6 +53,8 @@ from app.schemas.learning import (
     ProgressState,
     SwitchLanguageRequest,
 )
+from app.schemas.modules import ModuleLanguage
+from app.search import apply_tag_filter, module_search_predicate, normalize_tag_filter
 from app.security.system_settings import deployment_today
 
 catalog_router = APIRouter(prefix="/api/catalog", tags=["learning"])
@@ -259,6 +261,9 @@ async def _claim_progress(db: AsyncSession, user: User, module: Module) -> Modul
 
 @catalog_router.get("/modules", response_model=list[CatalogEntry])
 async def list_catalog(
+    q: str | None = Query(default=None, min_length=1, max_length=200),
+    language: ModuleLanguage | None = Query(default=None),
+    tags: list[str] | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_active_user),
 ) -> list[CatalogEntry]:
@@ -267,20 +272,30 @@ async def list_catalog(
     Only modules an author both published *and* opted into the catalog. The
     default is false, so silence means no: material reaches nobody until
     somebody says it should.
+
+    `q`, `language`, and `tags` narrow that same set further — matched against
+    each candidate module's own row (the same one `catalog_visible` and
+    `status` are checked on above), not the frozen snapshot a learner goes on
+    to read. The two agree in the ordinary case; a search this literal-minded
+    about staying in sync with an in-flight draft edit would need to search the
+    snapshot's JSONB instead, which full-content search stays out of scope for.
     """
-    modules = list(
-        (
-            await db.execute(
-                select(Module)
-                .where(
-                    Module.catalog_visible.is_(True),
-                    Module.status == "published",
-                    Module.current_version_id.is_not(None),
-                )
-                .order_by(Module.title)
-            )
-        ).scalars()
+    statement = (
+        select(Module)
+        .where(
+            Module.catalog_visible.is_(True),
+            Module.status == "published",
+            Module.current_version_id.is_not(None),
+        )
+        .order_by(Module.title)
     )
+    if language is not None:
+        statement = statement.where(Module.language == language)
+    if q:
+        statement = statement.where(module_search_predicate(q))
+    statement = apply_tag_filter(statement, normalize_tag_filter(tags))
+
+    modules = list((await db.execute(statement)).scalars())
 
     by_group: dict[uuid.UUID, list[Module]] = {}
     for module in modules:
@@ -337,6 +352,7 @@ async def list_catalog(
                 description=snapshot.get("description"),
                 estimated_duration_minutes=snapshot.get("estimated_duration_minutes"),
                 page_count=len(snapshot.get("pages", [])),
+                tags=sorted(tag.name for tag in module.tags),
                 started=row is not None,
                 completed_at=row.completed_at if row else None,
                 superseded_at=row.superseded_at if row else None,

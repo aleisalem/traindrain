@@ -22,6 +22,7 @@ const CATALOG_ENTRY = {
   description: "How to spot a phish.",
   estimated_duration_minutes: 15,
   page_count: 2,
+  tags: [],
   started: false,
   completed_at: null,
 };

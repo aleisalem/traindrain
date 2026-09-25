@@ -13,6 +13,7 @@ export type CatalogEntry = {
   description: string | null;
   estimated_duration_minutes: number | null;
   page_count: number;
+  tags: string[];
   started: boolean;
   completed_at: string | null;
   /** Set when a substantive republish has asked this learner to read the

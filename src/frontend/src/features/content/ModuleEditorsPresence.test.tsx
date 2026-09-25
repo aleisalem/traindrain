@@ -17,6 +17,7 @@ const MODULE = {
   estimated_duration_minutes: 15,
   status: "draft",
   current_version_number: null,
+  tags: [],
   created_by: { id: "user-1", display_name: "Cora Manager" },
   last_edited_by: { id: "user-1", display_name: "Cora Manager" },
   created_at: "2026-09-01T00:00:00Z",
@@ -84,8 +85,13 @@ function mockBackend(editors: { id: string; display_name: string }[]) {
         );
       }
       // The assignment panel loads its own list and the group picker too;
-      // these tests are about presence, so both come back empty.
-      if (url.endsWith("/assignments") || url.endsWith("/api/content/groups")) {
+      // these tests are about presence, so both come back empty. Same for the
+      // tag autocomplete the metadata form fetches.
+      if (
+        url.endsWith("/assignments") ||
+        url.endsWith("/api/content/groups") ||
+        url.endsWith("/api/content/tags")
+      ) {
         return new Response(JSON.stringify([]), { status: 200 });
       }
       if (method === "PATCH") return new Response(JSON.stringify(MODULE), { status: 200 });

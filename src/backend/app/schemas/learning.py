@@ -30,6 +30,9 @@ class CatalogEntry(BaseModel):
     description: str | None
     estimated_duration_minutes: int | None
     page_count: int
+    # Live metadata, not part of the published snapshot — a tag added after
+    # publishing is findable immediately, without a republish.
+    tags: list[str]
     # The learner's own state, so the catalog can say "continue" rather than
     # "start" without a second round trip.
     started: bool

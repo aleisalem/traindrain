@@ -1,9 +1,9 @@
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import Any, Literal, cast
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import case, delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
@@ -27,6 +27,7 @@ from app.models import (
     ModuleProgress,
     ModuleTranslationGroup,
     ModuleVersion,
+    Tag,
     User,
 )
 from app.routes.assets import asset_url
@@ -36,6 +37,7 @@ from app.schemas.modules import (
     ModuleActor,
     ModuleCreateRequest,
     ModuleEditorsResponse,
+    ModuleLanguage,
     ModuleResponse,
     ModuleUpdateRequest,
     PageCreateRequest,
@@ -50,6 +52,12 @@ from app.schemas.modules import (
     SetPrimaryVariantRequest,
     TranslationGroupResponse,
     VersionResponse,
+)
+from app.search import (
+    apply_tag_filter,
+    get_or_create_tags,
+    module_search_predicate,
+    normalize_tag_filter,
 )
 from app.security.audit import record_audit_log
 from app.storage import S3Client, copy_asset, delete_asset, object_key
@@ -110,6 +118,7 @@ def _to_module_response(
             if module.current_version_id
             else None
         ),
+        tags=sorted(tag.name for tag in module.tags),
         created_by=actors[module.created_by],
         last_edited_by=actors[module.last_edited_by],
         created_at=module.created_at,
@@ -149,14 +158,35 @@ async def _get_page(db: AsyncSession, module_id: uuid.UUID, page_id: uuid.UUID) 
     return page
 
 
+@router.get("/tags", response_model=list[str])
+async def list_tags(
+    db: AsyncSession = Depends(get_db),
+    author: User = Depends(require_content_manager),
+) -> list[str]:
+    """Every tag in use, for the authoring screen's autocomplete."""
+    rows = (await db.execute(select(Tag.name).order_by(Tag.name))).scalars()
+    return list(rows)
+
+
 @router.get("/modules", response_model=list[ModuleResponse])
 async def list_modules(
+    q: str | None = Query(default=None, min_length=1, max_length=200),
+    language: ModuleLanguage | None = Query(default=None),
+    status_filter: Literal["draft", "published"] | None = Query(default=None, alias="status"),
+    tags: list[str] | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
     author: User = Depends(require_content_manager),
 ) -> list[ModuleResponse]:
-    modules = list(
-        (await db.execute(select(Module).order_by(Module.created_at.desc()))).scalars()
-    )
+    statement = select(Module).order_by(Module.created_at.desc())
+    if language is not None:
+        statement = statement.where(Module.language == language)
+    if status_filter is not None:
+        statement = statement.where(Module.status == status_filter)
+    if q:
+        statement = statement.where(module_search_predicate(q))
+    statement = apply_tag_filter(statement, normalize_tag_filter(tags))
+
+    modules = list((await db.execute(statement)).scalars())
     return await _module_responses(db, modules)
 
 
@@ -228,7 +258,13 @@ async def update_module(
     # while an explicitly-null one is genuinely cleared.
     changes = payload.model_dump(exclude_unset=True)
     for field, value in changes.items():
+        # `tags` isn't a plain column — it's the module's whole tag set,
+        # resolved against `tags` below rather than assigned directly.
+        if field == "tags":
+            continue
         setattr(module, field, value)
+    if "tags" in changes:
+        module.tags = await get_or_create_tags(db, changes["tags"])
     # Putting a module on the catalog, or taking it off, is a decision about
     # circulation rather than about the text. Recording it as "last edited by"
     # would put an author's name against words they did not write.

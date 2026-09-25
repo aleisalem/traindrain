@@ -197,14 +197,14 @@ Full-content search over page bodies stays out of scope — the index built in t
 
 **Blocked by:** 5
 
-- [ ] Migration creates `tags` and `module_tags`; tags are normalized to lowercase on write and deduplicated
-- [ ] `GET /api/content/tags` lists existing tags for autocomplete; authors add and remove tags on a module
-- [ ] Module list search covers title and description, with filters for language, status, and tag, combinable
-- [ ] The text-search configuration used for a query is derived from the module's stored `language` — `german` or `english` — never inferred from the query text
-- [ ] `GET /api/catalog/modules` gains the same search and tag/language filtering for learners
-- [ ] Search and filter UI on both the authoring list and the catalog, in both languages and all three themes
-- [ ] Backend tests: tag normalization and deduplication; German-language content matched with German stemming; filters combining correctly; the catalog search never returning a module that is not `catalog_visible` and published
-- [ ] README updated
+- [x] Migration creates `tags` and `module_tags`; tags are normalized to lowercase on write and deduplicated
+- [x] `GET /api/content/tags` lists existing tags for autocomplete; authors add and remove tags on a module
+- [x] Module list search covers title and description, with filters for language, status, and tag, combinable
+- [x] The text-search configuration used for a query is derived from the module's stored `language` — `german` or `english` — never inferred from the query text
+- [x] `GET /api/catalog/modules` gains the same search and tag/language filtering for learners
+- [x] Search and filter UI on both the authoring list and the catalog, in both languages and all three themes
+- [x] Backend tests: tag normalization and deduplication; German-language content matched with German stemming; filters combining correctly; the catalog search never returning a module that is not `catalog_visible` and published
+- [x] README updated
 
 ## 11. Delete a module: tombstone, asset purge, records survive
 

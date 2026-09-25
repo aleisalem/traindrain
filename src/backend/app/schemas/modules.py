@@ -20,6 +20,35 @@ AssetKind = Literal["image", "attachment"]
 # 422, not a quiet `minor`.
 RevisionKind = Literal["minor", "substantive"]
 
+MAX_TAGS_PER_MODULE = 20
+MAX_TAG_LENGTH = 50
+
+
+def _normalize_tags(value: list[str] | None) -> list[str] | None:
+    """Lowercase, strip, and dedupe a submitted tag list, or reject it.
+
+    The single place this happens, so "Phishing" and "phishing" collapse to one
+    tag whether they arrive from the same request or two different ones — the
+    latter is `app.search.get_or_create_tags`'s job, this is the edge that
+    decides what a valid tag name even looks like.
+    """
+    if value is None:
+        return None
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw in value:
+        name = raw.strip().lower()
+        if not name:
+            continue
+        if len(name) > MAX_TAG_LENGTH:
+            raise ValueError(f"A tag may be at most {MAX_TAG_LENGTH} characters.")
+        if name not in seen:
+            seen.add(name)
+            normalized.append(name)
+    if len(normalized) > MAX_TAGS_PER_MODULE:
+        raise ValueError(f"A module may carry at most {MAX_TAGS_PER_MODULE} tags.")
+    return normalized
+
 
 class ModuleCreateRequest(BaseModel):
     # extra="forbid" is what makes an attempt to smuggle `created_by`,
@@ -65,6 +94,15 @@ class ModuleUpdateRequest(BaseModel):
     # their own accord. Defaults to false on the row, so a module reaches
     # nobody until an author says here that it should.
     catalog_visible: bool | None = None
+    # A full replacement of the module's tag set, not a diff — sending `[]`
+    # clears every tag. `None` (the field left out) leaves the existing tags
+    # alone, same as every other field here.
+    tags: list[str] | None = None
+
+    @field_validator("tags")
+    @classmethod
+    def _validate_tags(cls, value: list[str] | None) -> list[str] | None:
+        return _normalize_tags(value)
 
     @field_validator("title")
     @classmethod
@@ -347,6 +385,8 @@ class ModuleResponse(BaseModel):
     # The version learners are reading, or were reading when the module was
     # unpublished. `None` until the first publish.
     current_version_number: int | None
+    # Sorted, so two requests for the same module never disagree on order.
+    tags: list[str]
     created_by: ModuleActor
     last_edited_by: ModuleActor
     created_at: datetime

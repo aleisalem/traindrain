@@ -1,8 +1,31 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 import type { CatalogEntry } from "./types";
 import { useLearnerList } from "./useLearnerList";
+
+const inputClassName =
+  "rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 text-sm transition-colors focus:border-primary focus:outline-none";
+
+type Filters = {
+  q: string;
+  language: string;
+  tags: string;
+};
+
+const EMPTY_FILTERS: Filters = { q: "", language: "", tags: "" };
+
+function buildQuery(filters: Filters): string {
+  const params = new URLSearchParams();
+  if (filters.q.trim()) params.set("q", filters.q.trim());
+  if (filters.language) params.set("language", filters.language);
+  for (const tag of filters.tags.split(",").map((tag) => tag.trim()).filter(Boolean)) {
+    params.append("tags", tag);
+  }
+  const query = params.toString();
+  return query ? `/api/catalog/modules?${query}` : "/api/catalog/modules";
+}
 
 /**
  * The open catalog: material an author deliberately put on offer to everyone.
@@ -12,7 +35,32 @@ import { useLearnerList } from "./useLearnerList";
  */
 export function CatalogPage() {
   const { t } = useTranslation();
-  const state = useLearnerList<CatalogEntry>("/api/catalog/modules");
+  const [searchInput, setSearchInput] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const isFiltered = filters.q.trim() !== "" || filters.language !== "" || filters.tags.trim() !== "";
+  const state = useLearnerList<CatalogEntry>(buildQuery(filters));
+
+  // Free-text fields update their own value on every keystroke, but only
+  // reach `filters` — and so the network — once typing pauses. `language` is
+  // a single onChange and goes straight to `filters`.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setFilters((current) => ({ ...current, q: searchInput }));
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setFilters((current) => ({ ...current, tags: tagsInput }));
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [tagsInput]);
+
+  function updateFilter(field: "language", value: string) {
+    setFilters((current) => ({ ...current, [field]: value }));
+  }
 
   if (state.status === "error") {
     return (
@@ -35,8 +83,45 @@ export function CatalogPage() {
         <p className="text-sm text-fg-muted">{t("learning.catalog_description")}</p>
       </div>
 
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-sm">
+          {t("learning.filter_search_label")}
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder={t("learning.filter_search_placeholder")}
+            className={inputClassName}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          {t("learning.filter_language_label")}
+          <select
+            value={filters.language}
+            onChange={(event) => updateFilter("language", event.target.value)}
+            className={inputClassName}
+          >
+            <option value="">{t("learning.filter_all_languages")}</option>
+            <option value="en">{t("learning.language_en")}</option>
+            <option value="de">{t("learning.language_de")}</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          {t("learning.filter_tags_label")}
+          <input
+            type="text"
+            value={tagsInput}
+            onChange={(event) => setTagsInput(event.target.value)}
+            placeholder={t("learning.filter_tags_placeholder")}
+            className={inputClassName}
+          />
+        </label>
+      </div>
+
       {entries.length === 0 ? (
-        <p className="text-sm text-fg-muted">{t("learning.catalog_empty")}</p>
+        <p className="text-sm text-fg-muted">
+          {isFiltered ? t("learning.catalog_no_results") : t("learning.catalog_empty")}
+        </p>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {entries.map((entry) => (
@@ -79,6 +164,15 @@ export function CatalogPage() {
                   <p className="text-sm text-fg-muted">{entry.description}</p>
                 )}
               </div>
+              {entry.tags.length > 0 && (
+                <ul className="flex flex-wrap gap-1.5">
+                  {entry.tags.map((tag) => (
+                    <li key={tag} className="rounded-full bg-bg px-2 py-0.5 text-xs text-fg-muted">
+                      {tag}
+                    </li>
+                  ))}
+                </ul>
+              )}
               <Link
                 to={`/modules/${entry.translation_group_id}`}
                 className="self-start rounded-full bg-[image:var(--gradient)] px-4 py-1.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"

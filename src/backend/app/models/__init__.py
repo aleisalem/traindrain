@@ -17,6 +17,7 @@ from app.models.reminder import ModuleReminder
 from app.models.role import Role, user_roles
 from app.models.session import Session
 from app.models.system_setting import SystemSetting
+from app.models.tag import Tag, module_tags
 from app.models.two_factor import RecoveryCode, TwoFactorChallenge, TwoFactorCredential
 from app.models.user import User
 
@@ -39,11 +40,13 @@ __all__ = [
     "Role",
     "Session",
     "SystemSetting",
+    "Tag",
     "TwoFactorChallenge",
     "TwoFactorCredential",
     "User",
     "group_members",
     "invite_groups",
     "invite_roles",
+    "module_tags",
     "user_roles",
 ]

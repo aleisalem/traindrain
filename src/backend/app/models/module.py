@@ -16,9 +16,10 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+from app.models.tag import Tag, module_tags
 
 # The generated `search_tsv` expression. A stored generated column has to be
 # IMMUTABLE, and `text::regconfig` is not — so the configuration is spelled out
@@ -110,6 +111,10 @@ class Module(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Free-text labels a Content Manager attaches for search and filtering
+    # (ticket 10). Live metadata, not part of a version snapshot — a tag added
+    # after publishing is findable immediately, without a republish.
+    tags: Mapped[list[Tag]] = relationship(secondary=module_tags, lazy="selectin")
 
 
 class ModulePage(Base):

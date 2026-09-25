@@ -42,6 +42,7 @@ const MODULE = {
   estimated_duration_minutes: 15,
   status: "draft",
   current_version_number: null,
+  tags: [],
   created_by: { id: CONTENT_MANAGER_USER.id, display_name: "Cora Manager" },
   last_edited_by: { id: CONTENT_MANAGER_USER.id, display_name: "Cora Manager" },
   created_at: "2026-09-01T00:00:00Z",
@@ -56,6 +57,9 @@ function mockBackend(user: unknown, modules: unknown[] = [MODULE]) {
       if (url === "/api/auth/me") return new Response(JSON.stringify(user), { status: 200 });
       if (url === "/api/content/modules") {
         return new Response(JSON.stringify(modules), { status: 200 });
+      }
+      if (url === "/api/content/tags") {
+        return new Response(JSON.stringify([]), { status: 200 });
       }
       if (url === "/api/me/modules") {
         return new Response(JSON.stringify([]), { status: 200 });

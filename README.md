@@ -337,6 +337,22 @@ Release 1 (learning modules) is in progress. So far:
   reached from the reports page instead of each module's own edit screen. A plain `<a href>` CSV
   download is offered only to an Administrator. Full details in
   [docs/references/module-reporting.md](docs/references/module-reporting.md).
+- Search, filters, and tags: a Content Manager tags a module with free-text tags
+  (normalized to lowercase and deduplicated) and searches/filters the `/content` module
+  list by title, description, language, status, and tag, all combinable; a learner does the
+  same over the open catalog. `GET /api/content/modules` and `GET /api/catalog/modules` share
+  one place — `app.search` — that builds the `q`/`language`/`tags` filters, so the two routes
+  can never disagree about what "matches" means; `status` is authoring-only, since a learner
+  only ever sees published, catalog-visible material. Full-text search (`q`) is stemmed under
+  each module's own stored `language` — German or English, never guessed from the query text —
+  the same language-derivation logic ticket 2's page search uses, computed at query time rather
+  than a stored, indexed column since title/description are short. `GET /api/content/tags` lists every tag in use
+  for the authoring screen's autocomplete; `PATCH /api/content/modules/{id}` accepts a `tags`
+  field as a full replacement of a module's tag set. Full-content search over page bodies stays
+  out of scope, as planned. Frontend: a filter bar on `ContentModulesPage.tsx` and
+  `CatalogPage.tsx` (debounced search, so typing doesn't fire a request per keystroke), and a
+  tags field with autocomplete on `ModuleFormPage.tsx`. Full details in
+  [docs/search-and-tags.md](docs/search-and-tags.md).
 
 ## Project structure
 
@@ -358,6 +374,8 @@ src/
       reporting.py Who is targeted and where they stand, walked once per group (Content Manager)
                    and once for the full roster (Administrator) — what the report endpoint and its
                    CSV export both read
+      search.py    Language-aware title/description search and tag filtering, shared by the
+                   authoring module list and the learner catalog so they can't disagree
       jobs/        Entrypoints invoked as scripts rather than through the API — `send_reminders.py`
                    is what `docker-compose`'s reminder-runner loops and production's scheduled task calls
       storage.py   The private object store module assets live in (S3 / LocalStack S3)

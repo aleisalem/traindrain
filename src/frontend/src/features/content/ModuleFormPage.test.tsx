@@ -56,6 +56,7 @@ const MODULE = {
   estimated_duration_minutes: 15,
   status: "draft",
   current_version_number: null,
+  tags: [],
   created_by: { id: "user-1", display_name: "Cora Manager" },
   last_edited_by: { id: "user-1", display_name: "Cora Manager" },
   created_at: "2026-09-01T00:00:00Z",
@@ -187,8 +188,30 @@ describe("ModuleFormPage", () => {
       title: "Phishing-Bewusstsein 2026",
       description: "Wie man Phishing erkennt.",
       estimated_duration_minutes: 15,
+      tags: [],
     });
     expect(await screen.findByRole("status")).toHaveTextContent("Saved.");
+  });
+
+  it("normalizes typed tags to a lowercase, deduplicated list on save", async () => {
+    const user = userEvent.setup();
+    queue("GET", "/api/content/modules/module-1", { status: 200, body: MODULE });
+    queueEmptyPages(queue);
+    queueEmptyAssignments(queue);
+    queue("GET", "/api/content/tags", { status: 200, body: ["phishing", "security"] });
+    queue("PATCH", "/api/content/modules/module-1", {
+      status: 200,
+      body: { ...MODULE, tags: ["phishing", "security"] },
+    });
+
+    renderAt("/content/module-1");
+
+    const tags = await screen.findByLabelText("Tags");
+    await user.type(tags, "Phishing, Security, phishing");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    const saved = requests.find((request) => request.key === "PATCH /api/content/modules/module-1");
+    expect(saved?.body).toMatchObject({ tags: ["phishing", "security"] });
   });
 
   it("shows an existing module's language as fixed rather than editable", async () => {
