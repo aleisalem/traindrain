@@ -11,6 +11,7 @@ from app.routes.assets import router as content_assets_router
 from app.routes.assignments import router as assignments_router
 from app.routes.auth import router as auth_router
 from app.routes.content import router as content_router
+from app.routes.document_import import router as document_import_router
 from app.routes.invites import router as invites_router
 from app.routes.learning import catalog_router, me_router
 from app.routes.profile import router as profile_router
@@ -48,6 +49,7 @@ app.include_router(invites_router)
 app.include_router(profile_router)
 app.include_router(reports_router)
 app.include_router(transfer_router)
+app.include_router(document_import_router)
 app.include_router(two_factor_router)
 
 

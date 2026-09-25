@@ -22,6 +22,13 @@ dependencies = [
     # Server-side ProseMirror schema validation, pure Python (no Node
     # sidecar). Client-side editor configuration is UX; this is the control.
     "prosemirror>=0.6,<1.0",
+    # Document import (ticket 13): Markdown, DOCX, and PDF conversion into the
+    # checked-in page schema, plus HTML sanitization for anything encountered
+    # along the way. None of these ever make a network request.
+    "markdown-it-py>=3.0,<4.0",
+    "python-docx>=1.2,<2.0",
+    "pypdf>=5.0,<6.0",
+    "nh3>=0.2,<1.0",
 ]
 
 [project.optional-dependencies]

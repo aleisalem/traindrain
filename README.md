@@ -405,6 +405,29 @@ Release 1 (learning modules) is in progress. So far:
   than checked for `..`, and there is no `extractall` anywhere, so a hostile name can never be
   written to disk under any name. `module_exported` and `module_imported` are audit-logged. Full
   details in [docs/module-transfer.md](docs/module-transfer.md).
+- Document import: `POST /api/content/modules/document-import` (multipart: a file plus the
+  author's chosen `language`) converts an uploaded Markdown, Word (`.docx`), or PDF file into a
+  fresh, unpublished draft module, split into pages, alongside a conversion report naming what was
+  dropped or altered — conversion is lossy by nature, so the author is told where to look for
+  damage rather than losing it silently. **No code path here ever makes a network request**: a
+  Markdown or DOCX image reference that points somewhere else is dropped and reported, never
+  fetched, since resolving it would be an SSRF sink open to anyone who can upload a file — only a
+  DOCX's own embedded image bytes become real, platform-hosted assets. Every converted page goes
+  through the exact same server-side ProseMirror validator authored content does, and every
+  embedded image through the exact same byte-level sniffing a fresh asset upload does — arriving
+  from a converter earns a document no shortcut past either check. Markdown (`markdown-it-py`) has
+  raw HTML passthrough disabled outright rather than merely escaped, with an `nh3`-based sanitizer
+  (default allowlist only) as a second, independent layer that appears on no other path — its
+  output is parsed into real bold/italic/code/link nodes rather than reduced to plain text; pages
+  split on `##`, with the leading `#` becoming the module title. Word (`python-docx`) maps
+  headings, paragraphs, bold/italic, hyperlinks, and bulleted/numbered lists the same way, splits
+  pages on `Heading 2`, drops tables (no schema equivalent) with a report entry, and — since a
+  `.docx` is a zip archive wearing a different extension — is checked against the same zip-bomb and
+  path-traversal defenses (entry count, compression ratio, total size, entry naming) ticket 12's
+  native import already built, before `python-docx` ever opens it. PDF (`pypdf`) is explicit
+  best-effort text extraction only,
+  always flagged as such in the report; an encrypted PDF is refused outright. `module_document_imported`
+  is audit-logged. Full details in [docs/document-import.md](docs/document-import.md).
 
 ## Project structure
 
@@ -413,7 +436,8 @@ src/
   backend/         FastAPI app (Python, SQLAlchemy 2.0 async, Alembic)
     app/           Application code
       content/     ProseMirror schema (the checked-in source of truth), its server-side
-                   validator, and the upload sniffer that decides what a file really is
+                   validator, the upload sniffer that decides what a file really is, and the
+                   Markdown/DOCX/PDF converters behind document import
       models/      SQLAlchemy models
       routes/      API endpoints (FastAPI routers)
       schemas/     Pydantic request/response models

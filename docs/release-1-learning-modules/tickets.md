@@ -249,16 +249,16 @@ No import path is allowed to reach the network. Remote image references are drop
 
 **Blocked by:** 12
 
-- [ ] Markdown import via `markdown-it-py` on the `js-default` preset, with raw-HTML passthrough disabled per its own security guidance; pages split on H2, with the leading H1 becoming the module title
-- [ ] DOCX import via `python-docx`, mapping headings, paragraphs, lists, and embedded images, splitting pages on Heading 2 — Tiptap Conversion (paid) is not used anywhere
-- [ ] PDF import via `pypdf` text extraction into paragraphs, with the UI stating it is best-effort and lossy **before** the upload starts
-- [ ] Any HTML encountered on an import path is sanitized with `nh3` on its **default allowlist** — never extended with `svg`, `math`, `style`, `script`, `iframe`, `textarea`, or `title` — and then parsed to a node tree; `nh3` appears only on this path and never in the authoring write path
-- [ ] Every converted document is validated through the same server-side ProseMirror validator before it is stored
-- [ ] **No network fetches during import**: remote image references are dropped, not resolved
-- [ ] The importing user is shown a conversion report listing what was dropped or altered
-- [ ] Imports land as unpublished drafts, and the size, entry-count, and traversal caps from ticket 12 apply
-- [ ] Backend tests: a document with a remote image reference stores no remote content and reports the drop; a Markdown file containing raw HTML/script does not produce script-bearing nodes; a DOCX with embedded images produces platform-hosted assets; conversion reports list the dropped elements
-- [ ] README and a brief `docs/` summary of the import paths updated
+- [x] Markdown import via `markdown-it-py` on the `js-default` preset, with raw-HTML passthrough disabled per its own security guidance; pages split on H2, with the leading H1 becoming the module title
+- [x] DOCX import via `python-docx`, mapping headings, paragraphs, lists, and embedded images, splitting pages on Heading 2 — Tiptap Conversion (paid) is not used anywhere
+- [x] PDF import via `pypdf` text extraction into paragraphs, with the UI stating it is best-effort and lossy **before** the upload starts — ~~UI~~ (this ticket ships no frontend, matching ticket 12's own precedent; every PDF import's conversion report always carries a `pdf_best_effort` entry, since that report is the only surface this ticket has)
+- [x] Any HTML encountered on an import path is sanitized with `nh3` on its **default allowlist** — never extended with `svg`, `math`, `style`, `script`, `iframe`, `textarea`, or `title` — and then parsed to a node tree; `nh3` appears only on this path and never in the authoring write path
+- [x] Every converted document is validated through the same server-side ProseMirror validator before it is stored
+- [x] **No network fetches during import**: remote image references are dropped, not resolved
+- [x] The importing user is shown a conversion report listing what was dropped or altered
+- [x] Imports land as unpublished drafts, and the size, entry-count, and traversal caps from ticket 12 apply
+- [x] Backend tests: a document with a remote image reference stores no remote content and reports the drop; a Markdown file containing raw HTML/script does not produce script-bearing nodes; a DOCX with embedded images produces platform-hosted assets; conversion reports list the dropped elements. 21 tests in `test_document_import.py`
+- [x] README and a brief `docs/` summary of the import paths updated
 
 ## 14. Infrastructure: terraform, SES templates, scheduled reminder task
 
