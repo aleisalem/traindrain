@@ -133,12 +133,27 @@ async def group_standings(
 
 
 async def full_roster(
-    db: AsyncSession, translation_group_id: uuid.UUID, *, today: date
+    db: AsyncSession,
+    translation_group_id: uuid.UUID,
+    *,
+    today: date,
+    include_unassigned_progress: bool = False,
 ) -> list[LearnerStanding]:
     """Every learner targeted by any assignment on this material — group or
     individual — deduplicated, with the nearest due date across whatever
     assignment(s) name them (the same tie-break `app.assignments` applies from
-    a single learner's side)."""
+    a single learner's side).
+
+    `include_unassigned_progress` additionally includes anyone with a
+    `ModuleProgress` row here who no assignment currently names — with no due
+    date, since none targets them. Ticket 11's module delete removes every
+    assignment on the material it tombstones, and without this a deleted
+    module's roster would go empty the moment its evidence became relevant:
+    "who did this training" has to stay answerable from what people actually
+    read, not only from who is still being asked to. Left off by default so a
+    live module's report keeps meaning exactly what it always has — the
+    audience it is currently targeting.
+    """
     assignments = (
         await db.execute(select(Assignment).where(Assignment.translation_group_id == translation_group_id))
     ).scalars()
@@ -154,6 +169,24 @@ async def full_roster(
             if member.id not in users or nearer_due_date(assignment.due_date, due_dates[member.id]):
                 due_dates[member.id] = assignment.due_date
             users[member.id] = member
+
+    if include_unassigned_progress:
+        progress_rows = (
+            await db.execute(
+                select(ModuleProgress).where(
+                    ModuleProgress.translation_group_id == translation_group_id
+                )
+            )
+        ).scalars()
+        unassigned_ids = {row.user_id for row in progress_rows} - set(users)
+        if unassigned_ids:
+            for member in _live(
+                (
+                    await db.execute(select(User).where(User.id.in_(unassigned_ids)))
+                ).scalars()
+            ):
+                users[member.id] = member
+                due_dates[member.id] = None
 
     progress = await _progress_by_user(db, translation_group_id, users.keys())
     return [

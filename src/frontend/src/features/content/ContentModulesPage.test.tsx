@@ -21,6 +21,7 @@ function makeModule(overrides: Partial<ModuleBody>): ModuleBody {
     status: "draft",
     catalog_visible: false,
     current_version_number: null,
+    deleted_version_number: null,
     tags: [],
     created_by: ACTOR,
     last_edited_by: ACTOR,

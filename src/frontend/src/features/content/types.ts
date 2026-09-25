@@ -43,6 +43,9 @@ export type ModuleBody = {
   catalog_visible: boolean;
   /** The version learners are reading; `null` until the first publish. */
   current_version_number: number | null;
+  /** The tombstone's own memory of its last version, set once when the
+   *  module is deleted; `null` otherwise. */
+  deleted_version_number: number | null;
   /** Free-text labels for search and filtering, sorted. */
   tags: string[];
   created_by: ModuleActor;
@@ -60,6 +63,12 @@ export type RevisionKind = "minor" | "substantive";
 export type RevisionImpact = {
   completed_learners: number;
   in_progress_learners: number;
+};
+
+/** How many completion records a delete's tombstone would carry. Read while
+ *  the author is still deciding, the same shape as `RevisionImpact`. */
+export type DeletionImpact = {
+  completion_count: number;
 };
 
 export type ModuleVersion = {

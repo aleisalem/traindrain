@@ -18,6 +18,7 @@ const MODULE: ModuleBody = {
   status: "draft",
   catalog_visible: false,
   current_version_number: null,
+  deleted_version_number: null,
   tags: [],
   created_by: { id: "user-1", display_name: "Cora Manager" },
   last_edited_by: { id: "user-1", display_name: "Cora Manager" },
@@ -26,6 +27,12 @@ const MODULE: ModuleBody = {
 };
 
 const PUBLISHED: ModuleBody = { ...MODULE, status: "published", current_version_number: 1 };
+const DELETED: ModuleBody = {
+  ...PUBLISHED,
+  status: "deleted",
+  current_version_number: null,
+  deleted_version_number: 1,
+};
 
 const VERSION: ModuleVersion = {
   id: "version-1",
@@ -67,6 +74,7 @@ function renderPanel(module: ModuleBody, onChanged = vi.fn()) {
           element={<ModulePublishPanel module={module} onChanged={onChanged} />}
         />
         <Route path="/content/module-2" element={<p>The copy</p>} />
+        <Route path="/content" element={<p>The module list</p>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -333,5 +341,78 @@ describe("ModulePublishPanel", () => {
           ?.body,
       ).toEqual({ revision_kind: "substantive" }),
     );
+  });
+
+  it("deletes a module after naming how many completion records are at stake", async () => {
+    const user = userEvent.setup();
+    mockBackend({
+      "GET /api/content/modules/module-1/versions": { status: 200, body: [VERSION] },
+      "GET /api/content/modules/module-1/deletion-impact": {
+        status: 200,
+        body: { completion_count: 4 },
+      },
+      "DELETE /api/content/modules/module-1": { status: 200, body: DELETED },
+    });
+    renderPanel(PUBLISHED);
+
+    await user.click(screen.getByRole("button", { name: "Delete module" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      await within(dialog).findByText("4 completion records will keep resolving to this title after it's deleted."),
+    ).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Delete permanently" }));
+
+    // Nothing is left to edit on a deleted module, so the screen moves on.
+    expect(await screen.findByText("The module list")).toBeInTheDocument();
+  });
+
+  it("cancelling the delete dialog deletes nothing", async () => {
+    const user = userEvent.setup();
+    const requested = mockBackend({
+      "GET /api/content/modules/module-1/versions": { status: 200, body: [] },
+      "GET /api/content/modules/module-1/deletion-impact": {
+        status: 200,
+        body: { completion_count: 0 },
+      },
+    });
+    renderPanel(MODULE);
+
+    await user.click(screen.getByRole("button", { name: "Delete module" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      await within(dialog).findByText("Nobody has completed this module, so no completion record depends on it."),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(requested.some((request) => request.key.startsWith("DELETE"))).toBe(false);
+  });
+
+  it("a deleted module offers nothing to publish, unpublish, duplicate, or list in the catalog", async () => {
+    mockBackend({ "GET /api/content/modules/module-1/versions": { status: 200, body: [] } });
+    renderPanel(DELETED);
+
+    expect(
+      await screen.findByText(
+        "Deleted. Last published as version 1; its pages, versions, and files are gone, but completion records still resolve to this title.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Publish changes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Unpublish" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Duplicate" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete module" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Show in the open catalog/ })).not.toBeInTheDocument();
+  });
+
+  it("a module deleted while still an unpublished draft names no version", async () => {
+    mockBackend({ "GET /api/content/modules/module-1/versions": { status: 200, body: [] } });
+    renderPanel({ ...MODULE, status: "deleted", deleted_version_number: null });
+
+    expect(
+      await screen.findByText(
+        "Deleted. Its pages, versions, and files are gone; completion records still resolve to this title.",
+      ),
+    ).toBeInTheDocument();
   });
 });

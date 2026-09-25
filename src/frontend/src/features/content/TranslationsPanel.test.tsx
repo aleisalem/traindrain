@@ -19,6 +19,7 @@ function moduleBody(overrides: Partial<ModuleBody> = {}): ModuleBody {
     status: "draft",
     catalog_visible: false,
     current_version_number: null,
+    deleted_version_number: null,
     tags: [],
     created_by: { id: "user-1", display_name: "Cora Manager" },
     last_edited_by: { id: "user-1", display_name: "Cora Manager" },

@@ -69,7 +69,12 @@ async def get_module_report(
     today = await deployment_today(db)
 
     if is_administrator(caller):
-        learners = await full_roster(db, module.translation_group_id, today=today)
+        learners = await full_roster(
+            db,
+            module.translation_group_id,
+            today=today,
+            include_unassigned_progress=module.status == "deleted",
+        )
         return AdministratorModuleReport(
             translation_group_id=module.translation_group_id,
             learners=[_to_learner_row(standing) for standing in learners],
@@ -107,7 +112,12 @@ async def get_module_report_csv(
     """
     module = await get_module_or_404(db, module_id)
     today = await deployment_today(db)
-    learners = await full_roster(db, module.translation_group_id, today=today)
+    learners = await full_roster(
+        db,
+        module.translation_group_id,
+        today=today,
+        include_unassigned_progress=module.status == "deleted",
+    )
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)

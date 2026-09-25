@@ -9,6 +9,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.access import ensure_module_editable
 from app.content import (
     CONSTRAINTS,
     SCHEMA_VERSION,
@@ -20,6 +21,7 @@ from app.content import (
 from app.db import get_db
 from app.dependencies import get_module_or_404, get_s3_client, require_content_manager
 from app.models import (
+    Assignment,
     Module,
     ModuleAsset,
     ModuleEditSession,
@@ -32,6 +34,7 @@ from app.models import (
 )
 from app.routes.assets import asset_url
 from app.schemas.modules import (
+    DeletionImpactResponse,
     DuplicateRequest,
     LinkVariantRequest,
     ModuleActor,
@@ -118,6 +121,7 @@ def _to_module_response(
             if module.current_version_id
             else None
         ),
+        deleted_version_number=module.deleted_version_number,
         tags=sorted(tag.name for tag in module.tags),
         created_by=actors[module.created_by],
         last_edited_by=actors[module.last_edited_by],
@@ -182,6 +186,13 @@ async def list_modules(
         statement = statement.where(Module.language == language)
     if status_filter is not None:
         statement = statement.where(Module.status == status_filter)
+    else:
+        # A deleted module's tombstone survives for its completion records,
+        # not for authoring — nothing here should list it back among drafts
+        # and published material. There is deliberately no `status=deleted`
+        # filter value to ask for it with; a tombstone is reached by the id a
+        # completion record or an audit entry already names, not browsed to.
+        statement = statement.where(Module.status != "deleted")
     if q:
         statement = statement.where(module_search_predicate(q))
     statement = apply_tag_filter(statement, normalize_tag_filter(tags))
@@ -253,6 +264,7 @@ async def update_module(
     author: User = Depends(require_content_manager),
 ) -> ModuleResponse:
     module = await get_module_or_404(db, module_id)
+    ensure_module_editable(module)
 
     # exclude_unset, so a field the client left out keeps its stored value
     # while an explicitly-null one is genuinely cleared.
@@ -395,6 +407,7 @@ async def create_page(
     author: User = Depends(require_content_manager),
 ) -> PagesResponse:
     module = await get_module_or_404(db, module_id, for_update=True)
+    ensure_module_editable(module)
     document, search_text = _validated_body(payload.body, payload.schema_version)
 
     page_count = (
@@ -437,6 +450,7 @@ async def reorder_pages(
     author: User = Depends(require_content_manager),
 ) -> PagesResponse:
     module = await get_module_or_404(db, module_id, for_update=True)
+    ensure_module_editable(module)
     pages = await _module_pages(db, module.id)
     by_id = {page.id: page for page in pages}
 
@@ -467,6 +481,7 @@ async def update_page(
     author: User = Depends(require_content_manager),
 ) -> PagesResponse:
     module = await get_module_or_404(db, module_id, for_update=True)
+    ensure_module_editable(module)
     page = await _get_page(db, module.id, page_id)
 
     validated: tuple[dict[str, Any], str] | None = None
@@ -500,6 +515,7 @@ async def delete_page(
     author: User = Depends(require_content_manager),
 ) -> PagesResponse:
     module = await get_module_or_404(db, module_id, for_update=True)
+    ensure_module_editable(module)
     page = await _get_page(db, module.id, page_id)
 
     _claim_draft(module, payload.draft_revision, author)
@@ -666,6 +682,7 @@ async def publish_module(
     # publishes would otherwise both read "the highest version is 2" and both
     # try to write a 3.
     module = await get_module_or_404(db, module_id, for_update=True)
+    ensure_module_editable(module)
     pages = await _module_pages(db, module.id)
     if not pages:
         raise HTTPException(
@@ -766,6 +783,139 @@ async def unpublish_module(
             "module_id": str(module.id),
             "title": module.title,
             "version_number": version_number,
+        },
+    )
+    await db.commit()
+    await db.refresh(module)
+    return await _module_response(db, module)
+
+
+async def _completion_count(db: AsyncSession, translation_group_id: uuid.UUID) -> int:
+    """How many learners have ever completed this material.
+
+    Counted over the whole translation group, like every other learner count in
+    this file — one `ModuleProgress` row is one person's progress on the body of
+    material, whichever language variant they happened to read. Includes
+    superseded completions: a substantive republish marks one outstanding again
+    but never erases `completed_at`, and it is still evidence a delete's
+    tombstone has to go on carrying.
+    """
+    return (
+        await db.execute(
+            select(func.count())
+            .select_from(ModuleProgress)
+            .where(
+                ModuleProgress.translation_group_id == translation_group_id,
+                ModuleProgress.completed_at.is_not(None),
+            )
+        )
+    ).scalar_one()
+
+
+@router.get(
+    "/modules/{module_id}/deletion-impact", response_model=DeletionImpactResponse
+)
+async def get_deletion_impact(
+    module_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    author: User = Depends(require_content_manager),
+) -> DeletionImpactResponse:
+    """How many completion records a delete's tombstone would carry.
+
+    Asked by the confirmation dialog while the decision is still avoidable —
+    the same "tell the author the number before they commit" shape
+    `get_revision_impact` already gives the publish dialog.
+    """
+    module = await get_module_or_404(db, module_id)
+    return DeletionImpactResponse(
+        completion_count=await _completion_count(db, module.translation_group_id)
+    )
+
+
+@router.delete("/modules/{module_id}", response_model=ModuleResponse)
+async def delete_module(
+    module_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    author: User = Depends(require_content_manager),
+    s3_client: S3Client = Depends(get_s3_client),
+) -> ModuleResponse:
+    """Content that must not exist any more, genuinely gone.
+
+    Modelled directly on Release 0's user-erase tombstone: the row survives —
+    `title`, `language`, and its timestamps stay, so a completion record still
+    resolves and can render as *"Phishing Awareness — deleted"* — but every
+    page, every version snapshot, and every stored asset object is destroyed,
+    and every assignment naming this material is removed, so it can never be
+    newly assigned again. `deleted` is terminal: `ensure_module_editable`
+    refuses every other mutating authoring route from here on.
+
+    Progress rows are deliberately left untouched. They are a learner's own
+    record of what they read, not the author's content, and the whole point of
+    a tombstone is that the evidence outlives what it is evidence of.
+    """
+    module = await get_module_or_404(db, module_id, for_update=True)
+    if module.status == "deleted":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "already_deleted",
+                "message": "This module has already been deleted.",
+            },
+        )
+
+    affected = await _completion_count(db, module.translation_group_id)
+
+    assets = list(
+        (
+            await db.execute(select(ModuleAsset).where(ModuleAsset.module_id == module.id))
+        ).scalars()
+    )
+    for asset in assets:
+        # Row first, then the object — the same order `delete_module_asset`
+        # uses and for the same reason: if the store refuses, the transaction
+        # rolls back and the row survives alongside the object it describes,
+        # rather than an object already gone for real outliving a row a later
+        # failure in this loop put back.
+        await db.delete(asset)
+        await db.flush()
+        await delete_asset(s3_client, key=asset.object_key)
+
+    await db.execute(delete(ModulePage).where(ModulePage.module_id == module.id))
+
+    # Captured before it is cleared: the tombstone's own memory of what
+    # version it was on, independent of any one learner's
+    # `completed_version_number` — a module nobody has completed still gets
+    # to say "last published as version N" rather than nothing at all.
+    module.deleted_version_number = await _current_version_number(db, module)
+
+    # Cleared explicitly, ahead of the version rows going, rather than left to
+    # the FK's `ON DELETE SET NULL` to do implicitly — so the in-memory module
+    # never disagrees with what the database is about to make true.
+    module.current_version_id = None
+    await db.flush()
+    await db.execute(delete(ModuleVersion).where(ModuleVersion.module_id == module.id))
+
+    # Scoped to the translation group, like every assignment already is: this
+    # variant's material can no longer be assigned, and neither can any
+    # sibling's, because they are all the same assignable unit.
+    await db.execute(
+        delete(Assignment).where(Assignment.translation_group_id == module.translation_group_id)
+    )
+
+    module.status = "deleted"
+    module.deleted_at = datetime.now(UTC)
+    module.catalog_visible = False
+    module.last_edited_by = author.id
+
+    await record_audit_log(
+        db,
+        actor_user_id=author.id,
+        action="module_deleted",
+        detail={
+            "module_id": str(module.id),
+            "translation_group_id": str(module.translation_group_id),
+            "title": module.title,
+            "affected_completions": affected,
         },
     )
     await db.commit()
@@ -914,6 +1064,7 @@ async def duplicate_module(
     editing.
     """
     source = await get_module_or_404(db, module_id)
+    ensure_module_editable(source)
 
     group = ModuleTranslationGroup()
     db.add(group)

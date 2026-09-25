@@ -330,6 +330,20 @@ class DuplicateRequest(BaseModel):
         return value
 
 
+class DeletionImpactResponse(BaseModel):
+    """How much training evidence a delete's tombstone would carry.
+
+    Read before deleting, so the confirmation dialog can say how many
+    completion records are at stake while the action is still avoidable —
+    the same "tell the author before they commit" shape as
+    `RevisionImpactResponse`.
+    """
+
+    # Learners who have completed this material, across the whole translation
+    # group — the count the tombstone's progress rows will go on carrying.
+    completion_count: int
+
+
 class VersionResponse(BaseModel):
     """One entry of a module's publish history.
 
@@ -385,6 +399,10 @@ class ModuleResponse(BaseModel):
     # The version learners are reading, or were reading when the module was
     # unpublished. `None` until the first publish.
     current_version_number: int | None
+    # The tombstone's own memory of its last version, set once at delete time
+    # and `None` otherwise — a deleted module's `current_version_number` is
+    # always `None` by then, since its version rows are gone.
+    deleted_version_number: int | None
     # Sorted, so two requests for the same module never disagree on order.
     tags: list[str]
     created_by: ModuleActor

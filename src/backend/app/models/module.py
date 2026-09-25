@@ -111,6 +111,11 @@ class Module(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The version number `current_version_id` pointed at just before a delete
+    # cleared it and purged the row it named. Written once, at delete time
+    # (ticket 11): the tombstone's own memory of what it was on, independent
+    # of any one learner's `completed_version_number`.
+    deleted_version_number: Mapped[int | None] = mapped_column(Integer)
     # Free-text labels a Content Manager attaches for search and filtering
     # (ticket 10). Live metadata, not part of a version snapshot — a tag added
     # after publishing is findable immediately, without a republish.

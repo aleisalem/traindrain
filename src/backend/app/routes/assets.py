@@ -24,7 +24,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.access import may_read_module
+from app.access import ensure_module_editable, may_read_module
 from app.assignments import assigned_translation_group_ids
 from app.content.uploads import UploadRejected, sniff_upload
 from app.core.config import get_settings
@@ -232,6 +232,7 @@ async def upload_asset(
     """
     settings = get_settings()
     module = await get_module_or_404(db, module_id)
+    ensure_module_editable(module)
 
     limit = (
         settings.asset_max_image_bytes

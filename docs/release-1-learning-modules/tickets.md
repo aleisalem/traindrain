@@ -214,15 +214,15 @@ This is modelled directly on Release 0's user-erase tombstone, and `deleted` is 
 
 **Blocked by:** 3, 5, 7
 
-- [ ] `DELETE /api/content/modules/{id}` sets status `deleted` and `deleted_at`, and removes all page rows, all version snapshots, and all stored asset objects
-- [ ] The tombstone retains `title`, `language`, version numbers, and timestamps; progress rows are retained; assignments for the module are removed
-- [ ] A deleted module can never be published, assigned, duplicated, or edited again — `deleted` is terminal, verified from the denied direction
-- [ ] The confirmation dialog states how many completion records the tombstone will carry before the action is taken
-- [ ] Completion records for a deleted module render with the tombstoned title and version in the learner's own history and in the Administrator report
-- [ ] A learner mid-module in a module that is deleted gets a clear "no longer available" state on their next request, with their progress row retained
-- [ ] `module_deleted` audit entry recording the module and the affected completion count
-- [ ] Backend tests: page rows, version rows, and stored objects are all gone after delete; completion records still resolve and render; every mutating route on a deleted module is refused; the deletion of assignments does not cascade into progress
-- [ ] README updated
+- [x] `DELETE /api/content/modules/{id}` sets status `deleted` and `deleted_at`, and removes all page rows, all version snapshots, and all stored asset objects
+- [x] The tombstone retains `title`, `language`, version numbers, and timestamps; progress rows are retained; assignments for the module are removed
+- [x] A deleted module can never be published, assigned, duplicated, or edited again — `deleted` is terminal, verified from the denied direction
+- [x] The confirmation dialog states how many completion records the tombstone will carry before the action is taken
+- [x] Completion records for a deleted module render with the tombstoned title and version in the learner's own history and in the Administrator report
+- [x] A learner mid-module in a module that is deleted gets a clear "no longer available" state on their next request, with their progress row retained
+- [x] `module_deleted` audit entry recording the module and the affected completion count
+- [x] Backend tests: page rows, version rows, and stored objects are all gone after delete; completion records still resolve and render; every mutating route on a deleted module is refused; the deletion of assignments does not cascade into progress
+- [x] README updated
 
 ## 12. Native export and import (`.zip` round-trip)
 

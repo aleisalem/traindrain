@@ -353,6 +353,37 @@ Release 1 (learning modules) is in progress. So far:
   `CatalogPage.tsx` (debounced search, so typing doesn't fire a request per keystroke), and a
   tags field with autocomplete on `ModuleFormPage.tsx`. Full details in
   [docs/search-and-tags.md](docs/search-and-tags.md).
+- Delete: a Content Manager permanently deletes a module — `DELETE
+  /api/content/modules/{id}` — purging its draft pages, every published version snapshot, and
+  every stored asset object (rows and S3 objects alike), and removing every assignment on its
+  translation group. What is left is a tombstone: the `modules` row itself survives with its
+  `title`, `language`, and timestamps intact and `status` set to `deleted`, modelled directly on
+  Release 0's user-erase tombstone — `deleted_version_number` additionally captures the version
+  `current_version_id` pointed at just before the delete cleared it, so even a module nobody ever
+  completed still says what it was last published as, rather than only whichever learner's own
+  `completed_version_number` happens to remember. `deleted` is terminal — `ensure_module_editable` in
+  `app/access.py` is the one check every other mutating authoring route (metadata edits, page
+  edits, publish, duplicate, translation linking, asset upload, assignment creation) asks before
+  doing its own work, so a deleted module can never be resurrected through a side door.
+  `GET /api/content/modules/{id}/deletion-impact` tells the confirmation dialog how many
+  completion records the tombstone will carry before the delete happens, the same "tell the
+  author the number first" shape ticket 4's `revision-impact` uses for a substantive publish.
+  `module_progress` rows are never touched by a delete — they are the learner's own record, not
+  the author's content — so a completed module keeps resolving and rendering under its
+  tombstoned title in a learner's own "My learning" list, and, since assignments no longer name
+  anyone once a module is gone, `full_roster`'s Administrator-facing report additionally reports
+  anyone with a progress row on the material directly rather than only whoever a (now-deleted)
+  assignment names, so "who did this training" stays answerable from an Administrator's report.
+  A learner mid-module when it is deleted gets the same "no longer available" 404 an unpublished
+  module already gives them (both fail the same `status != "published"` check), with their
+  progress row retained. The default `GET /api/content/modules` list excludes `deleted` modules
+  — there is deliberately no `status=deleted` filter value to browse them back into view; a
+  tombstone is reached by the id a completion record or an audit entry already names.
+  `module_deleted` is audit-logged with the affected completion count. Frontend: a "Delete
+  module" control and `DeleteModuleDialog.tsx` confirmation on `ModulePublishPanel.tsx`, which
+  also collapses to a plain deleted-state message (no publish/unpublish/duplicate/catalog
+  controls) once a module's status is `deleted`. Full details in
+  [docs/module-deletion.md](docs/module-deletion.md).
 
 ## Project structure
 

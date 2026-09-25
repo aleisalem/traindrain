@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.access import is_administrator
+from app.access import ensure_module_editable, is_administrator
 from app.assignments import resolve_target_users
 from app.core.config import get_settings
 from app.db import get_db
@@ -159,6 +159,7 @@ async def create_assignment(
     """
     _require_administrator_for_individual(caller, payload.target_type)
     module = await get_module_or_404(db, module_id)
+    ensure_module_editable(module)
     targeted_learners = await _targeted_learners(db, payload)
 
     assignment = Assignment(

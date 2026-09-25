@@ -21,6 +21,8 @@ module a naive call site would fall into.
 import uuid
 from collections.abc import Collection
 
+from fastapi import HTTPException, status
+
 from app.models import Module, User
 
 AUTHORING_ROLES = frozenset({"Content Manager", "Administrator"})
@@ -66,3 +68,21 @@ def may_read_module(
     if module.status != "published":
         return False
     return module.catalog_visible or module.translation_group_id in assigned_group_ids
+
+
+def ensure_module_editable(module: Module) -> None:
+    """Refuse any further authoring action on a deleted module.
+
+    `deleted` is terminal (ticket 11): a delete purges `module_pages`,
+    `module_versions`, and `module_assets`, so there is nothing left to edit,
+    publish, duplicate, or assign — every mutating authoring route calls this
+    before doing its own work, alongside `get_module_or_404`.
+    """
+    if module.status == "deleted":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "module_deleted",
+                "message": "This module has been deleted and can no longer be changed.",
+            },
+        )

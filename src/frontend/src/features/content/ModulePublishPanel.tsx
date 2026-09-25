@@ -2,11 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
+import { DeleteModuleDialog } from "./DeleteModuleDialog";
 import { PublishDialog } from "./PublishDialog";
 import type { ModuleBody, ModuleVersion, RevisionKind } from "./types";
 
 /** The three things this panel can ask the server to do, which are also the
- *  URL segments they live at. */
+ *  URL segments they live at. Delete is a fourth, addressed at the module
+ *  itself rather than one of its actions, so it is handled on its own below
+ *  rather than folded into this type. */
 type LifecycleAction = "publish" | "unpublish" | "duplicate";
 
 type Props = {
@@ -30,6 +33,7 @@ export function ModulePublishPanel({ module, onChanged }: Props) {
   const navigate = useNavigate();
   const [versions, setVersions] = useState<ModuleVersion[]>([]);
   const [choosing, setChoosing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -130,18 +134,53 @@ export function ModulePublishPanel({ module, onChanged }: Props) {
     if (copy) void navigate(`/content/${copy.id}`);
   }
 
+  async function deleteModule() {
+    setConfirmingDelete(false);
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/content/modules/${module.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        let code: string | undefined;
+        try {
+          code = (await response.json()).detail?.code;
+        } catch {
+          // A non-JSON body leaves the generic message below.
+        }
+        setError(
+          code === "already_deleted" || code === "module_deleted"
+            ? t("publish.error_module_deleted")
+            : t("publish.error_unknown_delete"),
+        );
+        return;
+      }
+      // Nothing is left on this module to edit — its pages, versions, and
+      // files are gone — so there is nothing this screen can usefully show.
+      void navigate("/content");
+    } catch {
+      setError(t("publish.error_unknown_delete"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const published = module.status === "published";
+  const deleted = module.status === "deleted";
 
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-border bg-bg-elevated p-5 shadow-[var(--shadow)]">
       <div>
         <h3 className="text-lg font-medium">{t("publish.heading")}</h3>
         <p className="text-sm text-fg-muted">
-          {published
-            ? t("publish.state_published", { version: module.current_version_number })
-            : module.current_version_number !== null
-              ? t("publish.state_unpublished", { version: module.current_version_number })
-              : t("publish.state_draft")}
+          {deleted
+            ? module.deleted_version_number !== null
+              ? t("publish.state_deleted_versioned", { version: module.deleted_version_number })
+              : t("publish.state_deleted")
+            : published
+              ? t("publish.state_published", { version: module.current_version_number })
+              : module.current_version_number !== null
+                ? t("publish.state_unpublished", { version: module.current_version_number })
+                : t("publish.state_draft")}
         </p>
       </div>
 
@@ -151,48 +190,63 @@ export function ModulePublishPanel({ module, onChanged }: Props) {
         </p>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => setChoosing(true)}
-          className="rounded-full bg-[image:var(--gradient)] px-5 py-2 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
-        >
-          {published ? t("publish.publish_changes") : t("publish.publish")}
-        </button>
-        {published && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void unpublish()}
-            className={pillClassName}
-          >
-            {t("publish.unpublish")}
-          </button>
-        )}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void duplicate()}
-          className={pillClassName}
-        >
-          {t("publish.duplicate")}
-        </button>
-      </div>
+      {/* `deleted` is terminal — the server refuses every one of these
+          actions on a deleted module, so there is nothing useful to offer
+          here but the fact of it. */}
+      {!deleted && (
+        <>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setChoosing(true)}
+              className="rounded-full bg-[image:var(--gradient)] px-5 py-2 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
+            >
+              {published ? t("publish.publish_changes") : t("publish.publish")}
+            </button>
+            {published && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void unpublish()}
+                className={pillClassName}
+              >
+                {t("publish.unpublish")}
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void duplicate()}
+              className={pillClassName}
+            >
+              {t("publish.duplicate")}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setConfirmingDelete(true)}
+              className="rounded-full border border-danger px-4 py-2 text-sm font-medium text-danger transition hover:-translate-y-0.5 hover:bg-danger/10 disabled:opacity-60 disabled:hover:translate-y-0"
+            >
+              {t("publish.delete")}
+            </button>
+          </div>
 
-      <label className="flex items-start gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={module.catalog_visible}
-          disabled={busy}
-          onChange={(event) => void setCatalogVisible(event.target.checked)}
-          className="mt-0.5"
-        />
-        <span>
-          {t("publish.catalog_label")}
-          <span className="block text-fg-muted">{t("publish.catalog_hint")}</span>
-        </span>
-      </label>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={module.catalog_visible}
+              disabled={busy}
+              onChange={(event) => void setCatalogVisible(event.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              {t("publish.catalog_label")}
+              <span className="block text-fg-muted">{t("publish.catalog_hint")}</span>
+            </span>
+          </label>
+        </>
+      )}
 
       {versions.length > 0 && (
         <div className="flex flex-col gap-2">
@@ -219,6 +273,14 @@ export function ModulePublishPanel({ module, onChanged }: Props) {
           republish={module.current_version_number !== null}
           onConfirm={(kind) => void publish(kind)}
           onCancel={() => setChoosing(false)}
+        />
+      )}
+
+      {confirmingDelete && (
+        <DeleteModuleDialog
+          moduleId={module.id}
+          onConfirm={() => void deleteModule()}
+          onCancel={() => setConfirmingDelete(false)}
         />
       )}
     </section>
