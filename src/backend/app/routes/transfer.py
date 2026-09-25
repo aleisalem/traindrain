@@ -40,8 +40,8 @@ from app.db import get_db
 from app.dependencies import get_module_or_404, get_s3_client, require_content_manager
 from app.models import Module, ModuleAsset, ModulePage, ModuleTranslationGroup, User
 from app.routes.assets import asset_url, read_upload_within_cap
-from app.routes.content import validate_page_body
-from app.schemas.modules import AssetKind, ModuleActor, ModuleLanguage, ModuleResponse
+from app.routes.content import module_response, validate_page_body
+from app.schemas.modules import AssetKind, ModuleLanguage, ModuleResponse
 from app.schemas.transfer import EXPORT_FORMAT, ExportedAsset, ExportedPage, ModuleExportDocument
 from app.security.audit import record_audit_log
 from app.storage import S3Client, delete_asset, get_asset_bytes, object_key, put_asset
@@ -388,20 +388,4 @@ async def import_module(
     await db.commit()
     await db.refresh(module)
 
-    return ModuleResponse(
-        id=module.id,
-        translation_group_id=module.translation_group_id,
-        language=module.language,
-        title=module.title,
-        description=module.description,
-        estimated_duration_minutes=module.estimated_duration_minutes,
-        status=module.status,
-        catalog_visible=module.catalog_visible,
-        current_version_number=None,
-        deleted_version_number=None,
-        tags=[],
-        created_by=ModuleActor.from_user(author),
-        last_edited_by=ModuleActor.from_user(author),
-        created_at=module.created_at,
-        updated_at=module.updated_at,
-    )
+    return await module_response(db, module)

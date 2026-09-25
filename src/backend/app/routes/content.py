@@ -136,7 +136,14 @@ async def _module_responses(db: AsyncSession, modules: list[Module]) -> list[Mod
     return [_to_module_response(module, actors, version_numbers) for module in modules]
 
 
-async def _module_response(db: AsyncSession, module: Module) -> ModuleResponse:
+async def module_response(db: AsyncSession, module: Module) -> ModuleResponse:
+    """Resolve one module's full API shape — actors, current version number, tags.
+
+    Public, and used from `app.routes.transfer` too: an imported module's
+    response should be built the same way every other module-returning route
+    here already builds one, not a second, hand-rolled copy of the same
+    shape.
+    """
     return (await _module_responses(db, [module]))[0]
 
 
@@ -243,7 +250,7 @@ async def create_module(
     await db.commit()
     await db.refresh(module)
 
-    return await _module_response(db, module)
+    return await module_response(db, module)
 
 
 @router.get("/modules/{module_id}", response_model=ModuleResponse)
@@ -253,7 +260,7 @@ async def get_module(
     author: User = Depends(require_content_manager),
 ) -> ModuleResponse:
     module = await get_module_or_404(db, module_id)
-    return await _module_response(db, module)
+    return await module_response(db, module)
 
 
 @router.patch("/modules/{module_id}", response_model=ModuleResponse)
@@ -296,7 +303,7 @@ async def update_module(
     await db.commit()
     await db.refresh(module)
 
-    return await _module_response(db, module)
+    return await module_response(db, module)
 
 
 # --- Page authoring -------------------------------------------------------
@@ -747,7 +754,7 @@ async def publish_module(
     )
     await db.commit()
     await db.refresh(module)
-    return await _module_response(db, module)
+    return await module_response(db, module)
 
 
 @router.post("/modules/{module_id}/unpublish", response_model=ModuleResponse)
@@ -793,7 +800,7 @@ async def unpublish_module(
     )
     await db.commit()
     await db.refresh(module)
-    return await _module_response(db, module)
+    return await module_response(db, module)
 
 
 async def _completion_count(db: AsyncSession, translation_group_id: uuid.UUID) -> int:
@@ -926,7 +933,7 @@ async def delete_module(
     )
     await db.commit()
     await db.refresh(module)
-    return await _module_response(db, module)
+    return await module_response(db, module)
 
 
 # The attributes a page body can point at an asset with. `src` is an embedded
@@ -1109,7 +1116,7 @@ async def duplicate_module(
     )
     await db.commit()
     await db.refresh(copy)
-    return await _module_response(db, copy)
+    return await module_response(db, copy)
 
 
 @router.get("/modules/{module_id}/versions", response_model=list[VersionResponse])
