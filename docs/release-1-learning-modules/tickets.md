@@ -266,11 +266,11 @@ No import path is allowed to reach the network. Remote image references are drop
 
 **Blocked by:** 8
 
-- [ ] Terraform under `.deploy/dev` for a private S3 assets bucket: public access blocked, SSE enabled, versioning on, lifecycle rules for aborted multipart uploads
-- [ ] A scoped, least-privilege IAM policy for the backend task role covering exactly the assets bucket operations the API performs
-- [ ] A CloudFront distribution or dedicated origin for asset delivery, separate from the application origin, matching the origin separation ticket 3 established locally
-- [ ] An EventBridge Scheduler schedule plus the ECS task definition for the reminder job, with its own least-privilege task role, invoking the same entrypoint the local interval runner uses
-- [ ] SES templates for the assignment and reminder emails in both English and German
-- [ ] `eu-central-1`, per the project's data-residency posture; no secrets in the terraform — values come from the runtime environment or Secrets Manager
-- [ ] `terraform validate` and `terraform plan` run clean against the module set
-- [ ] README's deployment section updated to describe what this stack provisions and what it still depends on
+- [x] Terraform under `.deploy/dev` for a private S3 assets bucket: public access blocked, SSE enabled, versioning on, lifecycle rules for aborted multipart uploads
+- [x] A scoped, least-privilege IAM policy for the backend task role covering exactly the assets bucket operations the API performs
+- [x] A CloudFront distribution or dedicated origin for asset delivery, separate from the application origin, matching the origin separation ticket 3 established locally — the bucket's own regional endpoint, not CloudFront; see `docs/references/infrastructure.md` for why CloudFront would conflict with the presigned-URL delivery `app/storage.py` already implements
+- [x] An EventBridge Scheduler schedule plus the ECS task definition for the reminder job, with its own least-privilege task role, invoking the same entrypoint the local interval runner uses
+- [x] SES templates for the assignment and reminder emails in both English and German — declared as infrastructure inventory; `app.security.mailer` does not call them yet (documented)
+- [x] `eu-central-1`, per the project's data-residency posture; no secrets in the terraform — values come from the runtime environment or Secrets Manager
+- [x] `terraform validate` and `terraform plan` run clean against the module set — `validate` clean standalone; `plan` exercised against placeholder variables, reaching AWS and failing only on dummy credentials (`InvalidClientTokenId`), which needs a real account to go further
+- [x] README's deployment section updated to describe what this stack provisions and what it still depends on

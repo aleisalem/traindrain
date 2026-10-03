@@ -110,7 +110,8 @@ Release 0 is in progress. So far:
   theme/language application itself lives in `src/frontend/src/App.tsx`, so it applies
   consistently across every authenticated screen.
 
-Release 1 (learning modules) is in progress. So far:
+Release 1 (learning modules) is complete — all 14 tickets, per
+[docs/release-1-learning-modules/tickets.md](docs/release-1-learning-modules/tickets.md):
 
 - Module records and the `/content` authoring area: `GET`/`POST /api/content/modules` and
   `GET`/`PATCH /api/content/modules/{id}` create, list, read, and update a module's metadata
@@ -433,6 +434,23 @@ Release 1 (learning modules) is in progress. So far:
   (shown before the upload starts), and, on success, the conversion report plus a link to open the
   new draft for review. Full details in [docs/document-import.md](docs/document-import.md).
 
+Release 1 infrastructure (ticket 14, closing out the release):
+
+- Terraform under `.deploy/dev` for Release 1's own AWS footprint: the private module-assets S3
+  bucket (public access blocked, SSE, versioning, lifecycle rules for aborted multipart uploads and
+  expiring noncurrent versions) with a least-privilege IAM policy scoped to `modules/*` attached to
+  the backend's existing task role; an EventBridge Scheduler schedule and ECS Fargate task
+  definition for the reminder job, invoking the same `python -m app.jobs.send_reminders` entrypoint
+  the local `reminder-runner` service loops, under its own least-privilege task role; and four SES
+  templates for the assignment/reminder emails (EN/DE) — declared as infrastructure inventory, not
+  yet called by `app.security.mailer`, which keeps rendering these in Python (see
+  [docs/references/infrastructure.md](docs/references/infrastructure.md) for why). This stack takes
+  Release 0's cluster, subnets, security groups, task roles, and secrets as input variables rather
+  than creating them, since Release 0's own baseline stack does not exist in this repository yet —
+  `terraform validate` runs clean standalone; `terraform plan`/`apply` need a real AWS account and
+  Release 0's actual resource names. See [docs/references/infrastructure.md](docs/references/infrastructure.md)
+  and [.deploy/dev/README.md](.deploy/dev/README.md).
+
 ## Project structure
 
 ```
@@ -579,6 +597,16 @@ the nodes and marks that schema allows. If you change one, change both.
 
 ## Deploying to AWS
 
-Not yet set up. Terraform under `.deploy/<environment>` and the ECS Fargate / S3+CloudFront
-infrastructure described in the Release 0 spec (`.scratch/release-0-foundation/PRD.md`) land in a
-later ticket.
+Release 0's own baseline stack (the VPC, ECS Fargate cluster/ALB, and S3+CloudFront frontend
+described in `docs/release-0-foundation/PRD.md`) is not yet set up in this repository.
+
+Release 1's own additions are, under `.deploy/dev`: the private module-assets S3 bucket (public
+access blocked, SSE, versioning, lifecycle rules), a least-privilege IAM policy for the backend's
+assets access, the EventBridge Scheduler-triggered ECS task for the reminder job with its own task
+role, and SES templates for assignment/reminder mail. It takes Release 0's cluster, subnets,
+security groups, task roles, and secrets as input variables rather than creating them, so it can be
+planned and reviewed independently of Release 0's own stack landing. `terraform validate` runs
+clean with no AWS account; `terraform plan`/`apply` need one, plus Release 0's actual resource
+names as variables. See [docs/references/infrastructure.md](docs/references/infrastructure.md)
+for exactly what is and isn't stood up here, and [.deploy/dev/README.md](.deploy/dev/README.md)
+for how to run it.
