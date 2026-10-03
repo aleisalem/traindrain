@@ -21,6 +21,7 @@ const USER: AuthUser = {
   twoFactorEnabled: false,
   preferredLanguage: null,
   preferredTheme: null,
+  navPosition: null,
 };
 
 type RenderOptions = {
@@ -28,12 +29,14 @@ type RenderOptions = {
   onUpdateName?: Props["onUpdateName"];
   onUpdatePreferences?: Props["onUpdatePreferences"];
   onChangePassword?: Props["onChangePassword"];
+  onRefreshUser?: Props["onRefreshUser"];
 };
 
 function renderProfilePage(options: RenderOptions = {}) {
   const onUpdateName = options.onUpdateName ?? vi.fn();
   const onUpdatePreferences = options.onUpdatePreferences ?? vi.fn();
   const onChangePassword = options.onChangePassword ?? vi.fn();
+  const onRefreshUser = options.onRefreshUser ?? vi.fn();
 
   render(
     <MemoryRouter>
@@ -42,11 +45,12 @@ function renderProfilePage(options: RenderOptions = {}) {
         onUpdateName={onUpdateName}
         onUpdatePreferences={onUpdatePreferences}
         onChangePassword={onChangePassword}
+        onRefreshUser={onRefreshUser}
       />
     </MemoryRouter>,
   );
 
-  return { onUpdateName, onUpdatePreferences, onChangePassword };
+  return { onUpdateName, onUpdatePreferences, onChangePassword, onRefreshUser };
 }
 
 describe("ProfilePage", () => {
@@ -133,9 +137,9 @@ describe("ProfilePage", () => {
 
     await user.click(screen.getByRole("button", { name: "DE" }));
 
-    // No stored theme preference yet -> the OS-default fallback (light in
-    // jsdom) is sent alongside the newly-picked language.
-    expect(onUpdatePreferences).toHaveBeenCalledWith("de", "light");
+    // No stored theme/nav-position preference yet -> the defaults (OS light
+    // in jsdom, left sidebar) are sent alongside the newly-picked language.
+    expect(onUpdatePreferences).toHaveBeenCalledWith("de", "light", "left");
   });
 
   it("persists a theme selection", async () => {
@@ -146,17 +150,43 @@ describe("ProfilePage", () => {
 
     await user.click(screen.getByRole("button", { name: "Dark" }));
 
-    expect(onUpdatePreferences).toHaveBeenCalledWith("en", "dark");
+    expect(onUpdatePreferences).toHaveBeenCalledWith("en", "dark", "left");
+  });
+
+  it("persists a navigation placement selection", async () => {
+    const user = userEvent.setup();
+    const { onUpdatePreferences } = renderProfilePage({
+      onUpdatePreferences: vi.fn().mockResolvedValue({ ok: true }),
+    });
+
+    await user.click(screen.getByRole("button", { name: "Top bar" }));
+
+    expect(onUpdatePreferences).toHaveBeenCalledWith("en", "light", "top");
   });
 
   it("marks the user's stored preferences as the pressed option", () => {
     renderProfilePage({
-      user: { ...USER, preferredLanguage: "de", preferredTheme: "colorblind" },
+      user: { ...USER, preferredLanguage: "de", preferredTheme: "colorblind", navPosition: "top" },
     });
 
     expect(screen.getByRole("button", { name: "DE" })).toHaveAttribute("aria-pressed", "true");
     expect(
       screen.getByRole("button", { name: "Colorblind-friendly" }),
     ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Top bar" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("includes two-factor authentication settings on the same page", () => {
+    renderProfilePage();
+
+    expect(
+      screen.getByRole("heading", { name: "Two-factor authentication" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Two-factor authentication is not enabled on your account."),
+    ).toBeInTheDocument();
   });
 });

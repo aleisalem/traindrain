@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Any, Protocol
 
 from starlette.concurrency import run_in_threadpool
@@ -12,6 +13,16 @@ _INVITE_SUBJECTS = {
 _PASSWORD_RESET_SUBJECTS = {
     "en": "Reset your TrainDrain password",
     "de": "Setzen Sie Ihr TrainDrain-Passwort zurück",
+}
+
+_ASSIGNMENT_SUBJECTS = {
+    "en": "New training assigned to you on TrainDrain",
+    "de": "Ihnen wurde ein neues Training auf TrainDrain zugewiesen",
+}
+
+_REMINDER_SUBJECTS = {
+    "en": "Reminder: training due on TrainDrain",
+    "de": "Erinnerung: Fälliges Training auf TrainDrain",
 }
 
 
@@ -64,6 +75,86 @@ async def send_password_reset_email(
 ) -> None:
     subject = _PASSWORD_RESET_SUBJECTS.get(language, _PASSWORD_RESET_SUBJECTS["en"])
     body = _password_reset_email_body(language, reset_url)
+    await _send(ses_client, to_email=to_email, subject=subject, body=body)
+
+
+def _assignment_email_body(
+    language: str, *, module_title: str, due_date: date | None, module_url: str
+) -> str:
+    if language == "de":
+        due_line = f"Fällig am: {due_date.isoformat()}\n\n" if due_date else ""
+        return (
+            f"Ihnen wurde folgendes Training zugewiesen: {module_title}\n\n"
+            f"{due_line}"
+            f"Öffnen Sie es hier:\n{module_url}"
+        )
+    due_line = f"Due: {due_date.isoformat()}\n\n" if due_date else ""
+    return (
+        f"You have been assigned the following training: {module_title}\n\n"
+        f"{due_line}"
+        f"Open it here:\n{module_url}"
+    )
+
+
+async def send_assignment_email(
+    ses_client: SESClient,
+    *,
+    to_email: str,
+    language: str,
+    module_title: str,
+    due_date: date | None,
+    module_url: str,
+) -> None:
+    subject = _ASSIGNMENT_SUBJECTS.get(language, _ASSIGNMENT_SUBJECTS["en"])
+    body = _assignment_email_body(
+        language, module_title=module_title, due_date=due_date, module_url=module_url
+    )
+    await _send(ses_client, to_email=to_email, subject=subject, body=body)
+
+
+def _reminder_headline(language: str, *, module_title: str, due: str, kind: str) -> str:
+    """The one line that varies by cadence checkpoint — one entry per kind,
+    each carrying both languages together, rather than two parallel
+    per-language dicts that could drift out of sync with each other."""
+    # Kind strings, not `app.reminders`'s constants: this module sits below
+    # the domain layer (`app.reminders` already imports `send_reminder_email`
+    # from here), so importing back from it would be circular.
+    en_manual = f"Still outstanding: {module_title} (due: {due})" if due else f"Still outstanding: {module_title}"
+    de_manual = f"Noch ausstehend: {module_title} (fällig: {due})" if due else f"Noch ausstehend: {module_title}"
+    headlines: dict[str, tuple[str, str]] = {
+        "advance_7": (f"Due in 7 days ({due}): {module_title}", f"Fällig in 7 Tagen ({due}): {module_title}"),
+        "advance_1": (f"Due tomorrow ({due}): {module_title}", f"Fällig morgen ({due}): {module_title}"),
+        "due": (f"Due today ({due}): {module_title}", f"Heute fällig ({due}): {module_title}"),
+        "overdue_weekly": (f"Overdue since {due}: {module_title}", f"Überfällig seit {due}: {module_title}"),
+        "manual": (en_manual, de_manual),
+    }
+    en, de = headlines.get(kind, (module_title, module_title))
+    return de if language == "de" else en
+
+
+def _reminder_email_body(
+    language: str, *, module_title: str, due_date: date | None, module_url: str, kind: str
+) -> str:
+    due = due_date.isoformat() if due_date else ""
+    headline = _reminder_headline(language, module_title=module_title, due=due, kind=kind)
+    close = "Öffnen Sie es hier" if language == "de" else "Open it here"
+    return f"{headline}\n\n{close}:\n{module_url}"
+
+
+async def send_reminder_email(
+    ses_client: SESClient,
+    *,
+    to_email: str,
+    language: str,
+    module_title: str,
+    due_date: date | None,
+    module_url: str,
+    kind: str,
+) -> None:
+    subject = _REMINDER_SUBJECTS.get(language, _REMINDER_SUBJECTS["en"])
+    body = _reminder_email_body(
+        language, module_title=module_title, due_date=due_date, module_url=module_url, kind=kind
+    )
     await _send(ses_client, to_email=to_email, subject=subject, body=body)
 
 

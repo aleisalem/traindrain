@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 
 export const ADMINISTRATOR_ROLE = "Administrator";
+export const CONTENT_MANAGER_ROLE = "Content Manager";
+
+/** Who may reach the `/content` authoring area — the frontend half of the
+ * server's `require_content_manager` gate. The server is the control; this
+ * only decides what to render. */
+export function canAuthorContent(roles: string[]): boolean {
+  return roles.includes(CONTENT_MANAGER_ROLE) || roles.includes(ADMINISTRATOR_ROLE);
+}
 
 export type AuthUser = {
   id: string;
@@ -12,6 +20,7 @@ export type AuthUser = {
   twoFactorEnabled: boolean;
   preferredLanguage: string | null;
   preferredTheme: string | null;
+  navPosition: string | null;
 };
 
 export type AuthState =
@@ -41,6 +50,7 @@ type MeResponseBody = {
   // type-check — toAuthUser() treats a missing field the same as null.
   preferred_language?: string | null;
   preferred_theme?: string | null;
+  nav_position?: string | null;
 };
 
 type LoginResponseBody = {
@@ -59,6 +69,7 @@ function toAuthUser(body: MeResponseBody): AuthUser {
     twoFactorEnabled: body.two_factor_enabled,
     preferredLanguage: body.preferred_language ?? null,
     preferredTheme: body.preferred_theme ?? null,
+    navPosition: body.nav_position ?? null,
   };
 }
 
@@ -171,11 +182,16 @@ export function useAuth() {
     async (
       language: string,
       theme: string,
+      navPosition: string,
     ): Promise<ActionResult<UpdatePreferencesError>> => {
       const response = await fetch("/api/profile/preferences", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ preferred_language: language, preferred_theme: theme }),
+        body: JSON.stringify({
+          preferred_language: language,
+          preferred_theme: theme,
+          nav_position: navPosition,
+        }),
       });
       if (!response.ok) return { ok: false, error: "unknown" };
 

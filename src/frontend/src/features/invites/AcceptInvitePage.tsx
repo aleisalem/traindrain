@@ -125,7 +125,7 @@ export function AcceptInvitePage() {
           autoComplete="new-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          className="rounded-md border border-border bg-bg px-3 py-2"
+          className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none"
         />
       </label>
 
@@ -137,7 +137,7 @@ export function AcceptInvitePage() {
           autoComplete="new-password"
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
-          className="rounded-md border border-border bg-bg px-3 py-2"
+          className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none"
         />
       </label>
 
@@ -150,7 +150,7 @@ export function AcceptInvitePage() {
       <button
         type="submit"
         disabled={submitting}
-        className="rounded-md bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-60"
+        className="rounded-full bg-[image:var(--gradient)] px-5 py-2.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
       >
         {t("invites.accept_submit")}
       </button>

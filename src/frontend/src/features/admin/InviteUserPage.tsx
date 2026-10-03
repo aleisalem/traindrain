@@ -62,13 +62,13 @@ function InviteExpirySettings() {
             setSaved(false);
             setDays(Number(event.target.value));
           }}
-          className="w-24 rounded-md border border-border bg-bg px-3 py-2"
+          className="w-24 rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none"
         />
       </label>
       <button
         type="submit"
         disabled={saving}
-        className="rounded-md border border-border px-3 py-2 disabled:opacity-60"
+        className="rounded-full border border-border bg-bg-elevated px-4 py-2 font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
       >
         {t("invites.expiry_save")}
       </button>
@@ -175,7 +175,7 @@ export function InviteUserPage() {
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="rounded-md border border-border bg-bg px-3 py-2"
+              className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none"
             />
           </label>
 
@@ -184,7 +184,7 @@ export function InviteUserPage() {
             <select
               value={language}
               onChange={(event) => setLanguage(event.target.value as "en" | "de")}
-              className="rounded-md border border-border bg-bg px-3 py-2"
+              className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none"
             >
               <option value="en">{t("invites.language_en")}</option>
               <option value="de">{t("invites.language_de")}</option>
@@ -237,7 +237,7 @@ export function InviteUserPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="self-start rounded-md bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-60"
+            className="self-start rounded-full bg-[image:var(--gradient)] px-5 py-2.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
           >
             {t("invites.create_submit")}
           </button>

@@ -119,7 +119,7 @@ export function AdminRolesPage() {
         const assignAction = actions[assignKey] ?? { kind: "idle" };
 
         return (
-          <div key={role.id} className="flex flex-col gap-3 rounded-lg border border-border p-4">
+          <div key={role.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-bg-elevated p-5 shadow-[var(--shadow)]">
             <h3 className="text-lg font-medium">{role.name}</h3>
 
             {members.length === 0 ? (
@@ -145,7 +145,7 @@ export function AdminRolesPage() {
                           type="button"
                           disabled={busyKey === removeKey}
                           onClick={() => void remove(role.id, member.id)}
-                          className="rounded-md border border-border px-3 py-1 disabled:opacity-60"
+                          className="rounded-full border border-border bg-bg-elevated px-3.5 py-1 font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
                         >
                           {t("adminRoles.remove_button")}
                         </button>
@@ -173,7 +173,7 @@ export function AdminRolesPage() {
                     onChange={(event) =>
                       setSelection((current) => ({ ...current, [role.id]: event.target.value }))
                     }
-                    className="rounded-md border border-border px-2 py-1 text-sm"
+                    className="rounded-full border border-border bg-bg-elevated px-3 py-1 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
                   >
                     <option value="">{t("adminRoles.assign_placeholder")}</option>
                     {eligible.map((user) => (
@@ -186,7 +186,7 @@ export function AdminRolesPage() {
                     type="button"
                     disabled={!selection[role.id] || busyKey === assignKey}
                     onClick={() => void assign(role.id)}
-                    className="rounded-md border border-border px-3 py-1.5 text-sm disabled:opacity-60"
+                    className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
                   >
                     {t("adminRoles.assign_button")}
                   </button>

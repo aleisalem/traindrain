@@ -77,15 +77,103 @@ def sent_emails() -> list[dict[str, Any]]:
     return []
 
 
+class _FakeBody:
+    """Stands in for botocore's `StreamingBody` — just enough to support `.read()`."""
+
+    def __init__(self, data: bytes) -> None:
+        self._data = data
+
+    def read(self) -> bytes:
+        return self._data
+
+
+class FakeS3Client:
+    """Stands in for the boto3 S3 client, so tests never need LocalStack.
+
+    Keeps the stored objects in a dict — which is what lets a test assert the
+    things that actually matter: that the object is written under the sniffed
+    content type, that an attachment carries its download disposition, and that
+    deleting an asset really removes the object rather than only its row.
+    """
+
+    def __init__(self, objects: dict[str, dict[str, Any]]) -> None:
+        self.objects = objects
+        self.signed: list[tuple[str, int]] = []
+        # What the local bucket bootstrap did, so a test can assert the local
+        # environment is not configured more permissively than the deployed one.
+        self.created_buckets: list[str] = []
+        self.public_access_blocks: dict[str, dict[str, bool]] = {}
+        self.encryption: dict[str, Any] = {}
+
+    def create_bucket(self, **kwargs: Any) -> dict[str, str]:
+        self.created_buckets.append(kwargs["Bucket"])
+        return {}
+
+    def put_public_access_block(self, **kwargs: Any) -> dict[str, str]:
+        self.public_access_blocks[kwargs["Bucket"]] = kwargs[
+            "PublicAccessBlockConfiguration"
+        ]
+        return {}
+
+    def put_bucket_encryption(self, **kwargs: Any) -> dict[str, str]:
+        self.encryption[kwargs["Bucket"]] = kwargs["ServerSideEncryptionConfiguration"]
+        return {}
+
+    def put_object(self, **kwargs: Any) -> dict[str, str]:
+        self.objects[kwargs["Key"]] = kwargs
+        return {"ETag": "fake-etag"}
+
+    def get_object(self, **kwargs: Any) -> dict[str, Any]:
+        stored = self.objects[kwargs["Key"]]
+        return {"Body": _FakeBody(stored["Body"])}
+
+    def copy_object(self, **kwargs: Any) -> dict[str, str]:
+        source = kwargs["CopySource"]["Key"]
+        # Faithful to the real thing in the way that matters here: the copy is
+        # the source's bytes and headers under a new key, so a test can assert
+        # a duplicated module's objects are its own rather than shared.
+        self.objects[kwargs["Key"]] = {**self.objects[source], "Key": kwargs["Key"]}
+        return {}
+
+    def delete_object(self, **kwargs: Any) -> dict[str, str]:
+        self.objects.pop(kwargs["Key"], None)
+        return {}
+
+    def generate_presigned_url(self, operation: str, **kwargs: Any) -> str:
+        key = kwargs["Params"]["Key"]
+        expires = kwargs["ExpiresIn"]
+        self.signed.append((key, expires))
+        # Shaped like the real thing: a different origin from the application's,
+        # carrying an expiry the tests can read back off the URL.
+        return f"https://assets.example.test/{key}?X-Amz-Expires={expires}&X-Amz-Signature=fake"
+
+
+@pytest_asyncio.fixture
+def stored_objects() -> dict[str, dict[str, Any]]:
+    return {}
+
+
+@pytest_asyncio.fixture
+def s3_client(stored_objects: dict[str, dict[str, Any]]) -> FakeS3Client:
+    return FakeS3Client(stored_objects)
+
+
 @pytest_asyncio.fixture
 async def client(
-    db_session: AsyncSession, sent_emails: list[dict[str, Any]]
+    db_session: AsyncSession,
+    sent_emails: list[dict[str, Any]],
+    s3_client: FakeS3Client,
 ) -> AsyncIterator[AsyncClient]:
     # Routes run against the same in-transaction session as the test, so
     # writes a test makes through HTTP are visible to it and get rolled back
     # afterward like everything else db_session touches.
     from app.db import get_db
-    from app.dependencies import get_http_client, get_ses_client
+    from app.dependencies import (
+        get_asset_signing_client,
+        get_http_client,
+        get_s3_client,
+        get_ses_client,
+    )
     from app.main import app
 
     async def override_get_db() -> AsyncIterator[AsyncSession]:
@@ -104,6 +192,11 @@ async def client(
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_http_client] = override_get_http_client
     app.dependency_overrides[get_ses_client] = override_get_ses_client
+    # Both S3 clients resolve to the same fake: the split between them is about
+    # which endpoint a URL is signed against, which is a deployment concern
+    # rather than anything a test can observe.
+    app.dependency_overrides[get_s3_client] = lambda: s3_client
+    app.dependency_overrides[get_asset_signing_client] = lambda: s3_client
     try:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:

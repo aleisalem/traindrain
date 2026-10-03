@@ -205,7 +205,7 @@ export function AdminGroupsPage() {
         <p className="text-sm text-fg-muted">{t("adminGroups.description")}</p>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-bg-elevated p-5 shadow-[var(--shadow)]">
         <h3 className="text-lg font-medium">{t("adminGroups.create_heading")}</h3>
         <form onSubmit={(event) => void handleCreate(event)} className="flex flex-col gap-3">
           <label className="flex flex-col gap-1 text-sm">
@@ -215,7 +215,7 @@ export function AdminGroupsPage() {
               required
               value={createName}
               onChange={(event) => setCreateName(event.target.value)}
-              className="rounded-md border border-border bg-bg px-3 py-2"
+              className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
@@ -224,7 +224,7 @@ export function AdminGroupsPage() {
               type="text"
               value={createDescription}
               onChange={(event) => setCreateDescription(event.target.value)}
-              className="rounded-md border border-border bg-bg px-3 py-2"
+              className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none"
             />
           </label>
           {createError && (
@@ -235,7 +235,7 @@ export function AdminGroupsPage() {
           <button
             type="submit"
             disabled={creating}
-            className="self-start rounded-md bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-60"
+            className="self-start rounded-full bg-[image:var(--gradient)] px-5 py-2.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
           >
             {t("adminGroups.create_submit")}
           </button>
@@ -254,7 +254,7 @@ export function AdminGroupsPage() {
         const addAction = rowActions[addKey] ?? { kind: "idle" };
 
         return (
-          <div key={group.id} className="flex flex-col gap-3 rounded-lg border border-border p-4">
+          <div key={group.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-bg-elevated p-5 shadow-[var(--shadow)]">
             {edit ? (
               <div className="flex flex-col gap-2">
                 <input
@@ -267,7 +267,7 @@ export function AdminGroupsPage() {
                       [group.id]: { ...edit, name: event.target.value },
                     }))
                   }
-                  className="rounded-md border border-border bg-bg px-3 py-2 text-sm"
+                  className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2 text-sm transition-colors focus:border-primary focus:outline-none"
                 />
                 <input
                   type="text"
@@ -279,7 +279,7 @@ export function AdminGroupsPage() {
                       [group.id]: { ...edit, description: event.target.value },
                     }))
                   }
-                  className="rounded-md border border-border bg-bg px-3 py-2 text-sm"
+                  className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2 text-sm transition-colors focus:border-primary focus:outline-none"
                 />
                 {editAction.kind === "error" && (
                   <p role="alert" className="text-sm text-danger">
@@ -291,14 +291,14 @@ export function AdminGroupsPage() {
                     type="button"
                     disabled={busyKey === editKey}
                     onClick={() => void saveEdit(group.id)}
-                    className="rounded-md border border-border px-3 py-1.5 text-sm disabled:opacity-60"
+                    className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
                   >
                     {t("adminGroups.edit_save")}
                   </button>
                   <button
                     type="button"
                     onClick={() => cancelEdit(group.id)}
-                    className="rounded-md border border-border px-3 py-1.5 text-sm"
+                    className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
                   >
                     {t("adminGroups.edit_cancel")}
                   </button>
@@ -316,7 +316,7 @@ export function AdminGroupsPage() {
                   <button
                     type="button"
                     onClick={() => startEdit(group)}
-                    className="rounded-md border border-border px-3 py-1 text-sm"
+                    className="rounded-full border border-border bg-bg-elevated px-3.5 py-1 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
                   >
                     {t("adminGroups.edit_button")}
                   </button>
@@ -326,7 +326,7 @@ export function AdminGroupsPage() {
                         type="button"
                         disabled={busyKey === deleteKey}
                         onClick={() => void deleteGroup(group.id)}
-                        className="rounded-md border border-danger px-3 py-1 text-sm text-danger disabled:opacity-60"
+                        className="rounded-full border border-danger px-3.5 py-1 text-sm text-danger font-medium transition hover:-translate-y-0.5 hover:bg-danger/10 disabled:opacity-60 disabled:hover:translate-y-0"
                       >
                         {t("adminGroups.delete_confirm")}
                       </button>
@@ -335,7 +335,7 @@ export function AdminGroupsPage() {
                         onClick={() =>
                           setConfirmingDelete((current) => ({ ...current, [group.id]: false }))
                         }
-                        className="rounded-md border border-border px-3 py-1 text-sm"
+                        className="rounded-full border border-border bg-bg-elevated px-3.5 py-1 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
                       >
                         {t("adminGroups.delete_cancel")}
                       </button>
@@ -346,7 +346,7 @@ export function AdminGroupsPage() {
                       onClick={() =>
                         setConfirmingDelete((current) => ({ ...current, [group.id]: true }))
                       }
-                      className="rounded-md border border-danger px-3 py-1 text-sm text-danger"
+                      className="rounded-full border border-danger px-3.5 py-1 text-sm text-danger font-medium transition hover:-translate-y-0.5 hover:bg-danger/10"
                     >
                       {t("adminGroups.delete_button")}
                     </button>
@@ -383,7 +383,7 @@ export function AdminGroupsPage() {
                           type="button"
                           disabled={busyKey === removeKey}
                           onClick={() => void removeMember(group.id, member.id)}
-                          className="rounded-md border border-border px-3 py-1 disabled:opacity-60"
+                          className="rounded-full border border-border bg-bg-elevated px-3.5 py-1 font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
                         >
                           {t("adminGroups.remove_button")}
                         </button>
@@ -411,7 +411,7 @@ export function AdminGroupsPage() {
                     onChange={(event) =>
                       setSelection((current) => ({ ...current, [group.id]: event.target.value }))
                     }
-                    className="rounded-md border border-border px-2 py-1 text-sm"
+                    className="rounded-full border border-border bg-bg-elevated px-3 py-1 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
                   >
                     <option value="">{t("adminGroups.add_placeholder")}</option>
                     {eligible.map((user) => (
@@ -424,7 +424,7 @@ export function AdminGroupsPage() {
                     type="button"
                     disabled={!selection[group.id] || busyKey === addKey}
                     onClick={() => void addMember(group.id)}
-                    className="rounded-md border border-border px-3 py-1.5 text-sm disabled:opacity-60"
+                    className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
                   >
                     {t("adminGroups.add_button")}
                   </button>

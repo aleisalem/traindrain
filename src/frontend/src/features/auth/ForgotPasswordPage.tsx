@@ -55,14 +55,14 @@ export function ForgotPasswordPage() {
           autoComplete="username"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          className="rounded-md border border-border bg-bg px-3 py-2"
+          className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none"
         />
       </label>
 
       <button
         type="submit"
         disabled={status === "submitting"}
-        className="rounded-md bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-60"
+        className="rounded-full bg-[image:var(--gradient)] px-5 py-2.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
       >
         {t("auth.forgot_password_submit")}
       </button>

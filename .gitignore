@@ -220,3 +220,18 @@ __marimo__/
 # Node / frontend
 node_modules/
 .vite/
+
+# Misc AI-related
+.scratch/
+
+# Terraform
+.deploy/**/.terraform/
+.deploy/**/*.tfstate
+.deploy/**/*.tfstate.*
+.deploy/**/*.tfvars
+.deploy/**/*.tfvars.json
+.deploy/**/crash.log
+.deploy/**/override.tf
+.deploy/**/override.tf.json
+.deploy/**/.terraform.tfstate.lock.info
+!.deploy/**/*.auto.tfvars.example

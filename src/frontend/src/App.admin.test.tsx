@@ -49,6 +49,9 @@ function mockBackend(user: unknown) {
       if (url === "/api/admin/settings/invite-expiry-days") {
         return new Response(JSON.stringify({ days: 7 }), { status: 200 });
       }
+      if (url === "/api/me/modules") {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
       throw new Error(`No mocked response for ${url}`);
     }),
   );
@@ -65,14 +68,10 @@ describe("Admin shell routing", () => {
     vi.unstubAllGlobals();
   });
 
-  it("shows the admin nav link and lets an Administrator reach the admin area", async () => {
-    const user = userEvent.setup();
+  it("lands an Administrator on the admin area directly", async () => {
     mockBackend(ADMIN_USER);
 
     render(<App />);
-    await screen.findByText("Signed in as admin@example.com");
-
-    await user.click(screen.getByRole("link", { name: "Admin area" }));
 
     expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
   });
@@ -82,9 +81,6 @@ describe("Admin shell routing", () => {
     mockBackend(ADMIN_USER);
 
     render(<App />);
-    await screen.findByText("Signed in as admin@example.com");
-
-    await user.click(screen.getByRole("link", { name: "Admin area" }));
     await screen.findByRole("heading", { name: "Overview" });
     await user.click(screen.getByRole("link", { name: "Invite user" }));
 
@@ -96,31 +92,28 @@ describe("Admin shell routing", () => {
     mockBackend(ADMIN_USER);
 
     render(<App />);
-    await screen.findByText("Signed in as admin@example.com");
-
-    await user.click(screen.getByRole("link", { name: "Admin area" }));
     await screen.findByRole("heading", { name: "Overview" });
     await user.click(screen.getByRole("link", { name: "Manage groups" }));
 
     expect(await screen.findByRole("heading", { name: "Groups" })).toBeInTheDocument();
   });
 
-  it("hides the admin nav link for a Learner", async () => {
+  it("hides the admin nav group for a Learner", async () => {
     mockBackend(LEARNER_USER);
 
     render(<App />);
-    await screen.findByText("Signed in as learner@example.com");
+    await screen.findByRole("heading", { name: "My learning" });
 
-    expect(screen.queryByRole("link", { name: "Admin area" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Admin area")).not.toBeInTheDocument();
   });
 
-  it("redirects a Learner who navigates directly to /admin back to the dashboard", async () => {
+  it("redirects a Learner who navigates directly to /admin back to their own landing page", async () => {
     window.history.pushState({}, "", "/admin");
     mockBackend(LEARNER_USER);
 
     render(<App />);
 
-    expect(await screen.findByText("Signed in as learner@example.com")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "My learning" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Overview" })).not.toBeInTheDocument();
   });
 });

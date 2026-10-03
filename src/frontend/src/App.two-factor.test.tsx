@@ -99,6 +99,7 @@ describe("App two-factor login flow", () => {
       body: { must_change_password: false, two_factor_required: false },
     });
     queue("GET", "/api/auth/me", { status: 200, body: USER_BODY });
+    queue("GET", "/api/me/modules", { status: 200, body: [] });
 
     await user.type(
       screen.getByLabelText("Authentication or recovery code"),
@@ -106,7 +107,7 @@ describe("App two-factor login flow", () => {
     );
     await user.click(screen.getByRole("button", { name: "Verify" }));
 
-    expect(await screen.findByText("Signed in as learner@example.com")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "My learning" })).toBeInTheDocument();
   });
 
   it("shows an error and stays on the code prompt for an invalid code", async () => {

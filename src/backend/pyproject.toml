@@ -14,9 +14,21 @@ dependencies = [
     "httpx>=0.27,<1.0",
     "argon2-cffi>=23.1,<24.0",
     "boto3>=1.35,<2.0",
+    # Multipart form parsing — how an asset upload arrives.
+    "python-multipart>=0.0.18,<1.0",
     "pyotp>=2.9,<3.0",
     "qrcode[pil]>=8.0,<9.0",
     "cryptography>=43.0,<46.0",
+    # Server-side ProseMirror schema validation, pure Python (no Node
+    # sidecar). Client-side editor configuration is UX; this is the control.
+    "prosemirror>=0.6,<1.0",
+    # Document import (ticket 13): Markdown, DOCX, and PDF conversion into the
+    # checked-in page schema, plus HTML sanitization for anything encountered
+    # along the way. None of these ever make a network request.
+    "markdown-it-py>=3.0,<4.0",
+    "python-docx>=1.2,<2.0",
+    "pypdf>=5.0,<6.0",
+    "nh3>=0.2,<1.0",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +44,12 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
+
+[tool.setuptools.package-data]
+# The ProseMirror schema is data the validator reads at runtime, not code —
+# without this it would be missing from an installed (non-editable) build,
+# which is exactly what the Docker image is.
+app = ["content/*.json"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

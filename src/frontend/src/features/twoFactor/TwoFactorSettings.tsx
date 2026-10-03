@@ -82,7 +82,7 @@ export function TwoFactorSettings({ enabled, onChanged }: Props) {
       <section className="flex max-w-md flex-col gap-3">
         <h2 className="text-lg font-semibold">{t("security.two_factor_recovery_heading")}</h2>
         <p className="text-sm text-fg-muted">{t("security.two_factor_recovery_description")}</p>
-        <ul className="grid grid-cols-2 gap-2 rounded-md border border-border bg-bg p-4 font-mono text-sm">
+        <ul className="grid grid-cols-2 gap-2 rounded-2xl border border-border bg-bg-elevated p-4 font-mono text-sm shadow-[var(--shadow)]">
           {step.codes.map((recoveryCode) => (
             <li key={recoveryCode}>{recoveryCode}</li>
           ))}
@@ -90,7 +90,7 @@ export function TwoFactorSettings({ enabled, onChanged }: Props) {
         <button
           type="button"
           onClick={() => void finishRecoveryCodes()}
-          className="self-start rounded-md bg-primary px-4 py-2 text-sm text-primary-fg"
+          className="self-start rounded-full bg-[image:var(--gradient)] px-5 py-2.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
         >
           {t("security.two_factor_recovery_done")}
         </button>
@@ -106,7 +106,7 @@ export function TwoFactorSettings({ enabled, onChanged }: Props) {
         <img
           src={step.qrCodeDataUri}
           alt={t("security.two_factor_qr_alt")}
-          className="h-40 w-40 self-start rounded-md border border-border bg-bg p-2"
+          className="h-40 w-40 self-start rounded-2xl border border-border bg-bg-elevated p-2 shadow-[var(--shadow)]"
         />
         <p className="text-sm text-fg-muted">
           {t("security.two_factor_setup_key_label")}{" "}
@@ -122,7 +122,7 @@ export function TwoFactorSettings({ enabled, onChanged }: Props) {
               autoComplete="one-time-code"
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              className="rounded-md border border-border bg-bg px-3 py-2"
+              className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none"
             />
           </label>
           {confirmError && (
@@ -133,7 +133,7 @@ export function TwoFactorSettings({ enabled, onChanged }: Props) {
           <button
             type="submit"
             disabled={submitting}
-            className="self-start rounded-md bg-primary px-4 py-2 text-sm text-primary-fg disabled:opacity-60"
+            className="self-start rounded-full bg-[image:var(--gradient)] px-5 py-2.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
           >
             {t("security.two_factor_confirm_submit")}
           </button>
@@ -158,7 +158,7 @@ export function TwoFactorSettings({ enabled, onChanged }: Props) {
                   autoComplete="current-password"
                   value={disablePassword}
                   onChange={(event) => setDisablePassword(event.target.value)}
-                  className="rounded-md border border-border bg-bg px-3 py-2"
+                  className="rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 transition-colors focus:border-primary focus:outline-none"
                 />
               </label>
               {disableError && (
@@ -170,7 +170,7 @@ export function TwoFactorSettings({ enabled, onChanged }: Props) {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="self-start rounded-md border border-danger px-4 py-2 text-sm text-danger disabled:opacity-60"
+                  className="self-start rounded-full border border-danger px-4 py-2 text-sm font-medium text-danger transition hover:-translate-y-0.5 hover:bg-danger/10 disabled:opacity-60 disabled:hover:translate-y-0"
                 >
                   {t("security.two_factor_disable_confirm")}
                 </button>
@@ -181,7 +181,7 @@ export function TwoFactorSettings({ enabled, onChanged }: Props) {
                     setDisablePassword("");
                     setDisableError(null);
                   }}
-                  className="self-start rounded-md border border-border px-3 py-2 text-sm"
+                  className="self-start rounded-full border border-border bg-bg-elevated px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
                 >
                   {t("security.two_factor_disable_cancel")}
                 </button>
@@ -191,7 +191,7 @@ export function TwoFactorSettings({ enabled, onChanged }: Props) {
             <button
               type="button"
               onClick={() => setStep({ kind: "disabling" })}
-              className="self-start rounded-md border border-border px-3 py-2 text-sm"
+              className="self-start rounded-full border border-border bg-bg-elevated px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
             >
               {t("security.two_factor_disable_button")}
             </button>
@@ -209,7 +209,7 @@ export function TwoFactorSettings({ enabled, onChanged }: Props) {
             type="button"
             onClick={() => void startEnrollment()}
             disabled={submitting}
-            className="self-start rounded-md border border-border px-3 py-2 text-sm disabled:opacity-60"
+            className="self-start rounded-full border border-border bg-bg-elevated px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
           >
             {t("security.two_factor_enable_button")}
           </button>

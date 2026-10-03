@@ -150,14 +150,14 @@ export function AdminUsersPage({ currentUserId }: Props) {
                               type="button"
                               disabled={busyUserId === user.id}
                               onClick={() => void runAction(user.id, "erase")}
-                              className="rounded-md border border-danger px-3 py-1.5 text-danger disabled:opacity-60"
+                              className="rounded-full border border-danger px-4 py-1.5 text-danger font-medium transition hover:-translate-y-0.5 hover:bg-danger/10 disabled:opacity-60 disabled:hover:translate-y-0"
                             >
                               {t("adminUsers.erase_confirm")}
                             </button>
                             <button
                               type="button"
                               onClick={() => setRowAction(user.id, { kind: "idle" })}
-                              className="rounded-md border border-border px-3 py-1.5"
+                              className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
                             >
                               {t("adminUsers.erase_cancel")}
                             </button>
@@ -169,7 +169,7 @@ export function AdminUsersPage({ currentUserId }: Props) {
                                 type="button"
                                 disabled={busyUserId === user.id}
                                 onClick={() => void runAction(user.id, "enable")}
-                                className="rounded-md border border-border px-3 py-1.5 disabled:opacity-60"
+                                className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
                               >
                                 {t("adminUsers.enable_button")}
                               </button>
@@ -178,7 +178,7 @@ export function AdminUsersPage({ currentUserId }: Props) {
                                 type="button"
                                 disabled={busyUserId === user.id}
                                 onClick={() => void runAction(user.id, "disable")}
-                                className="rounded-md border border-border px-3 py-1.5 disabled:opacity-60"
+                                className="rounded-full border border-border bg-bg-elevated px-4 py-1.5 font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-60 disabled:hover:translate-y-0"
                               >
                                 {t("adminUsers.disable_button")}
                               </button>
@@ -187,7 +187,7 @@ export function AdminUsersPage({ currentUserId }: Props) {
                               type="button"
                               disabled={busyUserId === user.id}
                               onClick={() => setRowAction(user.id, { kind: "confirming_erase" })}
-                              className="rounded-md border border-danger px-3 py-1.5 text-danger disabled:opacity-60"
+                              className="rounded-full border border-danger px-4 py-1.5 text-danger font-medium transition hover:-translate-y-0.5 hover:bg-danger/10 disabled:opacity-60 disabled:hover:translate-y-0"
                             >
                               {t("adminUsers.erase_button")}
                             </button>

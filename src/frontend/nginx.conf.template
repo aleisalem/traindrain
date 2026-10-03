@@ -1,0 +1,51 @@
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Defense-in-depth behind the real control, which is server-side document
+    # validation: no page body is ever stored as HTML, and nothing on the
+    # render path injects an HTML string. This is the second line.
+    #
+    # `script-src 'self'` with no 'unsafe-inline' is the point — it neutralises
+    # both an inline event-handler attribute and a `javascript:` URL. A strict
+    # script-src alone does not stop exfiltration through `<img src>`, so
+    # img-src and connect-src are locked down too.
+    #
+    # `data:` in img-src is for the 2FA enrolment QR code, which the API
+    # returns as a data URI. `fonts.googleapis.com`/`fonts.gstatic.com` are the
+    # only non-self origins in the policy, for the webfonts in index.html;
+    # self-hosting those would remove the exception entirely.
+    #
+    # `${ASSET_ORIGIN}` in img-src is where module images actually come from.
+    # `GET /api/modules/{id}/assets/{id}` is same-origin, but it authorizes the
+    # caller and then *redirects* to a presigned URL on the object store's own
+    # origin — deliberately not this one, so a hypothetical content-type escape
+    # on an uploaded file has no same-origin document to act against. CSP is
+    # checked against the final URL of a redirect chain, so that origin has to
+    # be named here. Locally it is LocalStack; in a deployment it is the assets
+    # bucket's delivery origin. Unset it and the substitution leaves a token no
+    # browser recognises as a source expression, which fails closed to 'self'.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: ${ASSET_ORIGIN}; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    location /api/ {
+        proxy_pass http://backend:8000/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # The outer guard on asset uploads. nginx defaults to 1m, which would
+        # refuse a legitimate attachment; this sits just above the API's own
+        # 20 MB per-file cap so a hostile body is refused at the edge rather
+        # than after being spooled through the application.
+        client_max_body_size 25m;
+    }
+
+    location / {
+        try_files $uri /index.html;
+    }
+}

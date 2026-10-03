@@ -75,11 +75,11 @@ describe("AdminGroupsPage", () => {
     render(<AdminGroupsPage />);
 
     const salesHeading = await screen.findByText("Sales Team");
-    const salesSection = salesHeading.closest("div.rounded-lg") as HTMLElement;
+    const salesSection = salesHeading.closest("div.rounded-2xl") as HTMLElement;
     expect(within(salesSection).getByText("ada@example.com")).toBeInTheDocument();
 
     const engHeading = screen.getByText("Engineering");
-    const engSection = engHeading.closest("div.rounded-lg") as HTMLElement;
+    const engSection = engHeading.closest("div.rounded-2xl") as HTMLElement;
     expect(within(engSection).getByText("No users belong to this group yet.")).toBeInTheDocument();
   });
 
@@ -127,7 +127,7 @@ describe("AdminGroupsPage", () => {
 
     render(<AdminGroupsPage />);
     const engHeading = await screen.findByText("Engineering");
-    const engSection = engHeading.closest("div.rounded-lg") as HTMLElement;
+    const engSection = engHeading.closest("div.rounded-2xl") as HTMLElement;
 
     await user.selectOptions(within(engSection).getByLabelText("Add user:"), "user-2");
     await user.click(within(engSection).getByRole("button", { name: "Add" }));
@@ -143,7 +143,7 @@ describe("AdminGroupsPage", () => {
 
     render(<AdminGroupsPage />);
     const salesHeading = await screen.findByText("Sales Team");
-    const salesSection = salesHeading.closest("div.rounded-lg") as HTMLElement;
+    const salesSection = salesHeading.closest("div.rounded-2xl") as HTMLElement;
     await within(salesSection).findByText("ada@example.com");
 
     await user.click(within(salesSection).getByRole("button", { name: "Remove" }));
@@ -166,7 +166,7 @@ describe("AdminGroupsPage", () => {
 
     render(<AdminGroupsPage />);
     const engHeading = await screen.findByText("Engineering");
-    const engSection = engHeading.closest("div.rounded-lg") as HTMLElement;
+    const engSection = engHeading.closest("div.rounded-2xl") as HTMLElement;
 
     await user.click(within(engSection).getByRole("button", { name: "Edit" }));
     const nameInput = within(engSection).getByLabelText("Name");
@@ -185,7 +185,7 @@ describe("AdminGroupsPage", () => {
 
     render(<AdminGroupsPage />);
     const engHeading = await screen.findByText("Engineering");
-    const engSection = engHeading.closest("div.rounded-lg") as HTMLElement;
+    const engSection = engHeading.closest("div.rounded-2xl") as HTMLElement;
 
     await user.click(within(engSection).getByRole("button", { name: "Delete" }));
     await user.click(within(engSection).getByRole("button", { name: "Confirm delete" }));

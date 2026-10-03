@@ -38,6 +38,9 @@ class MeResponse(BaseModel):
     # light/dark default in that case, never to the colorblind theme.
     preferred_language: str | None
     preferred_theme: str | None
+    # Null until the user has explicitly set a preference — the frontend
+    # falls back to a left sidebar in that case.
+    nav_position: str | None
 
 
 class ForgotPasswordRequest(BaseModel):
