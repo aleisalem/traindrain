@@ -166,3 +166,18 @@ export type AdministratorModuleReport = {
  *  caller's role on the server — never a client-side choice. `"groups"` only
  *  appears on the Content Manager shape, so it doubles as the discriminant. */
 export type ModuleReport = ContentManagerModuleReport | AdministratorModuleReport;
+
+/** One thing the converter dropped or altered while turning an uploaded
+ *  document into pages — conversion is lossy by nature, so this is how the
+ *  author finds out where to look. `message` is a complete, server-written
+ *  sentence (English only — it often names a specific file or count) rather
+ *  than something this UI re-renders per locale. */
+export type ConversionReportEntry = {
+  code: string;
+  message: string;
+};
+
+export type DocumentImportResponse = {
+  module: ModuleBody;
+  conversion_report: ConversionReportEntry[];
+};

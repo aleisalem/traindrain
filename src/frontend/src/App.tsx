@@ -15,6 +15,7 @@ import { TwoFactorVerifyForm } from "./features/auth/TwoFactorVerifyForm";
 import type { AuthUser } from "./features/auth/useAuth";
 import { ADMINISTRATOR_ROLE, canAuthorContent, useAuth } from "./features/auth/useAuth";
 import { ContentModulesPage } from "./features/content/ContentModulesPage";
+import { DocumentImportPage } from "./features/content/DocumentImportPage";
 import { ModuleFormPage } from "./features/content/ModuleFormPage";
 import { ModuleReportsPage } from "./features/content/ModuleReportsPage";
 import { AcceptInvitePage } from "./features/invites/AcceptInvitePage";
@@ -97,6 +98,7 @@ function AuthenticatedRoutes({
           <Route path="/content" element={<Outlet />}>
             <Route index element={<ContentModulesPage />} />
             <Route path="new" element={<ModuleFormPage isAdministrator={isAdministrator} />} />
+            <Route path="import" element={<DocumentImportPage />} />
             <Route
               path="reports"
               element={<ModuleReportsPage isAdministrator={isAdministrator} />}

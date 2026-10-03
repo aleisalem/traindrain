@@ -109,9 +109,33 @@ created.
 
 ## What this ticket deliberately does not include
 
-No frontend UI, matching ticket 12's own precedent (its checklist lists no
-frontend work either) — the conversion report is carried entirely in the API
-response for now. List nesting is flattened for DOCX (Markdown gets real
-nesting, since `markdown-it`'s own tree already represents it); a DOCX list
-under a style this converter cannot classify as bulleted or numbered is
-imported as bulleted, once, rather than guessed per paragraph.
+List nesting is flattened for DOCX (Markdown gets real nesting, since
+`markdown-it`'s own tree already represents it); a DOCX list under a style
+this converter cannot classify as bulleted or numbered is imported as
+bulleted, once, rather than guessed per paragraph.
+
+Ticket 13 itself shipped no frontend UI, matching ticket 12's own precedent —
+the endpoint was API-only. A follow-up gave it a screen (below), reusing
+the same `{module, conversion_report}` response.
+
+## Frontend: `/content/import`
+
+A Content Manager (or Administrator) reaches an "Import document" button on
+`/content`, next to "New module". The screen (`DocumentImportPage.tsx`,
+state in `useDocumentImport.ts`) is a single file picker plus the same
+language choice module creation already asks for, a permanent notice that
+PDF import is best-effort (shown before the upload starts, per the ticket's
+own requirement), and a submit button disabled until a file is chosen.
+
+On success, the screen shows the conversion report — each entry's server-written
+`message` verbatim, since those sentences often name a specific dropped file
+or count and are diagnostic content rather than static UI copy — and a button
+to open the new draft at `/content/{id}` for review, rather than navigating
+there automatically; the report is otherwise never seen. A handful of the
+backend's rejection codes (`empty_file`, `unrecognised_format`/
+`extension_mismatch`/`not_utf8`, `bad_document`, `encrypted_pdf`,
+`empty_document`) get a localized (EN/DE) message; the size/structure caps
+(`too_many_pages`, `too_many_entries`, `archive_too_large`,
+`suspicious_compression_ratio`) fall back to the server's own message, the
+same pattern `useModuleAssets`'s asset-upload error handling already uses for
+a cap whose number can change server-side.

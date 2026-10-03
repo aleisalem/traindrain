@@ -427,7 +427,11 @@ Release 1 (learning modules) is in progress. So far:
   native import already built, before `python-docx` ever opens it. PDF (`pypdf`) is explicit
   best-effort text extraction only,
   always flagged as such in the report; an encrypted PDF is refused outright. `module_document_imported`
-  is audit-logged. Full details in [docs/document-import.md](docs/document-import.md).
+  is audit-logged. Frontend: an "Import document" entry point on `/content`, landing on
+  `/content/import` (`DocumentImportPage.tsx`, `useDocumentImport.ts`) — a file picker, the same
+  language choice module creation asks for, an always-shown notice that PDF import is best-effort
+  (shown before the upload starts), and, on success, the conversion report plus a link to open the
+  new draft for review. Full details in [docs/document-import.md](docs/document-import.md).
 
 ## Project structure
 
@@ -465,7 +469,7 @@ src/
       features/admin/  Admin-only route tree (overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page, groups page)
       features/content/  Content Manager authoring area (module list, metadata form, page editor,
                          preview, image/attachment panel, publish/version panel, assignment panel,
-                         a searchable per-module reports page)
+                         a searchable per-module reports page, document import)
       content/         The checked-in ProseMirror schema and the Tiptap extension set built from it
       features/invites/  Public accept-invite page (set password, no session required)
       features/learning/  The learner's area (open catalog, "my learning", module viewer)

@@ -89,12 +89,20 @@ export function ContentModulesPage() {
           <h2 className="text-xl font-semibold">{t("content.modules_heading")}</h2>
           <p className="text-sm text-fg-muted">{t("content.modules_description")}</p>
         </div>
-        <Link
-          to="/content/new"
-          className="rounded-full bg-[image:var(--gradient)] px-5 py-2.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
-        >
-          {t("content.new_module")}
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to="/content/import"
+            className="rounded-full border border-border bg-bg-elevated px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
+          >
+            {t("content.import_document")}
+          </Link>
+          <Link
+            to="/content/new"
+            className="rounded-full bg-[image:var(--gradient)] px-5 py-2.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)]"
+          >
+            {t("content.new_module")}
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
