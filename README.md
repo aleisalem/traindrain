@@ -448,6 +448,18 @@ Release 2 (campaigns and grading) is in progress:
   `CampaignBuilderPage.tsx` (`/content/campaigns`), reordering by drag-and-drop or buttons. Full
   details in [docs/references/release-2-campaigns-grading/campaign-drafts.md](docs/references/release-2-campaigns-grading/campaign-drafts.md).
 
+- Campaign collaborators and Administrator reach: a campaign's creator adds other Content Managers
+  by email (`POST|DELETE /api/content/campaigns/{id}/collaborators`), who can then edit its
+  metadata, modules and targets; only the creator or an Administrator manages collaborators or
+  deletes a draft (`DELETE /api/content/campaigns/{id}`, draft only), and a collaborator attempting
+  that gets a 403 while a non-participant still gets a 404. Administrators see and edit every
+  campaign, are the only ones who can target named individuals, and can reassign the creator of an
+  orphaned campaign (`POST .../owner`); collaborators survive an erased or demoted creator. A
+  presence heartbeat (`POST|DELETE .../editing`) shows who else has a campaign open. All changes are
+  audit-logged. Frontend: `CampaignCollaboratorsPanel.tsx` and the Administrator-only
+  individual-target picker in `CampaignBuilderPage.tsx`. Full details in
+  [docs/references/release-2-campaigns-grading/campaign-collaborators.md](docs/references/release-2-campaigns-grading/campaign-collaborators.md).
+
 Release 1 infrastructure (ticket 14, closing out the release):
 
 - Terraform under `.deploy/dev` for Release 1's own AWS footprint: the private module-assets S3

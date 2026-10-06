@@ -102,8 +102,8 @@ function AuthenticatedRoutes({
             <Route path="new" element={<ModuleFormPage isAdministrator={isAdministrator} />} />
             <Route path="import" element={<DocumentImportPage />} />
             <Route path="campaigns" element={<CampaignsPage />} />
-            <Route path="campaigns/new" element={<CampaignBuilderPage />} />
-            <Route path="campaigns/:campaignId" element={<CampaignBuilderPage />} />
+            <Route path="campaigns/new" element={<CampaignBuilderPage isAdministrator={isAdministrator} />} />
+            <Route path="campaigns/:campaignId" element={<CampaignBuilderPage isAdministrator={isAdministrator} />} />
             <Route
               path="reports"
               element={<ModuleReportsPage isAdministrator={isAdministrator} />}

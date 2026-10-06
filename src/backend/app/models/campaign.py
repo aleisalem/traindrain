@@ -69,6 +69,11 @@ class Campaign(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    collaborators: Mapped[list["CampaignCollaborator"]] = relationship(
+        order_by="CampaignCollaborator.created_at",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
 
 class CampaignModule(Base):
@@ -125,5 +130,51 @@ class CampaignTarget(Base):
     target_type: Mapped[str] = mapped_column(String(10), nullable=False)
     target_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CampaignCollaborator(Base):
+    """A Content Manager the creator has invited to work on a campaign.
+
+    A collaborator has the creator's rights over metadata, modules and targets
+    but not over who else is in the room: only the creator or an Administrator
+    manages collaborators or deletes a draft. The row survives its creator
+    being erased or losing the role, so a campaign is never orphaned out from
+    under the people still working on it.
+    """
+
+    __tablename__ = "campaign_collaborators"
+
+    campaign_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("campaigns.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True, index=True
+    )
+    added_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CampaignEditSession(Base):
+    """Who currently has a campaign open — presence, not a lock.
+
+    The same shape and meaning as `ModuleEditSession`: a heartbeat keeps
+    `last_seen_at` fresh and an aged-out row counts as gone.
+    """
+
+    __tablename__ = "campaign_edit_sessions"
+
+    campaign_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("campaigns.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

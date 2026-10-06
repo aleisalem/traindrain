@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { CampaignCollaboratorsPanel } from "./CampaignCollaboratorsPanel";
+import { ModuleEditorsPresence } from "./ModuleEditorsPresence";
 import type {
   Campaign,
   CampaignModule,
@@ -10,6 +12,8 @@ import type {
   ModuleBody,
   Requirement,
 } from "./types";
+import { useAdminUserOptions } from "./useAdminUserOptions";
+import { useEditors } from "./useModuleEditors";
 
 const inputClassName =
   "rounded-xl border border-border bg-bg-elevated px-3.5 py-2.5 text-sm transition-colors focus:border-primary focus:outline-none";
@@ -35,15 +39,20 @@ export function moveItem<T>(items: T[], from: number, to: number): T[] {
  * move buttons — the buttons are the keyboard and screen-reader path, so
  * neither is optional.
  *
- * Individual (named-person) targets are an Administrator's act, set elsewhere;
- * any that already exist are shown read-only and sent back untouched so a
+ * Individual (named-person) targets are an Administrator's act: only an
+ * Administrator gets the picker and the remove control. For anyone else the
+ * ones that already exist are shown read-only and sent back untouched so a
  * save here never drops them.
  */
-export function CampaignBuilderPage() {
+export function CampaignBuilderPage({ isAdministrator = false }: { isAdministrator?: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { campaignId } = useParams<{ campaignId: string }>();
   const isNew = campaignId === undefined;
+  const editors = useEditors(campaignId ? `/api/content/campaigns/${campaignId}/editing` : undefined);
+  const userOptions = useAdminUserOptions(isAdministrator);
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [personToAdd, setPersonToAdd] = useState("");
 
   const [loaded, setLoaded] = useState(isNew);
   const [notFound, setNotFound] = useState(false);
@@ -67,6 +76,7 @@ export function CampaignBuilderPage() {
   const [saved, setSaved] = useState(false);
 
   function applyCampaign(campaign: Campaign) {
+    setCampaign(campaign);
     setName(campaign.name);
     setDescription(campaign.description ?? "");
     setStartDate(campaign.start_date ?? "");
@@ -156,6 +166,31 @@ export function CampaignBuilderPage() {
     setGroupToAdd("");
   }
 
+  const pickablePeople = userOptions.filter(
+    (person) => !targets.some((target) => target.type === "user" && target.id === person.id),
+  );
+
+  function addPerson() {
+    const chosen = userOptions.find((person) => person.id === personToAdd);
+    if (!chosen) return;
+    setTargets((current) => [...current, { type: "user", id: chosen.id, name: chosen.label }]);
+    setPersonToAdd("");
+  }
+
+  async function handleDelete() {
+    if (!campaignId || !window.confirm(t("campaigns.delete_confirm"))) return;
+    try {
+      const response = await fetch(`/api/content/campaigns/${campaignId}`, { method: "DELETE" });
+      if (!response.ok) {
+        setError(t("campaigns.delete_error"));
+        return;
+      }
+      navigate("/content/campaigns", { replace: true });
+    } catch {
+      setError(t("campaigns.delete_error"));
+    }
+  }
+
   function setRequirement(index: number, requirement: Requirement) {
     setModules((current) =>
       current.map((row, i) => (i === index ? { ...row, requirement } : row)),
@@ -243,6 +278,7 @@ export function CampaignBuilderPage() {
 
   return (
     <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-6">
+      <ModuleEditorsPresence editors={editors} subject="campaign" />
       <div className="flex flex-col gap-1">
         <Link to="/content/campaigns" className="text-sm text-fg-muted underline">
           {t("campaigns.back")}
@@ -449,7 +485,7 @@ export function CampaignBuilderPage() {
                       </span>
                     )}
                   </span>
-                  {target.type === "group" && (
+                  {(target.type === "group" || isAdministrator) && (
                     <button
                       type="button"
                       aria-label={t("campaigns.remove_target", { name: label })}
@@ -492,7 +528,43 @@ export function CampaignBuilderPage() {
             {t("campaigns.add_group_button")}
           </button>
         </div>
+
+        {isAdministrator && (
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
+              {t("campaigns.add_individual_label")}
+              <select
+                value={personToAdd}
+                onChange={(event) => setPersonToAdd(event.target.value)}
+                className={inputClassName}
+              >
+                <option value="">{t("campaigns.add_individual_placeholder")}</option>
+                {pickablePeople.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={!personToAdd}
+              onClick={addPerson}
+              className="rounded-full border border-border px-4 py-2.5 text-sm font-medium disabled:opacity-40"
+            >
+              {t("campaigns.add_individual_button")}
+            </button>
+          </div>
+        )}
       </section>
+
+      {campaign && (
+        <CampaignCollaboratorsPanel
+          campaign={campaign}
+          isAdministrator={isAdministrator}
+          onChanged={(updated) => setCampaign(updated)}
+        />
+      )}
 
       {error && (
         <p role="alert" className="text-sm text-danger">
@@ -512,6 +584,15 @@ export function CampaignBuilderPage() {
       >
         {isNew ? t("campaigns.create") : t("campaigns.save")}
       </button>
+      {campaign?.can_manage && campaign.status === "draft" && (
+        <button
+          type="button"
+          onClick={() => void handleDelete()}
+          className="self-start rounded-full border border-danger px-5 py-2 text-sm font-medium text-danger"
+        >
+          {t("campaigns.delete_draft")}
+        </button>
+      )}
     </form>
   );
 }

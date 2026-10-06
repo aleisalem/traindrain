@@ -224,6 +224,9 @@ export type Campaign = {
   start_date: string | null;
   due_date: string | null;
   created_by: ModuleActor;
+  collaborators: ModuleActor[];
+  /** Creator or Administrator: may manage collaborators and delete the draft. */
+  can_manage: boolean;
   modules: CampaignModule[];
   targets: CampaignTarget[];
   created_at: string;

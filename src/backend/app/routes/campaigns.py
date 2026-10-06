@@ -1,7 +1,8 @@
 """Campaign drafts: a Content Manager builds a programme before anyone sees it.
 
 Two rules shape every route here. First, a campaign belongs to the people
-working on it: anyone else gets a 404, never a 403, so another team's
+working on it — its creator, the collaborators the creator invited, and
+Administrators: anyone else gets a 404, never a 403, so another team's
 programmes cannot even be confirmed to exist. Second, naming a person is an
 Administrator's act, as it is for assignments — a Content Manager picks
 groups from the counts-only `GET /api/content/groups`.
@@ -14,14 +15,17 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import ColumnElement, select
+from sqlalchemy import ColumnElement, delete, exists, func, or_, select, true
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.access import is_administrator
+from app.access import is_administrator, is_author
 from app.db import get_db
 from app.dependencies import require_content_manager
 from app.models import (
     Campaign,
+    CampaignCollaborator,
+    CampaignEditSession,
     CampaignModule,
     CampaignTarget,
     Group,
@@ -29,6 +33,7 @@ from app.models import (
     ModuleTranslationGroup,
     User,
 )
+from app.routes.content import PRESENCE_WINDOW
 from app.schemas.campaigns import (
     CampaignCreateRequest,
     CampaignModuleInput,
@@ -38,9 +43,11 @@ from app.schemas.campaigns import (
     CampaignTargetInput,
     CampaignTargetResponse,
     CampaignUpdateRequest,
+    CollaboratorAddRequest,
     ModuleAvailability,
+    OwnerChangeRequest,
 )
-from app.schemas.modules import ModuleActor
+from app.schemas.modules import ModuleActor, ModuleEditorsResponse
 from app.security.audit import record_audit_log
 
 router = APIRouter(prefix="/api/content/campaigns", tags=["campaigns"])
@@ -55,21 +62,52 @@ def _campaign_not_found() -> HTTPException:
 def may_see_campaign(user: User, campaign: Campaign) -> bool:
     """The one answer to "does this campaign exist for this caller?".
 
-    Today: the creator. Collaborators and Administrators widen it in later
-    tickets, and every route asks here, so it widens everywhere at once.
+    The creator, an invited collaborator, or an Administrator. Every route
+    asks here, so widening it widens everywhere at once.
     """
-    return campaign.created_by == user.id
+    return (
+        is_administrator(user)
+        or campaign.created_by == user.id
+        or any(row.user_id == user.id for row in campaign.collaborators)
+    )
+
+
+def may_manage_campaign(user: User, campaign: Campaign) -> bool:
+    """Who controls the room: the creator or an Administrator. A collaborator
+    edits the campaign but cannot add or remove people or delete the draft."""
+    return is_administrator(user) or campaign.created_by == user.id
 
 
 def visible_campaigns_clause(user: User) -> ColumnElement[bool]:
     """`may_see_campaign` as a WHERE clause, for list queries. Keep the two in step."""
-    return Campaign.created_by == user.id
+    if is_administrator(user):
+        return true()
+    return or_(
+        Campaign.created_by == user.id,
+        exists().where(
+            CampaignCollaborator.campaign_id == Campaign.id,
+            CampaignCollaborator.user_id == user.id,
+        ),
+    )
 
 
 async def _get_campaign_or_404(db: AsyncSession, campaign_id: uuid.UUID, caller: User) -> Campaign:
     campaign = await db.get(Campaign, campaign_id)
     if campaign is None or not may_see_campaign(caller, campaign):
         raise _campaign_not_found()
+    return campaign
+
+
+async def _get_managed_campaign(
+    db: AsyncSession, campaign_id: uuid.UUID, caller: User
+) -> Campaign:
+    """404 for a non-participant, 403 for a collaborator who may not do this."""
+    campaign = await _get_campaign_or_404(db, campaign_id, caller)
+    if not may_manage_campaign(caller, campaign):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the campaign's creator or an Administrator may do this.",
+        )
     return campaign
 
 
@@ -217,6 +255,11 @@ async def _target_responses(
 
 async def _to_response(db: AsyncSession, campaign: Campaign, *, caller: User) -> CampaignResponse:
     creator = await db.get(User, campaign.created_by)
+    collaborators = []
+    for row in campaign.collaborators:
+        member = await db.get(User, row.user_id)
+        if member is not None:
+            collaborators.append(ModuleActor.from_user(member))
     return CampaignResponse(
         id=campaign.id,
         name=campaign.name,
@@ -227,6 +270,8 @@ async def _to_response(db: AsyncSession, campaign: Campaign, *, caller: User) ->
         start_date=campaign.start_date,
         due_date=campaign.due_date,
         created_by=ModuleActor.from_user(creator),
+        collaborators=collaborators,
+        can_manage=may_manage_campaign(caller, campaign),
         modules=await _module_responses(db, campaign),
         targets=await _target_responses(db, campaign, caller=caller),
         created_at=campaign.created_at,
@@ -239,7 +284,7 @@ async def list_campaigns(
     db: AsyncSession = Depends(get_db),
     caller: User = Depends(require_content_manager),
 ) -> list[CampaignSummaryResponse]:
-    """The campaigns this caller may see — only the ones they created, for now."""
+    """The campaigns this caller may see: their own, ones they collaborate on, or all (Administrator)."""
     campaigns = (
         (
             await db.execute(
@@ -379,3 +424,218 @@ async def update_campaign(
     await db.commit()
     await db.refresh(campaign)
     return await _to_response(db, campaign, caller=caller)
+
+
+# --- Collaborators and ownership ---------------------------------------------
+
+
+async def _find_eligible_user(db: AsyncSession, email: str) -> User:
+    user = (
+        await db.execute(select(User).where(func.lower(User.email) == email.strip().lower()))
+    ).scalar_one_or_none()
+    if user is None or user.erased_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    if not is_author(user):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only a Content Manager or an Administrator can work on a campaign.",
+        )
+    return user
+
+
+@router.post(
+    "/{campaign_id}/collaborators", response_model=CampaignResponse, status_code=status.HTTP_201_CREATED
+)
+async def add_collaborator(
+    campaign_id: uuid.UUID,
+    payload: CollaboratorAddRequest,
+    db: AsyncSession = Depends(get_db),
+    caller: User = Depends(require_content_manager),
+) -> CampaignResponse:
+    campaign = await _get_managed_campaign(db, campaign_id, caller)
+    user = await _find_eligible_user(db, payload.email)
+    if user.id == campaign.created_by:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="The creator is already on this campaign."
+        )
+    if any(row.user_id == user.id for row in campaign.collaborators):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Already a collaborator."
+        )
+    campaign.collaborators.append(CampaignCollaborator(user_id=user.id, added_by=caller.id))
+    campaign.updated_at = datetime.now(UTC)
+    await record_audit_log(
+        db,
+        actor_user_id=caller.id,
+        action="campaign_collaborator_added",
+        detail={"campaign_id": str(campaign.id), "user_id": str(user.id)},
+    )
+    await db.commit()
+    await db.refresh(campaign)
+    return await _to_response(db, campaign, caller=caller)
+
+
+@router.delete("/{campaign_id}/collaborators/{user_id}", response_model=CampaignResponse)
+async def remove_collaborator(
+    campaign_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    caller: User = Depends(require_content_manager),
+) -> CampaignResponse:
+    campaign = await _get_managed_campaign(db, campaign_id, caller)
+    row = next((r for r in campaign.collaborators if r.user_id == user_id), None)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Collaborator not found.")
+    campaign.collaborators.remove(row)
+    campaign.updated_at = datetime.now(UTC)
+    await db.execute(
+        delete(CampaignEditSession).where(
+            CampaignEditSession.campaign_id == campaign.id,
+            CampaignEditSession.user_id == user_id,
+        )
+    )
+    await record_audit_log(
+        db,
+        actor_user_id=caller.id,
+        action="campaign_collaborator_removed",
+        detail={"campaign_id": str(campaign.id), "user_id": str(user_id)},
+    )
+    await db.commit()
+    await db.refresh(campaign)
+    return await _to_response(db, campaign, caller=caller)
+
+
+@router.post("/{campaign_id}/owner", response_model=CampaignResponse)
+async def reassign_owner(
+    campaign_id: uuid.UUID,
+    payload: OwnerChangeRequest,
+    db: AsyncSession = Depends(get_db),
+    caller: User = Depends(require_content_manager),
+) -> CampaignResponse:
+    """Hand a campaign to another Content Manager — the way out of an orphan
+    whose creator left or lost the role. Administrator-only."""
+    campaign = await _get_campaign_or_404(db, campaign_id, caller)
+    if not is_administrator(caller):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an Administrator may reassign a campaign's creator.",
+        )
+    new_owner = await db.get(User, payload.user_id)
+    if new_owner is None or new_owner.erased_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    if not is_author(new_owner):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only a Content Manager or an Administrator can own a campaign.",
+        )
+    if new_owner.id == campaign.created_by:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="That user already owns this campaign."
+        )
+    previous = campaign.created_by
+    # An owner is not also a collaborator.
+    for row in [r for r in campaign.collaborators if r.user_id == new_owner.id]:
+        campaign.collaborators.remove(row)
+    campaign.created_by = new_owner.id
+    campaign.updated_at = datetime.now(UTC)
+    await record_audit_log(
+        db,
+        actor_user_id=caller.id,
+        action="campaign_owner_changed",
+        detail={
+            "campaign_id": str(campaign.id),
+            "previous_owner_id": str(previous),
+            "new_owner_id": str(new_owner.id),
+        },
+    )
+    await db.commit()
+    await db.refresh(campaign)
+    return await _to_response(db, campaign, caller=caller)
+
+
+@router.delete("/{campaign_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_campaign(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    caller: User = Depends(require_content_manager),
+) -> None:
+    """Hard-delete a draft. Creator or Administrator only; anything past draft
+    is a conflict (the finer rules for campaigns that ran arrive with ticket 6)."""
+    campaign = await _get_managed_campaign(db, campaign_id, caller)
+    if campaign.status != "draft":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Only a draft can be deleted."
+        )
+    await record_audit_log(
+        db,
+        actor_user_id=caller.id,
+        action="campaign_deleted",
+        detail={"campaign_id": str(campaign.id), "name": campaign.name},
+    )
+    await db.delete(campaign)
+    await db.commit()
+
+
+# --- Presence ------------------------------------------------------------------
+# Same trade as module metadata: concurrent edits are allowed, so the screen
+# says who else is here rather than locking anyone out.
+
+
+@router.post("/{campaign_id}/editing", response_model=ModuleEditorsResponse)
+async def heartbeat_editing(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    caller: User = Depends(require_content_manager),
+) -> ModuleEditorsResponse:
+    campaign = await _get_campaign_or_404(db, campaign_id, caller)
+    now = datetime.now(UTC)
+    await db.execute(
+        pg_insert(CampaignEditSession)
+        .values(campaign_id=campaign.id, user_id=caller.id, last_seen_at=now)
+        .on_conflict_do_update(
+            index_elements=["campaign_id", "user_id"], set_={"last_seen_at": now}
+        )
+    )
+    await db.execute(
+        delete(CampaignEditSession).where(
+            CampaignEditSession.campaign_id == campaign.id,
+            CampaignEditSession.last_seen_at < now - PRESENCE_WINDOW,
+        )
+    )
+    await db.commit()
+
+    user_ids = list(
+        (
+            await db.execute(
+                select(CampaignEditSession.user_id).where(
+                    CampaignEditSession.campaign_id == campaign.id,
+                    CampaignEditSession.last_seen_at >= now - PRESENCE_WINDOW,
+                    CampaignEditSession.user_id != caller.id,
+                )
+            )
+        ).scalars()
+    )
+    users = (
+        (await db.execute(select(User).where(User.id.in_(user_ids)))).scalars() if user_ids else []
+    )
+    return ModuleEditorsResponse(
+        editors=sorted(
+            (ModuleActor.from_user(u) for u in users), key=lambda a: a.display_name.lower()
+        )
+    )
+
+
+@router.delete("/{campaign_id}/editing", status_code=status.HTTP_204_NO_CONTENT)
+async def stop_editing(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    caller: User = Depends(require_content_manager),
+) -> None:
+    """Forgiving by design — called on unmount, must never become a failure."""
+    await db.execute(
+        delete(CampaignEditSession).where(
+            CampaignEditSession.campaign_id == campaign_id,
+            CampaignEditSession.user_id == caller.id,
+        )
+    )
+    await db.commit()

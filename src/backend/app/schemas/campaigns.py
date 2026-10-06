@@ -103,6 +103,21 @@ class CampaignUpdateRequest(BaseModel):
         return self
 
 
+class CollaboratorAddRequest(BaseModel):
+    """Collaborators are added by email, so a Content Manager never needs to
+    browse the staff directory to find a colleague."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(min_length=3, max_length=320)
+
+
+class OwnerChangeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: uuid.UUID
+
+
 class CampaignModuleResponse(BaseModel):
     translation_group_id: uuid.UUID
     position: int
@@ -141,6 +156,10 @@ class CampaignResponse(BaseModel):
     start_date: date | None
     due_date: date | None
     created_by: ModuleActor
+    collaborators: list[ModuleActor]
+    # Whether the caller may manage collaborators and delete the draft — the
+    # server decides, the UI only mirrors it.
+    can_manage: bool
     modules: list[CampaignModuleResponse]
     targets: list[CampaignTargetResponse]
     created_at: datetime

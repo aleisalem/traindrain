@@ -335,7 +335,9 @@
     "warning_body_one": "{{names}} has this module open. If they have changed the title, description, or duration since you loaded this page, saving now replaces their version with yours.",
     "warning_body_other": "{{names}} have this module open. If they have changed the title, description, or duration since you loaded this page, saving now replaces their versions with yours.",
     "warning_confirm": "Save anyway",
-    "warning_cancel": "Cancel"
+    "warning_cancel": "Cancel",
+    "campaign_editing_now_one": "{{names}} also has this campaign open.",
+    "campaign_editing_now_other": "{{names}} also have this campaign open."
   },
   "assets": {
     "heading": "Images and attachments",
@@ -596,6 +598,26 @@
     "error_dates": "The due date cannot be before the start date.",
     "error_forbidden": "You don't have permission to do that.",
     "error_not_found": "This campaign doesn't exist.",
-    "error_unknown": "Something went wrong. Please try again."
+    "error_unknown": "Something went wrong. Please try again.",
+    "collaborators_heading": "Collaborators",
+    "collaborators_description": "Content Managers you add can edit this campaign. Only you or an Administrator can add or remove people.",
+    "collaborators_readonly": "Only the creator or an Administrator can change who works on this campaign.",
+    "creator_label": "Creator: {{name}}",
+    "collaborators_empty": "No collaborators yet.",
+    "collaborator_email_label": "Colleague's email",
+    "add_collaborator_button": "Add collaborator",
+    "remove_collaborator": "Remove {{name}}",
+    "collaborator_error_not_found": "No active user with that email.",
+    "collaborator_error_role": "That person is not a Content Manager or Administrator.",
+    "collaborator_error_conflict": "That person is already on this campaign.",
+    "reassign_label": "Reassign creator",
+    "reassign_placeholder": "Choose a Content Manager",
+    "reassign_button": "Reassign",
+    "add_individual_label": "Add an individual",
+    "add_individual_placeholder": "Choose a person",
+    "add_individual_button": "Add person",
+    "delete_draft": "Delete draft",
+    "delete_confirm": "Delete this draft permanently?",
+    "delete_error": "The draft could not be deleted."
   }
 }

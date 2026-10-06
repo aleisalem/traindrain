@@ -166,21 +166,17 @@ async def test_an_unauthenticated_caller_is_refused(client: AsyncClient) -> None
 # --- Visibility: 404, never 403 --------------------------------------------
 
 
-async def test_other_content_managers_and_administrators_get_404_on_every_route(
+async def test_other_content_managers_get_404_on_every_route(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
     await _as(client, db_session, "camp-vis-owner@example.com", "Content Manager")
     campaign = await _new_campaign(client, name="Owner only")
     url = f"/api/content/campaigns/{campaign['id']}"
 
-    for email, role in (
-        ("camp-vis-other-cm@example.com", "Content Manager"),
-        ("camp-vis-admin@example.com", "Administrator"),
-    ):
-        await _as(client, db_session, email, role)
-        assert (await client.get(url)).status_code == 404
-        assert (await client.patch(url, json={"name": "Hijack"})).status_code == 404
-        assert (await client.get("/api/content/campaigns")).json() == []
+    await _as(client, db_session, "camp-vis-other-cm@example.com", "Content Manager")
+    assert (await client.get(url)).status_code == 404
+    assert (await client.patch(url, json={"name": "Hijack"})).status_code == 404
+    assert (await client.get("/api/content/campaigns")).json() == []
 
     await _login(client, email="camp-vis-owner@example.com")
     assert (await client.get(url)).json()["name"] == "Owner only"
@@ -242,7 +238,7 @@ async def test_an_administrator_may_target_an_individual_and_sees_their_name(
 async def test_a_content_manager_cannot_strip_an_individual_target(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
-    # Can only arise once an Administrator edits another's campaign (ticket 2);
+    # An Administrator's individual target on a Content Manager's campaign;
     # simulated by writing the target row directly.
     from app.models import CampaignTarget
 

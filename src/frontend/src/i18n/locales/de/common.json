@@ -335,7 +335,9 @@
     "warning_body_one": "{{names}} hat dieses Modul geöffnet. Falls Titel, Beschreibung oder Dauer seit dem Laden dieser Seite geändert wurden, ersetzt Ihr Speichern die dortige Fassung.",
     "warning_body_other": "{{names}} haben dieses Modul geöffnet. Falls Titel, Beschreibung oder Dauer seit dem Laden dieser Seite geändert wurden, ersetzt Ihr Speichern die dortigen Fassungen.",
     "warning_confirm": "Trotzdem speichern",
-    "warning_cancel": "Abbrechen"
+    "warning_cancel": "Abbrechen",
+    "campaign_editing_now_one": "{{names}} hat diese Kampagne ebenfalls geöffnet.",
+    "campaign_editing_now_other": "{{names}} haben diese Kampagne ebenfalls geöffnet."
   },
   "assets": {
     "heading": "Bilder und Anhänge",
@@ -596,6 +598,26 @@
     "error_dates": "Das Fälligkeitsdatum darf nicht vor dem Startdatum liegen.",
     "error_forbidden": "Dazu fehlt dir die Berechtigung.",
     "error_not_found": "Diese Kampagne existiert nicht.",
-    "error_unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    "error_unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+    "collaborators_heading": "Mitwirkende",
+    "collaborators_description": "Content-Manager, die du hinzufügst, können diese Kampagne bearbeiten. Nur du oder eine Administration kann Personen hinzufügen oder entfernen.",
+    "collaborators_readonly": "Nur die Ersteller:in oder eine Administration kann ändern, wer an dieser Kampagne arbeitet.",
+    "creator_label": "Ersteller:in: {{name}}",
+    "collaborators_empty": "Noch keine Mitwirkenden.",
+    "collaborator_email_label": "E-Mail der Kollegin / des Kollegen",
+    "add_collaborator_button": "Mitwirkende hinzufügen",
+    "remove_collaborator": "{{name}} entfernen",
+    "collaborator_error_not_found": "Keine aktive Person mit dieser E-Mail-Adresse.",
+    "collaborator_error_role": "Diese Person ist weder Content-Manager noch Administration.",
+    "collaborator_error_conflict": "Diese Person ist bereits Teil dieser Kampagne.",
+    "reassign_label": "Ersteller:in neu zuweisen",
+    "reassign_placeholder": "Content-Manager auswählen",
+    "reassign_button": "Neu zuweisen",
+    "add_individual_label": "Einzelperson hinzufügen",
+    "add_individual_placeholder": "Person auswählen",
+    "add_individual_button": "Person hinzufügen",
+    "delete_draft": "Entwurf löschen",
+    "delete_confirm": "Diesen Entwurf endgültig löschen?",
+    "delete_error": "Der Entwurf konnte nicht gelöscht werden."
   }
 }

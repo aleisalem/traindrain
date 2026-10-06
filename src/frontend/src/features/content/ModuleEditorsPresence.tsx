@@ -4,6 +4,8 @@ import type { ModuleEditor } from "./useModuleEditors";
 
 type Props = {
   editors: ModuleEditor[];
+  /** What is being edited; picks the wording. */
+  subject?: "module" | "campaign";
 };
 
 /** "Cora Manager" → "CM"; "cora@example.com" → "C". */
@@ -28,7 +30,7 @@ function hue(id: string): number {
  * the author's next save might land on top of someone's work, and it is only
  * worth anything if they notice it before they type.
  */
-export function ModuleEditorsPresence({ editors }: Props) {
+export function ModuleEditorsPresence({ editors, subject = "module" }: Props) {
   const { t } = useTranslation();
 
   if (editors.length === 0) return null;
@@ -58,7 +60,7 @@ export function ModuleEditorsPresence({ editors }: Props) {
       </ul>
       <p className="text-sm">
         <span className="font-medium">
-          {t("presence.editing_now", { count: editors.length, names })}
+          {t(subject === "campaign" ? "presence.campaign_editing_now" : "presence.editing_now", { count: editors.length, names })}
         </span>{" "}
         <span className="text-fg-muted">{t("presence.overwrite_hint")}</span>
       </p>

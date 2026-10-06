@@ -18,15 +18,21 @@ const HEARTBEAT_MS = 15_000;
  * not make a colleague flicker out of the list.
  */
 export function useModuleEditors(moduleId: string | undefined): ModuleEditor[] {
+  return useEditors(moduleId ? `/api/content/modules/${moduleId}/editing` : undefined);
+}
+
+/** The same presence heartbeat against any `.../editing` endpoint. */
+export function useEditors(url: string | undefined): ModuleEditor[] {
   const [editors, setEditors] = useState<ModuleEditor[]>([]);
 
   useEffect(() => {
-    if (!moduleId) return;
+    if (!url) return;
+    const editingUrl: string = url;
     let stopped = false;
 
     async function ping() {
       try {
-        const response = await fetch(`/api/content/modules/${moduleId}/editing`, {
+        const response = await fetch(editingUrl, {
           method: "POST",
         });
         if (stopped || !response.ok) return;
@@ -47,12 +53,12 @@ export function useModuleEditors(moduleId: string | undefined): ModuleEditor[] {
       // Leave explicitly so colleagues see the seat free immediately rather
       // than waiting out the presence window. `keepalive` lets it survive the
       // page being navigated away from or closed.
-      void fetch(`/api/content/modules/${moduleId}/editing`, {
+      void fetch(editingUrl, {
         method: "DELETE",
         keepalive: true,
       }).catch(() => undefined);
     };
-  }, [moduleId]);
+  }, [url]);
 
   return editors;
 }

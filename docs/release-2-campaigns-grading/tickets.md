@@ -26,14 +26,14 @@ Work the **frontier**: any ticket whose blockers are all done. Tickets 1 and 8 c
 
 **Blocked by:** 1
 
-- [ ] Migration creates campaign collaborators; collaborators must hold Content Manager or Administrator, otherwise 409
-- [ ] `POST|DELETE` collaborator routes restricted to the creator and Administrators; a collaborator attempting them is a 403, and non-participants still get a 404
-- [ ] A collaborator has the creator's edit rights on metadata, modules and targets; draft deletion remains creator or Administrator only
-- [ ] An Administrator can list and edit every campaign, add individual targets, and reassign the creator; an erased creator or a creator who lost the role leaves collaborators intact
-- [ ] Presence heartbeat and editor list reuse the Release 1 module presence pattern for campaigns
-- [ ] Collaborator and ownership changes are audit-logged
-- [ ] Frontend: collaborator panel, Administrator-only individual-target option, presence avatars
-- [ ] Backend tests for every row of the permission matrix and orphan handling; frontend tests for the panel and Administrator gating
+- [x] Migration creates campaign collaborators; collaborators must hold Content Manager or Administrator, otherwise 409
+- [x] `POST|DELETE` collaborator routes restricted to the creator and Administrators; a collaborator attempting them is a 403, and non-participants still get a 404
+- [x] A collaborator has the creator's edit rights on metadata, modules and targets; draft deletion remains creator or Administrator only
+- [x] An Administrator can list and edit every campaign, add individual targets, and reassign the creator; an erased creator or a creator who lost the role leaves collaborators intact
+- [x] Presence heartbeat and editor list reuse the Release 1 module presence pattern for campaigns
+- [x] Collaborator and ownership changes are audit-logged
+- [x] Frontend: collaborator panel, Administrator-only individual-target option, presence avatars
+- [x] Backend tests for every row of the permission matrix and orphan handling; frontend tests for the panel and Administrator gating
 
 ## 3. Activation and the learner's campaign view
 
