@@ -10,15 +10,15 @@ Work the **frontier**: any ticket whose blockers are all done. Tickets 1 and 8 c
 
 **Blocked by:** None — can start immediately.
 
-- [ ] Migrations create campaigns, campaign modules (translation group, position, requirement), and campaign targets (`user`|`group`, non-foreign-key `target_id` checked at the route, as assignments do), with the same UUID and timezone conventions as earlier releases
-- [ ] `GET|POST /api/content/campaigns` and `GET|PATCH /api/content/campaigns/{id}` create, list, read and update; module ordering and requirement are editable; `created_by` is set server-side and never accepted from the client
-- [ ] A Content Manager sees only campaigns they created; any other campaign is a 404 on every route, never a 403
-- [ ] A group target resolves through the existing counts-only group listing; an individual target is a 403 for a Content Manager
-- [ ] Referencing an unpublished or deleted module is allowed in draft but reported per module in the response
-- [ ] `campaign_created` and `campaign_updated` are audit-logged
-- [ ] Frontend: campaign list and builder (module ordering, targets, dates, toggles) under the content area, in EN/DE, all three themes, responsive, with navigation entry visible to Content Managers and Administrators only; builder design settled via `ux-discovery` first
-- [ ] Backend tests through the API: permission matrix and 404-versus-403 behaviour, validation, ordering, audit entries; frontend tests for the builder
-- [ ] README's supported-features section updated
+- [x] Migrations create campaigns, campaign modules (translation group, position, requirement), and campaign targets (`user`|`group`, non-foreign-key `target_id` checked at the route, as assignments do), with the same UUID and timezone conventions as earlier releases
+- [x] `GET|POST /api/content/campaigns` and `GET|PATCH /api/content/campaigns/{id}` create, list, read and update; module ordering and requirement are editable; `created_by` is set server-side and never accepted from the client
+- [x] A Content Manager sees only campaigns they created; any other campaign is a 404 on every route, never a 403
+- [x] A group target resolves through the existing counts-only group listing; an individual target is a 403 for a Content Manager
+- [x] Referencing an unpublished or deleted module is allowed in draft but reported per module in the response
+- [x] `campaign_created` and `campaign_updated` are audit-logged
+- [x] Frontend: campaign list and builder (module ordering, targets, dates, toggles) under the content area, in EN/DE, all three themes, responsive, with navigation entry visible to Content Managers and Administrators only; builder design settled via `ux-discovery` first
+- [x] Backend tests through the API: permission matrix and 404-versus-403 behaviour, validation, ordering, audit entries; frontend tests for the builder
+- [x] README's supported-features section updated
 
 ## 2. Collaborators, individual targets and presence
 

@@ -14,6 +14,8 @@ import { ResetPasswordPage } from "./features/auth/ResetPasswordPage";
 import { TwoFactorVerifyForm } from "./features/auth/TwoFactorVerifyForm";
 import type { AuthUser } from "./features/auth/useAuth";
 import { ADMINISTRATOR_ROLE, canAuthorContent, useAuth } from "./features/auth/useAuth";
+import { CampaignBuilderPage } from "./features/content/CampaignBuilderPage";
+import { CampaignsPage } from "./features/content/CampaignsPage";
 import { ContentModulesPage } from "./features/content/ContentModulesPage";
 import { DocumentImportPage } from "./features/content/DocumentImportPage";
 import { ModuleFormPage } from "./features/content/ModuleFormPage";
@@ -99,6 +101,9 @@ function AuthenticatedRoutes({
             <Route index element={<ContentModulesPage />} />
             <Route path="new" element={<ModuleFormPage isAdministrator={isAdministrator} />} />
             <Route path="import" element={<DocumentImportPage />} />
+            <Route path="campaigns" element={<CampaignsPage />} />
+            <Route path="campaigns/new" element={<CampaignBuilderPage />} />
+            <Route path="campaigns/:campaignId" element={<CampaignBuilderPage />} />
             <Route
               path="reports"
               element={<ModuleReportsPage isAdministrator={isAdministrator} />}

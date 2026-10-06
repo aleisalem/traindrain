@@ -434,6 +434,20 @@ Release 1 (learning modules) is complete — all 14 tickets, per
   (shown before the upload starts), and, on success, the conversion report plus a link to open the
   new draft for review. Full details in [docs/document-import.md](docs/document-import.md).
 
+Release 2 (campaigns and grading) is in progress:
+
+- Campaign drafts: a Content Manager builds a campaign — name, description, an ordered list of
+  modules (each `mandatory` or `recommended`, referenced by translation group), group targets,
+  optional start/due dates, and `auto_reminders`/`sequential` toggles — and saves it as a draft
+  that no learner sees and that sends nothing. `GET|POST /api/content/campaigns` and
+  `GET|PATCH /api/content/campaigns/{id}`; on `PATCH`, `modules` and `targets` are full
+  replacements. A campaign is visible only to its creator — everyone else gets a 404, never a
+  403 — and an individual target is a 403 for a Content Manager. A module that is unpublished or
+  deleted is allowed in a draft but reported per module. `campaign_created` and `campaign_updated`
+  are audit-logged. Frontend: `src/frontend/src/features/content/CampaignsPage.tsx` and
+  `CampaignBuilderPage.tsx` (`/content/campaigns`), reordering by drag-and-drop or buttons. Full
+  details in [docs/references/release-2-campaigns-grading/campaign-drafts.md](docs/references/release-2-campaigns-grading/campaign-drafts.md).
+
 Release 1 infrastructure (ticket 14, closing out the release):
 
 - Terraform under `.deploy/dev` for Release 1's own AWS footprint: the private module-assets S3
@@ -487,7 +501,8 @@ src/
       features/admin/  Admin-only route tree (overview, invite-a-user page, 2FA admin-disable page, user management page, role assignment page, groups page)
       features/content/  Content Manager authoring area (module list, metadata form, page editor,
                          preview, image/attachment panel, publish/version panel, assignment panel,
-                         a searchable per-module reports page, document import)
+                         a searchable per-module reports page, document import, campaign
+                         list and builder)
       content/         The checked-in ProseMirror schema and the Tiptap extension set built from it
       features/invites/  Public accept-invite page (set password, no session required)
       features/learning/  The learner's area (open catalog, "my learning", module viewer)

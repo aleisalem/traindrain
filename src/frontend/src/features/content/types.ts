@@ -181,3 +181,51 @@ export type DocumentImportResponse = {
   module: ModuleBody;
   conversion_report: ConversionReportEntry[];
 };
+
+export type CampaignStatus = "draft" | "active" | "suspended" | "closed";
+/** Whether learners could read a module right now. A draft campaign may name
+ *  anything; the builder flags what to fix before activating. */
+export type ModuleAvailability = "published" | "unpublished" | "deleted";
+
+export type CampaignModule = {
+  translation_group_id: string;
+  position: number;
+  requirement: Requirement;
+  title: string | null;
+  availability: ModuleAvailability;
+};
+
+export type CampaignTarget = {
+  type: AssignmentTargetType;
+  id: string;
+  /** A group's name; a person's only for an Administrator. */
+  name: string | null;
+};
+
+export type CampaignSummary = {
+  id: string;
+  name: string;
+  status: CampaignStatus;
+  start_date: string | null;
+  due_date: string | null;
+  module_count: number;
+  target_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Campaign = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: CampaignStatus;
+  sequential: boolean;
+  auto_reminders: boolean;
+  start_date: string | null;
+  due_date: string | null;
+  created_by: ModuleActor;
+  modules: CampaignModule[];
+  targets: CampaignTarget[];
+  created_at: string;
+  updated_at: string;
+};

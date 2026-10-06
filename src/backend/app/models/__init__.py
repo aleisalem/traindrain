@@ -1,5 +1,6 @@
 from app.models.assignment import Assignment
 from app.models.audit_log import AuditLog
+from app.models.campaign import Campaign, CampaignModule, CampaignTarget
 from app.models.group import Group, group_members
 from app.models.invite import Invite, invite_groups, invite_roles
 from app.models.login_attempt import LoginAttempt
@@ -24,6 +25,9 @@ from app.models.user import User
 __all__ = [
     "Assignment",
     "AuditLog",
+    "Campaign",
+    "CampaignModule",
+    "CampaignTarget",
     "Group",
     "Invite",
     "LoginAttempt",

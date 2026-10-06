@@ -6,6 +6,7 @@ import {
   BookIcon,
   ChartIcon,
   CompassIcon,
+  FlagIcon,
   GroupsIcon,
   LayersIcon,
   LockIcon,
@@ -52,6 +53,7 @@ export function getNavGroups(roles: string[], t: TFunction): NavGroup[] {
       label: t("content.nav_link"),
       items: [
         { to: "/content", label: t("content.nav_modules"), icon: LayersIcon, end: true },
+        { to: "/content/campaigns", label: t("campaigns.nav_link"), icon: FlagIcon },
         { to: "/content/reports", label: t("contentReports.nav_link"), icon: ChartIcon },
       ],
     });

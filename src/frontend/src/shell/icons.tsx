@@ -167,3 +167,12 @@ export function CameraIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function FlagIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 17V3.5" />
+      <path d="M5 4h9l-1.8 3L14 10H5" />
+    </Icon>
+  );
+}
