@@ -37,6 +37,7 @@ from app.assignments import (
 from app.campaigns import (
     campaign_translation_group_ids,
     campaigns_targeting,
+    suspended_translation_group_ids,
     compute_progress,
     is_current_completion,
     primary_variant_titles,
@@ -540,8 +541,15 @@ async def list_my_modules(
         if reach.may_read(user, module)
     }
 
+    # A module whose only route was a suspended campaign leaves "my learning"
+    # (progress kept; it returns on resume). One still reachable another way
+    # stays as a normal module.
+    hidden_by_suspension = (await suspended_translation_group_ids(db, user)) - available_groups
+
     summaries = []
     for row in rows:
+        if row.translation_group_id in hidden_by_suspension:
+            continue
         module = read_modules[_display_module_id(row)]
         version = published.get(module.current_version_id) if module.current_version_id else None
         snapshot = version.snapshot if version else {}

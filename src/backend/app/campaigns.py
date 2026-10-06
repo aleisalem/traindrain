@@ -252,6 +252,53 @@ async def close_campaign(db: AsyncSession, campaign: Campaign, *, actor_id: uuid
     )
 
 
+async def suspend_campaign(db: AsyncSession, campaign: Campaign, *, actor_id: uuid.UUID) -> None:
+    """active → suspended. Withdraws only the campaign's own route to its modules
+    (`campaign_translation_group_ids` looks at active and closed campaigns, so a
+    suspended one contributes nothing); progress rows are untouched, and a
+    direct assignment or the open catalog still reaches a module as before."""
+    await db.refresh(campaign, with_for_update=True)
+    if campaign.status != "active":
+        raise _conflict("invalid_transition", f"A {campaign.status} campaign cannot be suspended.")
+    campaign.status = "suspended"
+    await record_audit_log(
+        db,
+        actor_user_id=actor_id,
+        action="campaign_suspended",
+        detail={"campaign_id": str(campaign.id), "name": campaign.name},
+    )
+
+
+async def resume_campaign(db: AsyncSession, campaign: Campaign, *, actor_id: uuid.UUID) -> None:
+    """suspended → active. Due dates never shift on their own: a campaign
+    resumed past its due date succeeds but is flagged `due_date_lapsed` until an
+    author sets a later date."""
+    await db.refresh(campaign, with_for_update=True)
+    if campaign.status != "suspended":
+        raise _conflict("invalid_transition", f"A {campaign.status} campaign cannot be resumed.")
+    today = await deployment_today(db)
+    lapsed = campaign.due_date is not None and campaign.due_date < today
+    campaign.status = "active"
+    campaign.due_date_lapsed = lapsed
+    await record_audit_log(
+        db,
+        actor_user_id=actor_id,
+        action="campaign_resumed",
+        detail={
+            "campaign_id": str(campaign.id),
+            "name": campaign.name,
+            "due_date_lapsed": lapsed,
+        },
+    )
+
+
+async def suspended_translation_group_ids(db: AsyncSession, user: User) -> frozenset[uuid.UUID]:
+    """Material this user is targeted for only through a suspended campaign — used
+    to keep it out of "my learning" while no other route reaches it."""
+    suspended = await campaigns_targeting(db, user, statuses=("suspended",))
+    return frozenset(row.translation_group_id for c in suspended for row in c.modules)
+
+
 async def activate_due_campaigns(
     db: AsyncSession, ses_client: SESClient, *, today: date | None = None
 ) -> int:

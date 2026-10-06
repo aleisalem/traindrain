@@ -39,6 +39,7 @@ const CAMPAIGN: Campaign = {
   auto_reminders: true,
   start_date: null,
   due_date: null,
+  due_date_lapsed: false,
   created_by: ACTOR,
   collaborators: [{ id: "user-2", display_name: "Colin Collab" }],
   can_manage: true,
@@ -100,6 +101,15 @@ function stubFetch(calls: Call[], existing: Campaign | null = CAMPAIGN) {
         return json({ ...CAMPAIGN, status: "active" });
       }
       if (url.endsWith("/close") && method === "POST") return json({ ...CAMPAIGN, status: "closed" });
+      if (url.endsWith("/suspend") && method === "POST") {
+        return json({ ...CAMPAIGN, status: "suspended", due_date: "2020-01-01" });
+      }
+      if (url.endsWith("/resume") && method === "POST") {
+        return json({ ...CAMPAIGN, status: "active", due_date: "2020-01-01", due_date_lapsed: true });
+      }
+      if (url.endsWith("/camp-1") && method === "PATCH" && body?.due_date === "2999-01-01") {
+        return json({ ...CAMPAIGN, status: "active", due_date: "2999-01-01", due_date_lapsed: false });
+      }
       if (url.endsWith("/editing")) return json({ editors: [{ id: "user-9", display_name: "Eve Editor" }] });
       if (url === "/api/admin/users") {
         return json([
@@ -350,6 +360,43 @@ describe("CampaignBuilderPage", () => {
     const alert = await screen.findByText(/Publish these mandatory modules first: Unfinished/);
     expect(alert).toHaveTextContent("Add at least one target first.");
     expect(screen.getByRole("button", { name: "Activate campaign" })).toBeInTheDocument();
+  });
+
+  it("suspends an active campaign and offers resume instead", async () => {
+    const calls: Call[] = [];
+    stubFetch(calls, { ...CAMPAIGN, status: "active" });
+    renderBuilder("/content/campaigns/camp-1");
+    await screen.findByDisplayValue("Phishing programme");
+
+    await userEvent.click(screen.getByRole("button", { name: "Suspend campaign" }));
+
+    expect(await screen.findByRole("button", { name: "Resume campaign" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Suspend campaign" })).not.toBeInTheDocument();
+    expect(calls.some((c) => c.url.endsWith("/camp-1/suspend") && c.method === "POST")).toBe(true);
+  });
+
+  it("prompts for a new due date after resuming past the old one, and clears the warning once set", async () => {
+    const calls: Call[] = [];
+    stubFetch(calls, { ...CAMPAIGN, status: "suspended", due_date: "2020-01-01" });
+    renderBuilder("/content/campaigns/camp-1");
+    await screen.findByDisplayValue("Phishing programme");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Resume campaign" }));
+
+    const warning = await screen.findByRole("alert");
+    expect(warning).toHaveTextContent("The due date (2020-01-01) has already passed");
+    const setButton = within(warning).getByRole("button", { name: "Set due date" });
+    expect(setButton).toBeDisabled();
+
+    await userEvent.type(within(warning).getByLabelText("New due date"), "2999-01-01");
+    await userEvent.click(setButton);
+
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    const patch = calls.find((c) => c.method === "PATCH" && c.url.endsWith("/camp-1"));
+    expect(patch?.body).toEqual({ due_date: "2999-01-01" });
+    // The form's own due-date field follows, so a later save can't undo it.
+    await waitFor(() => expect(screen.getByDisplayValue("2999-01-01")).toBeInTheDocument());
   });
 
   it("closes an active campaign after confirmation", async () => {

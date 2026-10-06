@@ -155,6 +155,8 @@ class CampaignResponse(BaseModel):
     auto_reminders: bool
     start_date: date | None
     due_date: date | None
+    # True after a resume past the due date, until an author sets a later one.
+    due_date_lapsed: bool
     created_by: ModuleActor
     collaborators: list[ModuleActor]
     # Whether the caller may manage collaborators and delete the draft — the

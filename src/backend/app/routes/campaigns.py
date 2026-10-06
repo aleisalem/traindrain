@@ -20,7 +20,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.access import is_administrator, is_author
-from app.campaigns import activate_campaign, close_campaign
+from app.campaigns import activate_campaign, close_campaign, resume_campaign, suspend_campaign
 from app.db import get_db
 from app.dependencies import get_ses_client, require_content_manager
 from app.models import (
@@ -51,6 +51,7 @@ from app.schemas.campaigns import (
 from app.schemas.modules import ModuleActor, ModuleEditorsResponse
 from app.security.audit import record_audit_log
 from app.security.mailer import SESClient
+from app.security.system_settings import deployment_today
 
 router = APIRouter(prefix="/api/content/campaigns", tags=["campaigns"])
 
@@ -271,6 +272,7 @@ async def _to_response(db: AsyncSession, campaign: Campaign, *, caller: User) ->
         auto_reminders=campaign.auto_reminders,
         start_date=campaign.start_date,
         due_date=campaign.due_date,
+        due_date_lapsed=campaign.due_date_lapsed,
         created_by=ModuleActor.from_user(creator),
         collaborators=collaborators,
         can_manage=may_manage_campaign(caller, campaign),
@@ -401,6 +403,15 @@ async def update_campaign(
         )
 
     changed: list[str] = []
+    # A date that is today or later (or no date at all) settles the lapse;
+    # another past date does not.
+    if (
+        campaign.due_date_lapsed
+        and "due_date" in fields
+        and (due is None or due >= await deployment_today(db))
+    ):
+        campaign.due_date_lapsed = False
+        changed.append("due_date_lapsed")
     for field in ("name", "description", "start_date", "due_date", "auto_reminders", "sequential"):
         if field in fields and getattr(payload, field) != getattr(campaign, field):
             setattr(campaign, field, getattr(payload, field))
@@ -610,6 +621,38 @@ async def close(
     """active → closed: no new starts and no reminders, every record stays."""
     campaign = await _get_campaign_or_404(db, campaign_id, caller)
     await close_campaign(db, campaign, actor_id=caller.id)
+    campaign.updated_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(campaign)
+    return await _to_response(db, campaign, caller=caller)
+
+
+@router.post("/{campaign_id}/suspend", response_model=CampaignResponse)
+async def suspend(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    caller: User = Depends(require_content_manager),
+) -> CampaignResponse:
+    """active → suspended: the campaign's modules leave learners' view (unless
+    another route reaches them); progress is kept. Collaborators may do this."""
+    campaign = await _get_campaign_or_404(db, campaign_id, caller)
+    await suspend_campaign(db, campaign, actor_id=caller.id)
+    campaign.updated_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(campaign)
+    return await _to_response(db, campaign, caller=caller)
+
+
+@router.post("/{campaign_id}/resume", response_model=CampaignResponse)
+async def resume(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    caller: User = Depends(require_content_manager),
+) -> CampaignResponse:
+    """suspended → active. Succeeds even past the due date, flagging
+    `due_date_lapsed` until an author sets a later one."""
+    campaign = await _get_campaign_or_404(db, campaign_id, caller)
+    await resume_campaign(db, campaign, actor_id=caller.id)
     campaign.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(campaign)

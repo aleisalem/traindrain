@@ -639,6 +639,12 @@
     "close_button": "Kampagne schließen",
     "close_confirm": "Diese Kampagne schließen? Lernende können ihre Module dann nicht mehr neu beginnen.",
     "closed_description": "Diese Kampagne ist geschlossen. Fortschritt und Nachweise bleiben einsehbar.",
+    "suspend_button": "Kampagne aussetzen",
+    "suspended_description": "Diese Kampagne ist ausgesetzt. Lernende sehen ihre Module nicht und können sie nicht öffnen (außer über einen anderen Zugang). Der Fortschritt bleibt erhalten.",
+    "resume_button": "Kampagne fortsetzen",
+    "lapsed_warning": "Das Fälligkeitsdatum ({{date}}) ist bereits verstrichen. Legen Sie ein neues Fälligkeitsdatum fest, damit Lernenden keine überfällige Kampagne angezeigt wird.",
+    "lapsed_new_date_label": "Neues Fälligkeitsdatum",
+    "lapsed_set_button": "Datum festlegen",
     "transition_error_conflict": "Der Status der Kampagne hat sich geändert – laden Sie die Seite neu."
   }
 }

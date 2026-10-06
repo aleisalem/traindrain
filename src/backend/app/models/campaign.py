@@ -49,6 +49,10 @@ class Campaign(Base):
     auto_reminders: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     start_date: Mapped[date | None] = mapped_column(Date)
     due_date: Mapped[date | None] = mapped_column(Date)
+    # Set when a campaign is resumed after its due date has passed; cleared the
+    # moment an author sets a date that is not in the past. Stored (not derived)
+    # because a campaign that merely ran past its deadline is overdue, not lapsed.
+    due_date_lapsed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )

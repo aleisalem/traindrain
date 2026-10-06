@@ -560,7 +560,15 @@ export function CampaignBuilderPage({ isAdministrator = false }: { isAdministrat
       </section>
 
       {campaign && (
-        <CampaignLifecyclePanel campaign={campaign} onChanged={(updated) => setCampaign(updated)} />
+        <CampaignLifecyclePanel
+          campaign={campaign}
+          onChanged={(updated) => {
+            setCampaign(updated);
+            // The panel can set the due date itself; keep the form in step so
+            // a later save does not write the stale one back.
+            setDueDate(updated.due_date ?? "");
+          }}
+        />
       )}
 
       {campaign && (

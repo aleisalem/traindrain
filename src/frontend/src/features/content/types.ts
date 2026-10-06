@@ -223,6 +223,8 @@ export type Campaign = {
   auto_reminders: boolean;
   start_date: string | null;
   due_date: string | null;
+  /** Resumed after the due date passed; stays set until a later date is saved. */
+  due_date_lapsed: boolean;
   created_by: ModuleActor;
   collaborators: ModuleActor[];
   /** Creator or Administrator: may manage collaborators and delete the draft. */

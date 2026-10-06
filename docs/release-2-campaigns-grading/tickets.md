@@ -58,13 +58,13 @@ Work the **frontier**: any ticket whose blockers are all done. Tickets 1 and 8 c
 
 **Blocked by:** 3
 
-- [ ] `POST .../suspend` and `.../resume` with the transitions active ⇄ suspended; other transitions are a 409; collaborators may use them
-- [ ] Access decision tests the campaign's own route only; direct-assignment and catalog fallbacks keep working
-- [ ] Progress rows untouched; the `overdue` flag is never true for a suspended campaign's modules through the campaign route
-- [ ] Resume with a lapsed due date succeeds, flags a "due date lapsed" state in the response, and clears it once an author sets a later date
-- [ ] Frontend: suspend/resume controls, the new-due-date prompt, and the lapsed warning
-- [ ] `campaign_suspended` and `campaign_resumed` are audit-logged
-- [ ] Backend tests: fallback routes, 404 when no other route, frozen overdue, lapsed-date flow; frontend tests for the prompt
+- [x] `POST .../suspend` and `.../resume` with the transitions active ⇄ suspended; other transitions are a 409; collaborators may use them
+- [x] Access decision tests the campaign's own route only; direct-assignment and catalog fallbacks keep working
+- [x] Progress rows untouched; the `overdue` flag is never true for a suspended campaign's modules through the campaign route
+- [x] Resume with a lapsed due date succeeds, flags a "due date lapsed" state in the response, and clears it once an author sets a later date
+- [x] Frontend: suspend/resume controls, the new-due-date prompt, and the lapsed warning
+- [x] `campaign_suspended` and `campaign_resumed` are audit-logged
+- [x] Backend tests: fallback routes, 404 when no other route, frozen overdue, lapsed-date flow; frontend tests for the prompt
 
 ## 5. Sequential campaigns
 

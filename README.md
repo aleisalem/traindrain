@@ -473,6 +473,16 @@ Release 2 (campaigns and grading) is in progress:
   builder and `CampaignCard.tsx` on "My learning". Full details in
   [docs/references/release-2-campaigns-grading/campaign-activation.md](docs/references/release-2-campaigns-grading/campaign-activation.md).
 
+- Suspend and resume: `POST /api/content/campaigns/{id}/suspend` and `.../resume` (active ⇄
+  suspended; anything else is a 409; collaborators may use them). Suspension removes only the
+  campaign's own route to its modules — the campaign leaves "My learning" and its modules 404 for
+  learners, unless the open catalog or a direct assignment still reaches them as normal modules —
+  and progress is untouched. Due dates never shift on their own: resuming past the due date
+  succeeds but sets `due_date_lapsed` (shown as a warning with a date prompt in the builder) until
+  an author saves a later date. `campaign_suspended` and `campaign_resumed` are audit-logged. Full
+  details in
+  [docs/references/release-2-campaigns-grading/campaign-suspend-resume.md](docs/references/release-2-campaigns-grading/campaign-suspend-resume.md).
+
 Release 1 infrastructure (ticket 14, closing out the release):
 
 - Terraform under `.deploy/dev` for Release 1's own AWS footprint: the private module-assets S3

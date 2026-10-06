@@ -639,6 +639,12 @@
     "close_button": "Close campaign",
     "close_confirm": "Close this campaign? Learners can no longer start its modules.",
     "closed_description": "This campaign is closed. Progress and records remain readable.",
+    "suspend_button": "Suspend campaign",
+    "suspended_description": "This campaign is suspended. Learners cannot see or open its modules (unless they reach them another way). Progress is kept.",
+    "resume_button": "Resume campaign",
+    "lapsed_warning": "The due date ({{date}}) has already passed. Set a new due date so learners are not shown an overdue campaign.",
+    "lapsed_new_date_label": "New due date",
+    "lapsed_set_button": "Set due date",
     "transition_error_conflict": "The campaign's status has changed — reload the page."
   }
 }
