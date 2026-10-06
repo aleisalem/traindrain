@@ -460,6 +460,19 @@ Release 2 (campaigns and grading) is in progress:
   individual-target picker in `CampaignBuilderPage.tsx`. Full details in
   [docs/references/release-2-campaigns-grading/campaign-collaborators.md](docs/references/release-2-campaigns-grading/campaign-collaborators.md).
 
+- Campaign activation and the learner's campaign view: `POST /api/content/campaigns/{id}/activate`
+  and `.../close` move a campaign draft → active → closed (any other transition is a 409);
+  activation is refused (422) unless every mandatory module is published and someone is targeted,
+  and emails each currently-targeted learner once in their own language. `may_read_module` gained a
+  campaign branch — a module is readable through an active campaign that targets the learner,
+  derived live from current group membership (a closed campaign keeps only what was already
+  started) — asked by both the learner routes and asset delivery. `GET /api/me/campaigns` returns
+  each campaign with a live-computed "N of M required done" progress (a substantively republished
+  module reopens it). The daily `python -m app.jobs.send_reminders` job also activates campaigns
+  whose start date has arrived, idempotently. Frontend: `CampaignLifecyclePanel.tsx` in the
+  builder and `CampaignCard.tsx` on "My learning". Full details in
+  [docs/references/release-2-campaigns-grading/campaign-activation.md](docs/references/release-2-campaigns-grading/campaign-activation.md).
+
 Release 1 infrastructure (ticket 14, closing out the release):
 
 - Terraform under `.deploy/dev` for Release 1's own AWS footprint: the private module-assets S3
@@ -491,6 +504,7 @@ src/
       schemas/     Pydantic request/response models
       security/    Passwords, sessions, tokens, rate limiting, audit logging
       access.py    Who may read a module — one decision, asked by learners and by asset delivery
+      campaigns.py Campaign lifecycle (activate/close), live reach and completion, start-date activation
       assignments.py    Who a learner is assigned to read, resolved live against current group
                    membership — what `may_read_module` admits and what "my learning" lists
       reminders.py Scheduled cadence and manual-nudge logic shared by the daily job and the

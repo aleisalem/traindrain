@@ -41,16 +41,16 @@ Work the **frontier**: any ticket whose blockers are all done. Tickets 1 and 8 c
 
 **Blocked by:** 1
 
-- [ ] `POST /api/content/campaigns/{id}/activate` and `.../close` with the draft → active → closed transitions; any other transition is a 409
-- [ ] The single module read-access decision gains a campaign branch: a published module is readable if reachable through an active campaign the caller is targeted by; learner routes and asset delivery both ask that one decision
-- [ ] Campaign completion is computed live from module progress and never stored; completions superseded by a substantive republish do not count
-- [ ] Activation email sent once per currently-targeted learner via the existing mailer in their preferred language; learners joining later are not emailed retroactively
-- [ ] The daily job entrypoint activates campaigns whose start date has arrived and does nothing twice on a rerun
-- [ ] Closed campaigns block starting new modules but keep progress and records readable
-- [ ] `GET /api/me/modules` (or its successor) returns campaign grouping, requirement per module, due date, overdue flag, and campaign progress
-- [ ] Frontend: "My learning" campaign groups with progress bar and badges; activation controls in the builder
-- [ ] `campaign_activated` and `campaign_closed` are audit-logged
-- [ ] Backend tests: late joiner and leaver, mixed-route access, substantive republish reopening, start-date activation idempotence, validation refusals; frontend tests for the grouping and progress
+- [x] `POST /api/content/campaigns/{id}/activate` and `.../close` with the draft → active → closed transitions; any other transition is a 409
+- [x] The single module read-access decision gains a campaign branch: a published module is readable if reachable through an active campaign the caller is targeted by; learner routes and asset delivery both ask that one decision
+- [x] Campaign completion is computed live from module progress and never stored; completions superseded by a substantive republish do not count
+- [x] Activation email sent once per currently-targeted learner via the existing mailer in their preferred language; learners joining later are not emailed retroactively
+- [x] The daily job entrypoint activates campaigns whose start date has arrived and does nothing twice on a rerun
+- [x] Closed campaigns block starting new modules but keep progress and records readable
+- [x] `GET /api/me/modules` (or its successor) returns campaign grouping, requirement per module, due date, overdue flag, and campaign progress
+- [x] Frontend: "My learning" campaign groups with progress bar and badges; activation controls in the builder
+- [x] `campaign_activated` and `campaign_closed` are audit-logged
+- [x] Backend tests: late joiner and leaver, mixed-route access, substantive republish reopening, start-date activation idempotence, validation refusals; frontend tests for the grouping and progress
 
 ## 4. Suspend and resume
 

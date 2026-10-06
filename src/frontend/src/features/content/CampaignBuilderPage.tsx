@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { CampaignCollaboratorsPanel } from "./CampaignCollaboratorsPanel";
+import { CampaignLifecyclePanel } from "./CampaignLifecyclePanel";
 import { ModuleEditorsPresence } from "./ModuleEditorsPresence";
 import type {
   Campaign,
@@ -557,6 +558,10 @@ export function CampaignBuilderPage({ isAdministrator = false }: { isAdministrat
           </div>
         )}
       </section>
+
+      {campaign && (
+        <CampaignLifecyclePanel campaign={campaign} onChanged={(updated) => setCampaign(updated)} />
+      )}
 
       {campaign && (
         <CampaignCollaboratorsPanel

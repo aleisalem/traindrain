@@ -90,6 +90,16 @@ function stubFetch(calls: Call[], existing: Campaign | null = CAMPAIGN) {
       if (url === "/api/content/campaigns" && method === "POST") {
         return json({ ...(existing ?? CAMPAIGN), ...body, id: "camp-new" }, 201);
       }
+      if (url.endsWith("/activate") && method === "POST") {
+        if (existing?.id === "camp-refuse") {
+          return json(
+            { detail: { code: "campaign_not_activatable", unpublished_modules: ["g-draft"], no_targets: true } },
+            422,
+          );
+        }
+        return json({ ...CAMPAIGN, status: "active" });
+      }
+      if (url.endsWith("/close") && method === "POST") return json({ ...CAMPAIGN, status: "closed" });
       if (url.endsWith("/editing")) return json({ editors: [{ id: "user-9", display_name: "Eve Editor" }] });
       if (url === "/api/admin/users") {
         return json([
@@ -315,6 +325,42 @@ describe("CampaignBuilderPage", () => {
     stubFetch([]);
     renderBuilder("/content/campaigns/camp-1", true);
     expect(await screen.findByLabelText("Reassign creator")).toBeInTheDocument();
+  });
+
+  it("activates a draft and then offers closing instead", async () => {
+    const calls: Call[] = [];
+    stubFetch(calls);
+    renderBuilder("/content/campaigns/camp-1");
+    await screen.findByDisplayValue("Phishing programme");
+
+    await userEvent.click(screen.getByRole("button", { name: "Activate campaign" }));
+
+    expect(await screen.findByRole("button", { name: "Close campaign" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Activate campaign" })).not.toBeInTheDocument();
+    expect(calls.some((c) => c.url.endsWith("/camp-1/activate") && c.method === "POST")).toBe(true);
+  });
+
+  it("explains a refused activation by naming the unpublished modules", async () => {
+    stubFetch([], { ...CAMPAIGN, id: "camp-refuse" });
+    renderBuilder("/content/campaigns/camp-refuse");
+    await screen.findByDisplayValue("Phishing programme");
+
+    await userEvent.click(screen.getByRole("button", { name: "Activate campaign" }));
+
+    const alert = await screen.findByText(/Publish these mandatory modules first: Unfinished/);
+    expect(alert).toHaveTextContent("Add at least one target first.");
+    expect(screen.getByRole("button", { name: "Activate campaign" })).toBeInTheDocument();
+  });
+
+  it("closes an active campaign after confirmation", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    stubFetch([], { ...CAMPAIGN, status: "active" });
+    renderBuilder("/content/campaigns/camp-1");
+    await screen.findByDisplayValue("Phishing programme");
+
+    await userEvent.click(screen.getByRole("button", { name: "Close campaign" }));
+
+    expect(await screen.findByText(/This campaign is closed/)).toBeInTheDocument();
   });
 
   it("renders in German", async () => {

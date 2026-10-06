@@ -149,3 +149,33 @@ class LearnerModuleSummary(BaseModel):
     due_date: date | None
     requirement: Requirement | None
     overdue: bool
+
+
+class LearnerCampaignModule(BaseModel):
+    """One module inside a campaign, as this learner stands with it."""
+
+    translation_group_id: uuid.UUID
+    position: int
+    title: str
+    requirement: Requirement
+    # not_started | in_progress | completed. A completion a substantive
+    # republish superseded reads as in_progress: it must be read again.
+    state: str
+    # Whether it can be opened right now through this campaign.
+    available: bool
+    overdue: bool
+
+
+class LearnerCampaign(BaseModel):
+    """A campaign as its targeted learner sees it, computed on every read."""
+
+    id: uuid.UUID
+    name: str
+    description: str | None
+    status: str
+    due_date: date | None
+    overdue: bool
+    required_total: int
+    required_done: int
+    complete: bool
+    modules: list[LearnerCampaignModule]

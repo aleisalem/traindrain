@@ -20,8 +20,9 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.access import is_administrator, is_author
+from app.campaigns import activate_campaign, close_campaign
 from app.db import get_db
-from app.dependencies import require_content_manager
+from app.dependencies import get_ses_client, require_content_manager
 from app.models import (
     Campaign,
     CampaignCollaborator,
@@ -49,6 +50,7 @@ from app.schemas.campaigns import (
 )
 from app.schemas.modules import ModuleActor, ModuleEditorsResponse
 from app.security.audit import record_audit_log
+from app.security.mailer import SESClient
 
 router = APIRouter(prefix="/api/content/campaigns", tags=["campaigns"])
 
@@ -574,6 +576,44 @@ async def delete_campaign(
     )
     await db.delete(campaign)
     await db.commit()
+
+
+# --- Lifecycle ---------------------------------------------------------------
+
+
+@router.post("/{campaign_id}/activate", response_model=CampaignResponse)
+async def activate(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    caller: User = Depends(require_content_manager),
+    ses_client: SESClient = Depends(get_ses_client),
+) -> CampaignResponse:
+    """draft → active: learners see it, and each currently-targeted one is
+    emailed once. Refused (422) unless every mandatory module is published and
+    somebody is targeted. Anyone who may edit the campaign may activate it."""
+    campaign = await _get_campaign_or_404(db, campaign_id, caller)
+    # Emails go out before the commit, as for assignments: a failed send
+    # leaves no half-activated campaign behind to retry around.
+    await activate_campaign(db, ses_client, campaign, actor_id=caller.id)
+    campaign.updated_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(campaign)
+    return await _to_response(db, campaign, caller=caller)
+
+
+@router.post("/{campaign_id}/close", response_model=CampaignResponse)
+async def close(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    caller: User = Depends(require_content_manager),
+) -> CampaignResponse:
+    """active → closed: no new starts and no reminders, every record stays."""
+    campaign = await _get_campaign_or_404(db, campaign_id, caller)
+    await close_campaign(db, campaign, actor_id=caller.id)
+    campaign.updated_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(campaign)
+    return await _to_response(db, campaign, caller=caller)
 
 
 # --- Presence ------------------------------------------------------------------

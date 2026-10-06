@@ -469,7 +469,17 @@
     "requirement_mandatory": "Mandatory",
     "requirement_recommended": "Recommended",
     "due_on": "Due {{date}}",
-    "overdue_badge": "Overdue"
+    "overdue_badge": "Overdue",
+    "campaigns_heading": "Campaigns",
+    "campaign_progress": "{{done}} of {{total}} required done",
+    "campaign_no_required": "No required modules",
+    "campaign_complete": "Complete",
+    "campaign_closed": "Closed",
+    "campaign_overdue": "Overdue",
+    "other_modules_heading": "Other learning",
+    "module_state_completed": "Completed",
+    "module_state_in_progress": "In progress",
+    "module_state_not_started": "Not started"
   },
   "assignments": {
     "heading": "Assignment",
@@ -618,6 +628,17 @@
     "add_individual_button": "Add person",
     "delete_draft": "Delete draft",
     "delete_confirm": "Delete this draft permanently?",
-    "delete_error": "The draft could not be deleted."
+    "delete_error": "The draft could not be deleted.",
+    "lifecycle_heading": "Status",
+    "lifecycle_status": "This campaign is {{status}}.",
+    "activate_description": "Activating makes the campaign visible to everyone it targets and emails each of them once. Save your changes first — activation uses the saved campaign.",
+    "activate_button": "Activate campaign",
+    "activate_error_unpublished": "Publish these mandatory modules first: {{titles}}.",
+    "activate_error_no_targets": "Add at least one target first.",
+    "close_description": "Closing stops reminders and new starts. Everything learners already did stays on record.",
+    "close_button": "Close campaign",
+    "close_confirm": "Close this campaign? Learners can no longer start its modules.",
+    "closed_description": "This campaign is closed. Progress and records remain readable.",
+    "transition_error_conflict": "The campaign's status has changed — reload the page."
   }
 }

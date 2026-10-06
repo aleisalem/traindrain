@@ -49,6 +49,7 @@ def may_read_module(
     module: Module,
     *,
     assigned_group_ids: Collection[uuid.UUID] = frozenset(),
+    campaign_group_ids: Collection[uuid.UUID] = frozenset(),
 ) -> bool:
     """May this user read this module?
 
@@ -57,17 +58,24 @@ def may_read_module(
     point of it.
 
     Everyone else is a learner, and a learner may read a module only once it is
-    published, and only while it is either in the open catalog or assigned to
-    them — directly, or through a group they currently belong to
-    (`assigned_group_ids`, built by the caller from `app.assignments`). A
-    module that is neither is genuinely unreachable rather than merely absent
-    from a list — including for a learner who has the URL.
+    published, and only while it is in the open catalog, assigned to them —
+    directly, or through a group they currently belong to
+    (`assigned_group_ids`, built by the caller from `app.assignments`) — or
+    reachable through a campaign they are targeted by (`campaign_group_ids`,
+    from `app.campaigns.campaign_translation_group_ids`: active campaigns, plus
+    what a learner already started in a closed one). A module that is none of
+    these is genuinely unreachable rather than merely absent from a list —
+    including for a learner who has the URL.
     """
     if is_author(user):
         return True
     if module.status != "published":
         return False
-    return module.catalog_visible or module.translation_group_id in assigned_group_ids
+    return (
+        module.catalog_visible
+        or module.translation_group_id in assigned_group_ids
+        or module.translation_group_id in campaign_group_ids
+    )
 
 
 def ensure_module_editable(module: Module) -> None:

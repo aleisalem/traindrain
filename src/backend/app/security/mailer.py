@@ -20,6 +20,11 @@ _ASSIGNMENT_SUBJECTS = {
     "de": "Ihnen wurde ein neues Training auf TrainDrain zugewiesen",
 }
 
+_CAMPAIGN_ACTIVATION_SUBJECTS = {
+    "en": "A new training campaign has started on TrainDrain",
+    "de": "Eine neue Trainingskampagne hat auf TrainDrain begonnen",
+}
+
 _REMINDER_SUBJECTS = {
     "en": "Reminder: training due on TrainDrain",
     "de": "Erinnerung: Fälliges Training auf TrainDrain",
@@ -108,6 +113,40 @@ async def send_assignment_email(
     subject = _ASSIGNMENT_SUBJECTS.get(language, _ASSIGNMENT_SUBJECTS["en"])
     body = _assignment_email_body(
         language, module_title=module_title, due_date=due_date, module_url=module_url
+    )
+    await _send(ses_client, to_email=to_email, subject=subject, body=body)
+
+
+def _campaign_activation_email_body(
+    language: str, *, campaign_name: str, due_date: date | None, url: str
+) -> str:
+    if language == "de":
+        due_line = f"Fällig am: {due_date.isoformat()}\n\n" if due_date else ""
+        return (
+            f"Für Sie hat eine neue Trainingskampagne begonnen: {campaign_name}\n\n"
+            f"{due_line}"
+            f"Öffnen Sie Ihre Trainings hier:\n{url}"
+        )
+    due_line = f"Due: {due_date.isoformat()}\n\n" if due_date else ""
+    return (
+        f"A new training campaign has started for you: {campaign_name}\n\n"
+        f"{due_line}"
+        f"Open your learning here:\n{url}"
+    )
+
+
+async def send_campaign_activation_email(
+    ses_client: SESClient,
+    *,
+    to_email: str,
+    language: str,
+    campaign_name: str,
+    due_date: date | None,
+    url: str,
+) -> None:
+    subject = _CAMPAIGN_ACTIVATION_SUBJECTS.get(language, _CAMPAIGN_ACTIVATION_SUBJECTS["en"])
+    body = _campaign_activation_email_body(
+        language, campaign_name=campaign_name, due_date=due_date, url=url
     )
     await _send(ses_client, to_email=to_email, subject=subject, body=body)
 

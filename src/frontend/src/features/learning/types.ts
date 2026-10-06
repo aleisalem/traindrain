@@ -91,3 +91,30 @@ export type LearnerModuleSummary = {
   requirement: Requirement | null;
   overdue: boolean;
 };
+
+export type LearnerCampaignModule = {
+  translation_group_id: string;
+  position: number;
+  title: string;
+  requirement: Requirement;
+  /** A completion a substantive republish superseded reads as `in_progress`. */
+  state: "not_started" | "in_progress" | "completed";
+  /** Whether it can be opened right now through this campaign. */
+  available: boolean;
+  overdue: boolean;
+};
+
+/** A campaign as its targeted learner sees it. Progress is computed by the
+ *  server on every read — nothing here is stored. */
+export type LearnerCampaign = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: "active" | "closed";
+  due_date: string | null;
+  overdue: boolean;
+  required_total: number;
+  required_done: number;
+  complete: boolean;
+  modules: LearnerCampaignModule[];
+};

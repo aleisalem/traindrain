@@ -469,7 +469,17 @@
     "requirement_mandatory": "Verpflichtend",
     "requirement_recommended": "Empfohlen",
     "due_on": "Fällig am {{date}}",
-    "overdue_badge": "Überfällig"
+    "overdue_badge": "Überfällig",
+    "campaigns_heading": "Kampagnen",
+    "campaign_progress": "{{done}} von {{total}} Pflichtmodulen erledigt",
+    "campaign_no_required": "Keine Pflichtmodule",
+    "campaign_complete": "Abgeschlossen",
+    "campaign_closed": "Geschlossen",
+    "campaign_overdue": "Überfällig",
+    "other_modules_heading": "Weitere Lerninhalte",
+    "module_state_completed": "Abgeschlossen",
+    "module_state_in_progress": "In Bearbeitung",
+    "module_state_not_started": "Nicht begonnen"
   },
   "assignments": {
     "heading": "Zuweisung",
@@ -618,6 +628,17 @@
     "add_individual_button": "Person hinzufügen",
     "delete_draft": "Entwurf löschen",
     "delete_confirm": "Diesen Entwurf endgültig löschen?",
-    "delete_error": "Der Entwurf konnte nicht gelöscht werden."
+    "delete_error": "Der Entwurf konnte nicht gelöscht werden.",
+    "lifecycle_heading": "Status",
+    "lifecycle_status": "Diese Kampagne ist {{status}}.",
+    "activate_description": "Die Aktivierung macht die Kampagne für alle Zielpersonen sichtbar und sendet jeder Person einmal eine E-Mail. Speichern Sie zuerst Ihre Änderungen – die Aktivierung nutzt die gespeicherte Kampagne.",
+    "activate_button": "Kampagne aktivieren",
+    "activate_error_unpublished": "Veröffentlichen Sie zuerst diese verpflichtenden Module: {{titles}}.",
+    "activate_error_no_targets": "Fügen Sie zuerst mindestens ein Ziel hinzu.",
+    "close_description": "Das Schließen beendet Erinnerungen und neue Starts. Alles, was Lernende bereits erledigt haben, bleibt erhalten.",
+    "close_button": "Kampagne schließen",
+    "close_confirm": "Diese Kampagne schließen? Lernende können ihre Module dann nicht mehr neu beginnen.",
+    "closed_description": "Diese Kampagne ist geschlossen. Fortschritt und Nachweise bleiben einsehbar.",
+    "transition_error_conflict": "Der Status der Kampagne hat sich geändert – laden Sie die Seite neu."
   }
 }

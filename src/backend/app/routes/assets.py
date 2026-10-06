@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.access import ensure_module_editable, may_read_module
 from app.assignments import assigned_translation_group_ids
+from app.campaigns import campaign_translation_group_ids
 from app.content.uploads import UploadRejected, sniff_upload
 from app.core.config import get_settings
 from app.db import get_db
@@ -387,7 +388,10 @@ async def authorize_asset_access(db: AsyncSession, user: User, module: Module) -
     exists is not something to confirm to somebody who may not read it.
     """
     assigned = await assigned_translation_group_ids(db, user)
-    if not may_read_module(user, module, assigned_group_ids=assigned):
+    via_campaign = await campaign_translation_group_ids(db, user)
+    if not may_read_module(
+        user, module, assigned_group_ids=assigned, campaign_group_ids=via_campaign
+    ):
         raise _ASSET_NOT_FOUND
 
 
