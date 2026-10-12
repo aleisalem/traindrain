@@ -72,12 +72,12 @@ Work the **frontier**: any ticket whose blockers are all done. Tickets 1 and 8 c
 
 **Blocked by:** 3
 
-- [ ] The access decision returns a locked result for a sequential campaign's module whose predecessor is incomplete; viewer routes respond accordingly and never serve its pages or assets
-- [ ] "Complete or passed" is evaluated against one completion notion so that quiz-gated and (later) SCORM completions feed it
-- [ ] A learner reaching the module through another route (direct assignment or catalog) is not locked by the campaign
-- [ ] The learner API reports lock state and the prerequisite module
-- [ ] Frontend: locked-module rendering with the unlocking prerequisite, keyboard- and screen-reader-friendly
-- [ ] Backend tests: lock by direct URL and asset URL, unlock on completion, superseded completion relocking, other-route exemption; frontend tests for locked rendering
+- [x] The access decision returns a locked result for a sequential campaign's module whose predecessor is incomplete; viewer routes respond accordingly and never serve its pages or assets
+- [x] "Complete or passed" is evaluated against one completion notion so that quiz-gated and (later) SCORM completions feed it
+- [x] A learner reaching the module through another route (direct assignment or catalog) is not locked by the campaign
+- [x] The learner API reports lock state and the prerequisite module
+- [x] Frontend: locked-module rendering with the unlocking prerequisite, keyboard- and screen-reader-friendly
+- [x] Backend tests: lock by direct URL and asset URL, unlock on completion, superseded completion relocking, other-route exemption; frontend tests for locked rendering
 
 ## 6. Active-campaign edit safeguards
 

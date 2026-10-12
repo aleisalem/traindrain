@@ -101,6 +101,10 @@ export type LearnerCampaignModule = {
   state: "not_started" | "in_progress" | "completed";
   /** Whether it can be opened right now through this campaign. */
   available: boolean;
+  /** Held back by a sequential campaign until `prerequisite_*` is complete. */
+  locked: boolean;
+  prerequisite_translation_group_id: string | null;
+  prerequisite_title: string | null;
   overdue: boolean;
 };
 
@@ -111,6 +115,7 @@ export type LearnerCampaign = {
   name: string;
   description: string | null;
   status: "active" | "closed";
+  sequential: boolean;
   due_date: string | null;
   overdue: boolean;
   required_total: number;

@@ -35,12 +35,13 @@ from app.assignments import (
     is_overdue,
 )
 from app.campaigns import (
-    campaign_translation_group_ids,
+    campaign_access,
     campaigns_targeting,
     suspended_translation_group_ids,
     compute_progress,
     is_current_completion,
     primary_variant_titles,
+    sequential_locks,
 )
 from app.db import get_db
 from app.dependencies import require_active_user
@@ -92,6 +93,9 @@ class LearnerReach:
 
     assigned: frozenset[uuid.UUID]
     campaign: frozenset[uuid.UUID]
+    # group -> the prerequisite group a sequential campaign still holds in front
+    # of it. Only meaningful when no other route admits the learner.
+    locked: dict[uuid.UUID, uuid.UUID]
 
     def may_read(self, user: User, module: Module) -> bool:
         return may_read_module(
@@ -102,9 +106,11 @@ class LearnerReach:
 async def _learner_reach(
     db: AsyncSession, user: User, assigned: frozenset[uuid.UUID] | None = None
 ) -> LearnerReach:
+    access = await campaign_access(db, user)
     return LearnerReach(
         assigned=assigned if assigned is not None else await assigned_translation_group_ids(db, user),
-        campaign=await campaign_translation_group_ids(db, user),
+        campaign=access.open,
+        locked=access.locked,
     )
 
 
@@ -186,6 +192,18 @@ async def _resolve_readable_variant(
         primary_module_id=group.primary_module_id if group else None,
         sticky_module_id=existing.module_id if existing else None,
     )
+    if variant is None and group_id in reach.locked:
+        # Reached only through a sequential campaign that has not unlocked it.
+        # Not a 404: the learner is targeted by that campaign and is told what
+        # stands in front of the module. No page or attachment is served.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "module_locked",
+                "message": "Complete the previous module in this campaign to unlock this one.",
+                "prerequisite_translation_group_id": str(reach.locked[group_id]),
+            },
+        )
     if variant is None or variant.current_version_id is None:
         raise _UNAVAILABLE
 
@@ -637,12 +655,31 @@ async def list_my_campaigns(
     versions = await _versions_by_id(db, list(chosen.values()))
     fallback_titles = await primary_variant_titles(db, group_ids)
 
+    def chosen_title(group_id: uuid.UUID) -> str:
+        variant = chosen.get(group_id)
+        version = (
+            versions.get(variant.current_version_id)
+            if variant is not None and variant.current_version_id
+            else None
+        )
+        if version is not None and variant is not None:
+            return version.snapshot.get("title", variant.title)
+        return fallback_titles.get(group_id, "")
+
     results = []
     for campaign in sorted(campaigns, key=lambda c: (c.due_date is None, c.due_date, c.name)):
         started_any = any(row.translation_group_id in progress for row in campaign.modules)
         if campaign.status == "closed" and not started_any:
             continue
         summary = compute_progress(campaign.modules, progress)
+        locks = (
+            sequential_locks(campaign.modules, progress, set(published))
+            if campaign.sequential and campaign.status == "active"
+            else {}
+        )
+        titles_by_group = {
+            row.translation_group_id: chosen_title(row.translation_group_id) for row in campaign.modules
+        }
         overdue = (
             campaign.status == "active"
             and not summary.complete
@@ -653,16 +690,10 @@ async def list_my_campaigns(
             group_id = row.translation_group_id
             row_progress = progress.get(group_id)
             variant = chosen.get(group_id)
-            version = (
-                versions.get(variant.current_version_id)
-                if variant is not None and variant.current_version_id
-                else None
-            )
-            title = (
-                version.snapshot.get("title", variant.title)
-                if version is not None and variant is not None
-                else fallback_titles.get(group_id, "")
-            )
+            title = titles_by_group[group_id]
+            available = variant is not None and reach.may_read(user, variant)
+            # Locked by *this* campaign only when nothing else reaches it.
+            prerequisite = locks.get(group_id) if variant is not None and not available else None
             done = is_current_completion(row_progress)
             state = "completed" if done else ("in_progress" if row_progress else "not_started")
             modules.append(
@@ -672,7 +703,12 @@ async def list_my_campaigns(
                     title=title,
                     requirement=row.requirement,
                     state=state,
-                    available=variant is not None and reach.may_read(user, variant),
+                    available=available,
+                    locked=prerequisite is not None,
+                    prerequisite_translation_group_id=prerequisite,
+                    prerequisite_title=(
+                        titles_by_group.get(prerequisite) if prerequisite else None
+                    ),
                     overdue=overdue and row.requirement == "mandatory" and not done,
                 )
             )
@@ -682,6 +718,7 @@ async def list_my_campaigns(
                 name=campaign.name,
                 description=campaign.description,
                 status=campaign.status,
+                sequential=campaign.sequential,
                 due_date=campaign.due_date,
                 overdue=overdue,
                 required_total=summary.required_total,

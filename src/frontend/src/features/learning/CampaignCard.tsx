@@ -82,7 +82,7 @@ export function CampaignCard({ campaign }: { campaign: LearnerCampaign }) {
         {campaign.modules.map((row) => (
           <li
             key={row.translation_group_id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-4 py-3"
+            className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-4 py-3 ${row.locked ? "bg-bg opacity-80" : ""}`}
           >
             <div className="flex flex-col gap-0.5">
               <span className="font-medium">{row.title}</span>
@@ -104,6 +104,13 @@ export function CampaignCard({ campaign }: { campaign: LearnerCampaign }) {
                     ? t("learning.continue")
                     : t("learning.start")}
               </Link>
+            ) : row.locked ? (
+              <span className="text-sm font-medium text-fg-muted">
+                <span aria-hidden="true">🔒 </span>
+                {row.prerequisite_title
+                  ? t("learning.locked_until", { title: row.prerequisite_title })
+                  : t("learning.locked")}
+              </span>
             ) : (
               <span className="text-sm text-fg-muted">{t("learning.unavailable_short")}</span>
             )}

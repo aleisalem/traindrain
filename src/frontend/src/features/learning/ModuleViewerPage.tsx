@@ -11,6 +11,8 @@ type ViewState =
   /** The module was withdrawn, or was never open to this learner. Both look the
    *  same on purpose — the server does not say which, and neither does this. */
   | { status: "unavailable" }
+  /** Held back by a sequential campaign: the server names what unlocks it. */
+  | { status: "locked"; prerequisiteId: string | null }
   | { status: "error" };
 
 const pillClassName =
@@ -76,6 +78,17 @@ export function ModuleViewerPage() {
         if (response.status === 404) {
           if (!cancelled) setState({ status: "unavailable" });
           return;
+        }
+        if (response.status === 403) {
+          const body = await response.json().catch(() => null);
+          if (body?.detail?.code === "module_locked") {
+            if (!cancelled)
+              setState({
+                status: "locked",
+                prerequisiteId: body.detail.prerequisite_translation_group_id ?? null,
+              });
+            return;
+          }
         }
         if (!response.ok) {
           if (!cancelled) setState({ status: "error" });
@@ -188,6 +201,31 @@ export function ModuleViewerPage() {
   }, [groupId, t]);
 
   if (state.status === "loading") return null;
+
+  if (state.status === "locked") {
+    return (
+      <section className="flex max-w-2xl flex-col items-start gap-4">
+        <h2 className="text-xl font-semibold">{t("learning.locked_heading")}</h2>
+        <p role="alert" className="text-sm text-fg-muted">
+          {t("learning.locked_body")}
+        </p>
+        {state.prerequisiteId && (
+          <Link
+            to={`/modules/${state.prerequisiteId}`}
+            className={pillClassName}
+          >
+            {t("learning.locked_open_prerequisite")}
+          </Link>
+        )}
+        <Link
+          to="/modules"
+          className={pillClassName}
+        >
+          {t("learning.back_to_mine")}
+        </Link>
+      </section>
+    );
+  }
 
   if (state.status === "unavailable" || state.status === "error") {
     return (

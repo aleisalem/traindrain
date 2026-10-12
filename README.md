@@ -483,6 +483,15 @@ Release 2 (campaigns and grading) is in progress:
   details in
   [docs/references/release-2-campaigns-grading/campaign-suspend-resume.md](docs/references/release-2-campaigns-grading/campaign-suspend-resume.md).
 
+- Sequential campaigns: with `sequential` on, module N of a campaign is locked until module N−1
+  (the campaign's own module order) is a current completion. Enforced server-side through the one
+  access decision — a locked module returns 403 `module_locked` (with its prerequisite) from the
+  viewer, page-view and attestation routes and 404 from asset delivery; a module also reachable via
+  the catalog or a direct assignment is not locked, and a superseded completion relocks. `GET
+  /api/me/campaigns` reports `locked` and the prerequisite per module; the frontend shows the
+  unlocking module on "My learning" and a locked state in the viewer. Full details in
+  [docs/references/release-2-campaigns-grading/campaign-sequential.md](docs/references/release-2-campaigns-grading/campaign-sequential.md).
+
 Release 1 infrastructure (ticket 14, closing out the release):
 
 - Terraform under `.deploy/dev` for Release 1's own AWS footprint: the private module-assets S3

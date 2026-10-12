@@ -13,6 +13,7 @@ activation).
 
 import logging
 import uuid
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date
 
@@ -72,30 +73,111 @@ async def campaigns_targeting(
     )
 
 
-async def campaign_translation_group_ids(db: AsyncSession, user: User) -> frozenset[uuid.UUID]:
+@dataclass(frozen=True)
+class CampaignAccess:
+    """What a learner can reach *through campaigns*, right now.
+
+    `open` is readable. `locked` maps a group that a sequential campaign would
+    otherwise open to the prerequisite group still standing in front of it — it
+    is deliberately not in `open`, so every consumer of `open` (the learner
+    routes, asset delivery) refuses it without knowing locks exist.
+    """
+
+    open: frozenset[uuid.UUID]
+    locked: dict[uuid.UUID, uuid.UUID]
+
+
+def sequential_locks(
+    modules: list[CampaignModule],
+    progress: dict[uuid.UUID, ModuleProgress],
+    published_groups: Collection[uuid.UUID],
+) -> dict[uuid.UUID, uuid.UUID]:
+    """For one sequential campaign: group -> the prerequisite group it waits on.
+
+    Module N waits on module N-1 until that is a current completion — the one
+    completion notion (`is_current_completion`) the campaign progress bar uses,
+    so a superseded completion relocks its successor and any later
+    quiz-gated completion feeds this with no change here. A predecessor with
+    nothing published (a draft, a tombstone) cannot be completed by anyone, so
+    it is skipped in favour of the nearest earlier one that can — otherwise a
+    single withdrawn module would lock the rest of the campaign for good.
+    """
+    locks: dict[uuid.UUID, uuid.UUID] = {}
+    previous: uuid.UUID | None = None
+    for row in modules:  # ordered by position
+        group_id = row.translation_group_id
+        if previous is not None and not is_current_completion(progress.get(previous)):
+            locks[group_id] = previous
+        if group_id in published_groups:
+            previous = group_id
+    return locks
+
+
+async def campaign_access(db: AsyncSession, user: User) -> CampaignAccess:
     """The material this user may read *through a campaign*, right now.
 
-    Active campaigns open all of their modules. A closed campaign opens only
-    what the learner had already started: closing stops new starts but keeps
-    every record readable. Cheap on purpose — `may_read_module` needs this on
-    every request.
+    Active campaigns open their modules, except that a sequential one holds
+    back any module whose predecessor is incomplete. A closed campaign opens
+    only what the learner had already started: closing stops new starts but
+    keeps every record readable. A group several campaigns reach is open if any
+    of them opens it. Cheap on purpose — `may_read_module` needs this on every
+    request.
     """
     active = await campaigns_targeting(db, user, statuses=("active",))
     closed = await campaigns_targeting(db, user, statuses=("closed",))
 
-    group_ids = {row.translation_group_id for c in active for row in c.modules}
     closed_ids = {row.translation_group_id for c in closed for row in c.modules}
-    if closed_ids:
-        started = (
-            await db.execute(
-                select(ModuleProgress.translation_group_id).where(
-                    ModuleProgress.user_id == user.id,
-                    ModuleProgress.translation_group_id.in_(closed_ids),
+    sequential = [c for c in active if c.sequential]
+    sequential_ids = {row.translation_group_id for c in sequential for row in c.modules}
+    progress_ids = closed_ids | sequential_ids
+    progress: dict[uuid.UUID, ModuleProgress] = {}
+    if progress_ids:
+        progress = {
+            row.translation_group_id: row
+            for row in (
+                await db.execute(
+                    select(ModuleProgress).where(
+                        ModuleProgress.user_id == user.id,
+                        ModuleProgress.translation_group_id.in_(progress_ids),
+                    )
                 )
-            )
-        ).scalars()
-        group_ids |= set(started)
-    return frozenset(group_ids)
+            ).scalars()
+        }
+    published: set[uuid.UUID] = set()
+    if sequential_ids:
+        published = set(
+            (
+                await db.execute(
+                    select(Module.translation_group_id).where(
+                        Module.translation_group_id.in_(sequential_ids),
+                        Module.status == "published",
+                        Module.current_version_id.is_not(None),
+                    )
+                )
+            ).scalars()
+        )
+
+    open_ids: set[uuid.UUID] = set()
+    locked: dict[uuid.UUID, uuid.UUID] = {}
+    for campaign in sorted(active, key=lambda c: (c.name, str(c.id))):
+        locks = (
+            sequential_locks(campaign.modules, progress, published) if campaign.sequential else {}
+        )
+        for row in campaign.modules:
+            if row.translation_group_id in locks:
+                locked.setdefault(row.translation_group_id, locks[row.translation_group_id])
+            else:
+                open_ids.add(row.translation_group_id)
+    open_ids |= closed_ids & set(progress)
+    return CampaignAccess(
+        open=frozenset(open_ids),
+        locked={g: p for g, p in locked.items() if g not in open_ids},
+    )
+
+
+async def campaign_translation_group_ids(db: AsyncSession, user: User) -> frozenset[uuid.UUID]:
+    """The material this user may read through a campaign (locked modules excluded)."""
+    return (await campaign_access(db, user)).open
 
 
 async def resolve_campaign_audience(db: AsyncSession, campaign: Campaign) -> list[User]:

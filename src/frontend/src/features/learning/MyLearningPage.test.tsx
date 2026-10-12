@@ -29,15 +29,16 @@ const CAMPAIGN: LearnerCampaign = {
   name: "Phishing programme",
   description: null,
   status: "active",
+  sequential: false,
   due_date: "2020-01-01",
   overdue: true,
   required_total: 5,
   required_done: 3,
   complete: false,
   modules: [
-    { translation_group_id: "g1", position: 0, title: "Spot a phish", requirement: "mandatory", state: "completed", available: true, overdue: false },
-    { translation_group_id: "g2", position: 1, title: "Report a phish", requirement: "mandatory", state: "not_started", available: true, overdue: true },
-    { translation_group_id: "g3", position: 2, title: "Bonus reading", requirement: "recommended", state: "not_started", available: false, overdue: false },
+    { translation_group_id: "g1", position: 0, title: "Spot a phish", requirement: "mandatory", state: "completed", available: true, locked: false, prerequisite_translation_group_id: null, prerequisite_title: null, overdue: false },
+    { translation_group_id: "g2", position: 1, title: "Report a phish", requirement: "mandatory", state: "not_started", available: true, locked: false, prerequisite_translation_group_id: null, prerequisite_title: null, overdue: true },
+    { translation_group_id: "g3", position: 2, title: "Bonus reading", requirement: "recommended", state: "not_started", available: false, locked: false, prerequisite_translation_group_id: null, prerequisite_title: null, overdue: false },
   ],
 };
 
@@ -84,6 +85,31 @@ describe("MyLearningPage campaigns", () => {
     expect(within(card).getByText(/Recommended · Not started/)).toBeInTheDocument();
     // Not openable through this campaign → no link, an explanation instead.
     expect(within(card).getByText("No longer available")).toBeInTheDocument();
+  });
+
+  it("renders a locked module with what unlocks it and no link", async () => {
+    const sequential: LearnerCampaign = {
+      ...CAMPAIGN,
+      sequential: true,
+      modules: [
+        CAMPAIGN.modules[0],
+        {
+          ...CAMPAIGN.modules[1],
+          state: "not_started",
+          available: false,
+          locked: true,
+          prerequisite_translation_group_id: "g1",
+          prerequisite_title: "Spot a phish",
+        },
+      ],
+    };
+    stub([sequential], []);
+    renderPage();
+    const bar = await screen.findByRole("progressbar");
+    const card = bar.closest("li") as HTMLElement;
+    expect(within(card).getByText(/Locked — finish “Spot a phish” first/)).toBeInTheDocument();
+    // Only the unlocked module offers a link.
+    expect(within(card).getAllByRole("link")).toHaveLength(1);
   });
 
   it("does not list a campaign's module a second time among the other modules", async () => {

@@ -345,6 +345,9 @@ export function CampaignBuilderPage({ isAdministrator = false }: { isAdministrat
           />
           {t("campaigns.sequential_label")}
         </label>
+        {sequential && (
+          <p className="text-sm text-fg-muted">{t("campaigns.sequential_hint")}</p>
+        )}
       </section>
 
       <section className={cardClassName}>

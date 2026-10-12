@@ -163,6 +163,11 @@ class LearnerCampaignModule(BaseModel):
     state: str
     # Whether it can be opened right now through this campaign.
     available: bool
+    # A sequential campaign holds this module back until the one before it is
+    # complete (and no other route — catalog, assignment — reaches it).
+    locked: bool = False
+    prerequisite_translation_group_id: uuid.UUID | None = None
+    prerequisite_title: str | None = None
     overdue: bool
 
 
@@ -173,6 +178,7 @@ class LearnerCampaign(BaseModel):
     name: str
     description: str | None
     status: str
+    sequential: bool = False
     due_date: date | None
     overdue: bool
     required_total: int
