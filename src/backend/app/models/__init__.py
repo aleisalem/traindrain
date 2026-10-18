@@ -20,6 +20,7 @@ from app.models.module import (
     ModuleVersion,
 )
 from app.models.password_reset_token import PasswordResetToken
+from app.models.quiz import ModuleQuiz, QuizOption, QuizQuestion
 from app.models.reminder import CampaignReminder, ModuleReminder
 from app.models.role import Role, user_roles
 from app.models.session import Session
@@ -45,10 +46,13 @@ __all__ = [
     "ModuleEditSession",
     "ModulePage",
     "ModuleProgress",
+    "ModuleQuiz",
     "ModuleReminder",
     "ModuleTranslationGroup",
     "ModuleVersion",
     "PasswordResetToken",
+    "QuizOption",
+    "QuizQuestion",
     "RecoveryCode",
     "Role",
     "Session",

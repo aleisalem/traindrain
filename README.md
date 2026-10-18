@@ -514,6 +514,18 @@ Release 2 (campaigns and grading) is in progress:
   `CampaignLifecyclePanel.tsx`. Full details in
   [docs/references/release-2-campaigns-grading/campaign-reminders.md](docs/references/release-2-campaigns-grading/campaign-reminders.md).
 
+- Quiz authoring and snapshotting: a Content Manager adds a quiz to a module draft —
+  single-choice, multiple-choice and true/false questions with rich-text prompts (the same
+  validated ProseMirror subset as pages, rejected never stripped), correct answers, optional
+  explanations, a pass mark (default 80%), an optional attempt cap, a shuffle toggle and a
+  reveal-after-pass toggle. `GET|PUT|DELETE /api/content/modules/{id}/quiz`, question CRUD under
+  `.../quiz/questions`, and `POST .../quiz/tryout`, which grades server-side and records nothing.
+  Publishing refuses an invalid quiz (422 `invalid_quiz`) and freezes a valid one into the
+  immutable version snapshot; `GET .../revision-impact` also reports `quiz_change` and how many
+  learners a substantive publish would send back to the quiz (removing a quiz is always minor).
+  Frontend: `ModuleQuizPanel.tsx`, `QuizQuestionForm.tsx`, `QuizTryout.tsx`. Full details in
+  [docs/references/release-2-campaigns-grading/quiz-authoring.md](docs/references/release-2-campaigns-grading/quiz-authoring.md).
+
 Release 1 infrastructure (ticket 14, closing out the release):
 
 - Terraform under `.deploy/dev` for Release 1's own AWS footprint: the private module-assets S3
@@ -553,6 +565,7 @@ src/
       reporting.py Who is targeted and where they stand, walked once per group (Content Manager)
                    and once for the full roster (Administrator) — what the report endpoint and its
                    CSV export both read
+      quiz.py      Quiz serialization, the publish-time validity gate and server-side grading
       search.py    Language-aware title/description search and tag filtering, shared by the
                    authoring module list and the learner catalog so they can't disagree
       jobs/        Entrypoints invoked as scripts rather than through the API — `send_reminders.py`
@@ -616,6 +629,11 @@ This starts:
   ```bash
   docker-compose run --rm reminder-runner python -m app.jobs.send_reminders
   ```
+
+To read the emails the app has "sent" (LocalStack stores them rather than delivering them), run
+`python3 scripts/show-emails.py` — it prints each message's recipient, subject, and body. Use
+`-t user@example.com` to filter by recipient, `-n 3` for the latest few, and `--clear` to empty the
+store.
 
 For day-to-day frontend development with hot-module-reload, run the Vite dev server natively on
 the host instead of relying on the containerized build:

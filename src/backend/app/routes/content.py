@@ -27,11 +27,13 @@ from app.models import (
     ModuleEditSession,
     ModulePage,
     ModuleProgress,
+    ModuleQuiz,
     ModuleTranslationGroup,
     ModuleVersion,
     Tag,
     User,
 )
+from app.quiz import classify_change, load_draft_quiz, quiz_problems, serialize_quiz
 from app.routes.assets import asset_url
 from app.schemas.modules import (
     DeletionImpactResponse,
@@ -556,7 +558,9 @@ async def delete_page(
 # moved on since.
 
 
-def _build_snapshot(module: Module, pages: list[ModulePage]) -> dict[str, Any]:
+def _build_snapshot(
+    module: Module, pages: list[ModulePage], quiz: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Everything a learner reads at this version, frozen.
 
     Page ids travel into the snapshot because ticket 5's progress tracking
@@ -566,6 +570,11 @@ def _build_snapshot(module: Module, pages: list[ModulePage]) -> dict[str, Any]:
     """
     return {
         "schema_version": SCHEMA_VERSION,
+        # The quiz as it stood at publish time, correct answers included — this
+        # is server-side evidence, and learner routes never serialize it as is.
+        # None for a module without one, and absent from versions published
+        # before quizzes existed (read with `.get`).
+        "quiz": quiz,
         "title": module.title,
         "description": module.description,
         "language": module.language,
@@ -649,6 +658,21 @@ async def _send_learners_back(db: AsyncSession, module: Module) -> int:
     return sum(1 for (completed_at,) in rows if completed_at is not None)
 
 
+async def _draft_quiz_snapshot(db: AsyncSession, module: Module) -> dict[str, Any] | None:
+    loaded = await load_draft_quiz(db, module.id)
+    return serialize_quiz(*loaded) if loaded is not None else None
+
+
+async def _quiz_change(db: AsyncSession, module: Module) -> str:
+    """How the draft quiz differs from what learners are graded on today."""
+    published: dict[str, Any] | None = None
+    if module.current_version_id is not None:
+        version = await db.get(ModuleVersion, module.current_version_id)
+        if version is not None:
+            published = version.snapshot.get("quiz")
+    return classify_change(published, await _draft_quiz_snapshot(db, module))
+
+
 @router.get(
     "/modules/{module_id}/revision-impact", response_model=RevisionImpactResponse
 )
@@ -666,8 +690,13 @@ async def get_revision_impact(
     """
     module = await get_module_or_404(db, module_id)
     completed, in_progress = await _learner_counts(db, module)
+    quiz_change = await _quiz_change(db, module)
     return RevisionImpactResponse(
-        completed_learners=completed, in_progress_learners=in_progress
+        completed_learners=completed,
+        in_progress_learners=in_progress,
+        quiz_change=quiz_change,
+        # Removing a quiz is always minor: nobody has to sit anything new.
+        quiz_affected_learners=completed if quiz_change in ("added", "changed") else 0,
     )
 
 
@@ -706,6 +735,20 @@ async def publish_module(
             },
         )
 
+    quiz = await _draft_quiz_snapshot(db, module)
+    if quiz is not None:
+        problems = quiz_problems(quiz)
+        if problems:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={
+                    "code": "invalid_quiz",
+                    "message": "The quiz cannot be published: " + problems[0]["message"],
+                    "problems": problems,
+                },
+            )
+    quiz_change = await _quiz_change(db, module)
+
     highest = (
         await db.execute(
             select(func.coalesce(func.max(ModuleVersion.version_number), 0)).where(
@@ -719,7 +762,7 @@ async def publish_module(
         version_number=highest + 1,
         published_by=author.id,
         revision_kind=payload.revision_kind,
-        snapshot=_build_snapshot(module, pages),
+        snapshot=_build_snapshot(module, pages, quiz),
     )
     db.add(version)
     await db.flush()
@@ -748,6 +791,8 @@ async def publish_module(
             "version_number": version.version_number,
             "revision_kind": version.revision_kind,
             "page_count": len(pages),
+            "quiz_change": quiz_change,
+            "quiz_question_count": len(quiz["questions"]) if quiz else 0,
             # The blast radius, recorded where it can be answered for later.
             "superseded_completions": superseded,
         },
@@ -894,6 +939,9 @@ async def delete_module(
         await delete_asset(s3_client, key=asset.object_key)
 
     await db.execute(delete(ModulePage).where(ModulePage.module_id == module.id))
+    # The tombstone row survives, so the quiz's own cascade (on the module row)
+    # never fires; its draft questions and options go with the quiz.
+    await db.execute(delete(ModuleQuiz).where(ModuleQuiz.module_id == module.id))
 
     # Captured before it is cleared: the tombstone's own memory of what
     # version it was on, independent of any one learner's

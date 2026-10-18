@@ -305,6 +305,13 @@ class RevisionImpactResponse(BaseModel):
     completed_learners: int
     # People part-way through, whose page-view progress it would reset.
     in_progress_learners: int
+    # How the draft's quiz differs from the last published one: none | added |
+    # changed | removed. Removing a quiz is always minor, so it reports no
+    # affected learners and needs no choice.
+    quiz_change: Literal["none", "added", "changed", "removed"] = "none"
+    # Learners a substantive publish would send back to sit the new or changed
+    # quiz — zero unless `quiz_change` is `added` or `changed`.
+    quiz_affected_learners: int = 0
 
 
 class DuplicateRequest(BaseModel):

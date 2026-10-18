@@ -113,15 +113,15 @@ Work the **frontier**: any ticket whose blockers are all done. Tickets 1 and 8 c
 
 **Blocked by:** None — can start immediately.
 
-- [ ] Migrations add quiz, question and option storage (with a `type` discriminator for future question types) and extend the version snapshot; the existing immutability trigger covers it
-- [ ] Question prompts and explanations go through the same server-side ProseMirror validator as pages — rejected, never stripped
-- [ ] `GET|PUT /api/content/modules/{id}/quiz` and question CRUD; correct answers are returned only to authors
-- [ ] Publish refuses an invalid quiz with a clear 422; a valid one is snapshotted so later draft edits never change a published version
-- [ ] The extended revision-impact endpoint counts learners affected by a quiz add or change; removing a quiz reports zero and requires no choice
-- [ ] Author try-out grades server-side and records no attempt
-- [ ] `quiz_updated` and publish audit entries note the quiz change
-- [ ] Frontend: quiz editor on the module screen with all question types, settings and try-out, EN/DE, all themes
-- [ ] Backend tests: validation matrix, snapshot immutability, revision-impact counts, injection attempts in prompts rejected; frontend tests for the editor
+- [x] Migrations add quiz, question and option storage (with a `type` discriminator for future question types) and extend the version snapshot; the existing immutability trigger covers it
+- [x] Question prompts and explanations go through the same server-side ProseMirror validator as pages — rejected, never stripped
+- [x] `GET|PUT /api/content/modules/{id}/quiz` and question CRUD; correct answers are returned only to authors
+- [x] Publish refuses an invalid quiz with a clear 422; a valid one is snapshotted so later draft edits never change a published version
+- [x] The extended revision-impact endpoint counts learners affected by a quiz add or change; removing a quiz reports zero and requires no choice
+- [x] Author try-out grades server-side and records no attempt
+- [x] `quiz_updated` and publish audit entries note the quiz change
+- [x] Frontend: quiz editor on the module screen with all question types, settings and try-out, EN/DE, all themes
+- [x] Backend tests: validation matrix, snapshot immutability, revision-impact counts, injection attempts in prompts rejected; frontend tests for the editor
 
 ## 9. Quiz-taking, grading and completion gating
 

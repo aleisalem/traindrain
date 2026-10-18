@@ -7,6 +7,7 @@ import { ModuleAssetsPanel } from "./ModuleAssetsPanel";
 import { ModuleEditorsPresence } from "./ModuleEditorsPresence";
 import { ModulePagesPanel } from "./ModulePagesPanel";
 import { ModulePublishPanel } from "./ModulePublishPanel";
+import { ModuleQuizPanel } from "./ModuleQuizPanel";
 import { OverwriteWarningDialog } from "./OverwriteWarningDialog";
 import { TranslationsPanel } from "./TranslationsPanel";
 import type { ModuleBody } from "./types";
@@ -317,6 +318,7 @@ export function ModuleFormPage({ isAdministrator }: Props) {
           nothing to attach them to until the metadata has been saved once. */}
       {isEdit && moduleId && <ModulePagesPanel moduleId={moduleId} assets={assets} />}
       {isEdit && moduleId && <ModuleAssetsPanel assets={assets} />}
+      {isEdit && moduleId && <ModuleQuizPanel moduleId={moduleId} assets={assets} />}
       {/* Last, and after the pages: publishing is what everything above it is
           for, and there is nothing to publish before the material exists. */}
       {isEdit && module && <ModulePublishPanel module={module} onChanged={setModule} />}

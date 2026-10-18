@@ -342,7 +342,12 @@ async def test_the_revision_impact_counts_who_a_substantive_publish_would_affect
         await client.get(f"/api/content/modules/{module['id']}/revision-impact")
     ).json()
 
-    assert body == {"completed_learners": 1, "in_progress_learners": 1}
+    assert body == {
+        "completed_learners": 1,
+        "in_progress_learners": 1,
+        "quiz_change": "none",
+        "quiz_affected_learners": 0,
+    }
 
 
 async def test_the_revision_impact_of_a_module_nobody_has_opened_is_zero(
@@ -354,7 +359,12 @@ async def test_the_revision_impact_of_a_module_nobody_has_opened_is_zero(
         await client.get(f"/api/content/modules/{module['id']}/revision-impact")
     ).json()
 
-    assert body == {"completed_learners": 0, "in_progress_learners": 0}
+    assert body == {
+        "completed_learners": 0,
+        "in_progress_learners": 0,
+        "quiz_change": "none",
+        "quiz_affected_learners": 0,
+    }
 
 
 async def test_a_learner_may_not_read_the_revision_impact(

@@ -70,6 +70,10 @@ function mockBackend(editors: { id: string; display_name: string }[]) {
           { status: 200 },
         );
       }
+      // Nor is the quiz section under test: a module without a quiz.
+      if (url.endsWith("/quiz")) {
+        return new Response("null", { status: 200 });
+      }
       // The authoring screen loads the module's assets too; these tests are
       // about presence, so an empty set keeps that panel quiet.
       if (url.endsWith("/assets")) {

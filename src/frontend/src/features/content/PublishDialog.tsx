@@ -93,6 +93,12 @@ export function PublishDialog({ moduleId, republish, onConfirm, onCancel }: Prop
         ))}
       </fieldset>
 
+      {/* Said whatever the choice: a quiz change is part of what is being
+          published, and removing one is never a reason to send anyone back. */}
+      {impact !== null && impact.quiz_change && impact.quiz_change !== "none" && (
+        <p className="text-sm text-fg-muted">{t(`publish.quiz_${impact.quiz_change}`)}</p>
+      )}
+
       {/* Only once `substantive` is actually chosen: a standing warning next to
           a question is noise, and noise next to a decision is how the decision
           stops being read. `role="status"` rather than an alert — it appears in
@@ -109,6 +115,8 @@ export function PublishDialog({ moduleId, republish, onConfirm, onCancel }: Prop
                 inProgress: impact.in_progress_learners,
                 count: affected,
               })}
+          {impact.quiz_affected_learners > 0 &&
+            ` ${t("publish.impact_quiz", { count: impact.quiz_affected_learners })}`}
         </p>
       )}
 

@@ -1,3 +1,5 @@
+import type { PageDocument } from "../../content/schema";
+
 export type ModuleActor = {
   id: string;
   display_name: string;
@@ -63,7 +65,13 @@ export type RevisionKind = "minor" | "substantive";
 export type RevisionImpact = {
   completed_learners: number;
   in_progress_learners: number;
+  /** How the draft's quiz differs from the last published one. */
+  quiz_change: QuizChange;
+  /** Learners a substantive publish would send back to sit the new quiz. */
+  quiz_affected_learners: number;
 };
+
+export type QuizChange = "none" | "added" | "changed" | "removed";
 
 /** How many completion records a delete's tombstone would carry. Read while
  *  the author is still deciding, the same shape as `RevisionImpact`. */
@@ -242,4 +250,61 @@ export type Campaign = {
   targets: CampaignTarget[];
   created_at: string;
   updated_at: string;
+};
+
+export type QuestionType = "single_choice" | "multiple_choice" | "true_false";
+
+export type QuizOption = {
+  id: string;
+  position: number;
+  /** For `true_false` the literal "true" / "false", localized by the UI. */
+  text: string;
+  is_correct: boolean;
+};
+
+export type QuizQuestion = {
+  id: string;
+  position: number;
+  type: QuestionType;
+  schema_version: number;
+  prompt: PageDocument;
+  explanation: PageDocument | null;
+  options: QuizOption[];
+};
+
+export type QuizProblem = {
+  code: string;
+  message: string;
+  question_id: string | null;
+};
+
+/** The author's view of a draft quiz — correct answers included. */
+export type QuizBody = {
+  pass_mark_percent: number;
+  max_attempts: number | null;
+  shuffle: boolean;
+  reveal_after_pass: boolean;
+  questions: QuizQuestion[];
+  problems: QuizProblem[];
+};
+
+export type QuizSettings = Pick<
+  QuizBody,
+  "pass_mark_percent" | "max_attempts" | "shuffle" | "reveal_after_pass"
+>;
+
+export type QuestionDraft = {
+  type: QuestionType;
+  prompt: PageDocument;
+  explanation: PageDocument | null;
+  options: { text: string; is_correct: boolean }[];
+};
+
+export type TryoutResult = {
+  score_percent: number;
+  correct_count: number;
+  total: number;
+  pass_mark_percent: number;
+  passed: boolean;
+  questions: { question_id: string; correct: boolean; correct_option_ids: string[] }[];
 };

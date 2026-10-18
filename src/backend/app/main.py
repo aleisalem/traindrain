@@ -16,6 +16,7 @@ from app.routes.document_import import router as document_import_router
 from app.routes.invites import router as invites_router
 from app.routes.learning import catalog_router, me_router
 from app.routes.profile import router as profile_router
+from app.routes.quiz import router as quiz_router
 from app.routes.reports import router as reports_router
 from app.routes.transfer import router as transfer_router
 from app.routes.two_factor import router as two_factor_router
@@ -41,6 +42,7 @@ app = FastAPI(title="TrainDrain API", lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(content_router)
+app.include_router(quiz_router)
 app.include_router(assignments_router)
 app.include_router(campaigns_router)
 app.include_router(content_assets_router)
