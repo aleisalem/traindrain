@@ -622,6 +622,7 @@ export function CampaignBuilderPage({ isAdministrator = false }: { isAdministrat
       {campaign && (
         <CampaignLifecyclePanel
           campaign={campaign}
+          isAdministrator={isAdministrator}
           onChanged={(updated) => {
             setCampaign(updated);
             // The panel can set the due date itself; keep the form in step so

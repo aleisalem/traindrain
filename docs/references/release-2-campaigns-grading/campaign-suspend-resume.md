@@ -14,7 +14,7 @@ Only the campaign's own route to a module. `campaign_translation_group_ids` (`ap
 - `GET /api/me/modules` omits a started module whose only route is a suspended campaign (`suspended_translation_group_ids`, minus anything still `available`). It reappears on resume.
 - Progress rows are never touched.
 
-Reminders do not exist for campaigns yet (ticket 7); when they do they must skip `suspended`.
+Campaign reminders (ticket 7) only consider `active` campaigns, so a suspended one sends nothing. See [campaign-reminders.md](campaign-reminders.md).
 
 ## Resume past the due date
 

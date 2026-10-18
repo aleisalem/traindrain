@@ -6,6 +6,8 @@ import type { Campaign } from "./types";
 type Props = {
   campaign: Campaign;
   onChanged: (campaign: Campaign) => void;
+  /** The manual nudge is an Administrator's act; the server enforces it too. */
+  isAdministrator?: boolean;
 };
 
 /**
@@ -15,12 +17,43 @@ type Props = {
  * controls that could succeed from the current status and explains a refusal.
  * It acts on the *saved* campaign, so the hint above the button says so.
  */
-export function CampaignLifecyclePanel({ campaign, onChanged }: Props) {
+export function CampaignLifecyclePanel({ campaign, onChanged, isAdministrator = false }: Props) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const [newDueDate, setNewDueDate] = useState("");
+  const [reminding, setReminding] = useState(false);
+  const [remindMessage, setRemindMessage] = useState<{ kind: "success" | "error"; text: string } | null>(
+    null,
+  );
+
+  async function remind() {
+    setReminding(true);
+    setRemindMessage(null);
+    try {
+      const response = await fetch(`/api/content/campaigns/${campaign.id}/remind`, {
+        method: "POST",
+      });
+      if (response.status === 429) {
+        setRemindMessage({ kind: "error", text: t("campaigns.remind_rate_limited") });
+      } else if (response.status === 409) {
+        setRemindMessage({ kind: "error", text: t("campaigns.transition_error_conflict") });
+      } else if (!response.ok) {
+        setRemindMessage({ kind: "error", text: t("campaigns.remind_error") });
+      } else {
+        const body = (await response.json()) as { sent_count: number };
+        setRemindMessage({
+          kind: "success",
+          text: t("campaigns.remind_success", { count: body.sent_count }),
+        });
+      }
+    } catch {
+      setRemindMessage({ kind: "error", text: t("campaigns.remind_error") });
+    } finally {
+      setReminding(false);
+    }
+  }
 
   async function transition(action: "activate" | "close" | "suspend" | "resume") {
     if (action === "close" && !window.confirm(t("campaigns.close_confirm"))) return;
@@ -175,6 +208,27 @@ export function CampaignLifecyclePanel({ campaign, onChanged }: Props) {
             </button>
           </div>
         </div>
+      )}
+      {isAdministrator && campaign.status === "active" && (
+        <>
+          <p className="text-sm text-fg-muted">{t("campaigns.remind_description")}</p>
+          <button
+            type="button"
+            disabled={reminding}
+            onClick={() => void remind()}
+            className="self-start rounded-full border border-border px-5 py-2 text-sm font-medium disabled:opacity-60"
+          >
+            {t("campaigns.remind_button")}
+          </button>
+          {remindMessage && (
+            <p
+              role={remindMessage.kind === "error" ? "alert" : "status"}
+              className={remindMessage.kind === "error" ? "text-sm text-danger" : "text-sm text-fg-muted"}
+            >
+              {remindMessage.text}
+            </p>
+          )}
+        </>
       )}
       {campaign.status === "closed" && (
         <p className="text-sm text-fg-muted">{t("campaigns.closed_description")}</p>

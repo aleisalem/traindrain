@@ -29,8 +29,9 @@ from app.campaigns import (
     suspend_campaign,
 )
 from app.db import get_db
-from app.dependencies import get_ses_client, require_content_manager
+from app.dependencies import get_ses_client, require_administrator, require_content_manager
 from app.models import (
+    AuditLog,
     Campaign,
     CampaignCollaborator,
     CampaignEditSession,
@@ -41,6 +42,7 @@ from app.models import (
     ModuleTranslationGroup,
     User,
 )
+from app.reminders import deployment_day_bounds, send_manual_campaign_reminders
 from app.routes.content import PRESENCE_WINDOW
 from app.schemas.campaigns import (
     CampaignCreateRequest,
@@ -59,6 +61,7 @@ from app.schemas.campaigns import (
     OwnerChangeRequest,
 )
 from app.schemas.modules import ModuleActor, ModuleEditorsResponse
+from app.schemas.reminders import RemindResponse
 from app.security.audit import record_audit_log
 from app.security.mailer import SESClient
 from app.security.system_settings import deployment_today
@@ -753,6 +756,60 @@ async def resume(
     await db.commit()
     await db.refresh(campaign)
     return await _to_response(db, campaign, caller=caller)
+
+
+@router.post("/{campaign_id}/remind", response_model=RemindResponse)
+async def remind_outstanding_learners(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+    ses_client: SESClient = Depends(get_ses_client),
+) -> RemindResponse:
+    """Nudge everyone still owing mandatory modules in this campaign, now.
+
+    Administrator-only, as the module nudge is. Only an active campaign can be
+    nudged (409 otherwise — a suspended or closed one sends nothing), and it is
+    limited to once per campaign per day, checked against this campaign's own
+    `reminder_sent` audit entry: that entry is written on every successful
+    call, including one that reaches nobody, which a send-log check would miss.
+    """
+    campaign = await _get_campaign_or_404(db, campaign_id, admin)
+    if campaign.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "campaign_not_active",
+                "message": f"A {campaign.status} campaign cannot be nudged.",
+            },
+        )
+    window = await deployment_day_bounds(db)
+    already = await db.scalar(
+        select(func.count())
+        .select_from(AuditLog)
+        .where(
+            AuditLog.action == "reminder_sent",
+            AuditLog.detail["campaign_id"].astext == str(campaign.id),
+            AuditLog.timestamp >= window.start,
+            AuditLog.timestamp < window.end,
+        )
+    )
+    if already:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "code": "reminder_already_sent_today",
+                "message": "This campaign has already been nudged today.",
+            },
+        )
+    sent_count = await send_manual_campaign_reminders(db, ses_client, campaign)
+    await record_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="reminder_sent",
+        detail={"campaign_id": str(campaign.id), "name": campaign.name, "sent_count": sent_count},
+    )
+    await db.commit()
+    return RemindResponse(sent_count=sent_count)
 
 
 # --- Presence ------------------------------------------------------------------

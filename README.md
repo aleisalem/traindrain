@@ -501,6 +501,19 @@ Release 2 (campaigns and grading) is in progress:
   Full details in
   [docs/references/release-2-campaigns-grading/campaign-edit-safeguards.md](docs/references/release-2-campaigns-grading/campaign-edit-safeguards.md).
 
+- Campaign reminders: the daily `python -m app.jobs.send_reminders` job also chases learners once
+  per campaign — one email per learner per day listing the mandatory modules they still owe, on the
+  7-days-before / 1-day-before / due date / weekly-while-overdue cadence, in the deployment timezone
+  and the learner's language. Recommended modules are never chased; only active campaigns with
+  `auto_reminders` and a due date are, so suspended and closed ones send nothing and a resume causes
+  no catch-up. The `campaign_reminders` send log is shared with Release 1's per-module reminders in
+  both directions: a module the campaign email covered is not chased again that day, and a module
+  already chased is left off the campaign email. `POST /api/content/campaigns/{id}/remind` is the
+  Administrator-only manual nudge, once per campaign per day, reporting how many learners were
+  actually reached. Frontend: a "Remind everyone outstanding" button in
+  `CampaignLifecyclePanel.tsx`. Full details in
+  [docs/references/release-2-campaigns-grading/campaign-reminders.md](docs/references/release-2-campaigns-grading/campaign-reminders.md).
+
 Release 1 infrastructure (ticket 14, closing out the release):
 
 - Terraform under `.deploy/dev` for Release 1's own AWS footprint: the private module-assets S3
@@ -535,8 +548,8 @@ src/
       campaigns.py Campaign lifecycle (activate/close), live reach and completion, start-date activation
       assignments.py    Who a learner is assigned to read, resolved live against current group
                    membership — what `may_read_module` admits and what "my learning" lists
-      reminders.py Scheduled cadence and manual-nudge logic shared by the daily job and the
-                   Administrator's remind endpoint — the daily one-email-per-learner-per-module cap
+      reminders.py Scheduled cadence and manual-nudge logic (per module and per campaign) shared by the daily job and the
+                   Administrator's remind endpoints — the daily one-email-per-learner-per-module cap
       reporting.py Who is targeted and where they stand, walked once per group (Content Manager)
                    and once for the full roster (Administrator) — what the report endpoint and its
                    CSV export both read

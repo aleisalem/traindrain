@@ -98,14 +98,14 @@ Work the **frontier**: any ticket whose blockers are all done. Tickets 1 and 8 c
 
 **Blocked by:** 3, 4
 
-- [ ] The daily job reminds on campaigns where `auto_reminders` is on, a due date is set, the campaign is active, and the learner has outstanding mandatory modules; completed and superseded states are respected
-- [ ] The one-email-per-learner-per-day cap is checked against the send log across campaign and module reminders; a second run the same day sends nothing
-- [ ] Release 1 per-module reminders are suppressed for modules the campaign reminder covers
-- [ ] No reminders for suspended or closed campaigns; after resume the next cadence step applies, with no catch-up
-- [ ] `POST /api/content/campaigns/{id}/remind` is Administrator-only, rate-limited once per campaign per day against its own audit entry, and reports how many learners were actually reached
-- [ ] Reminder email rendered in the recipient's `preferred_language`; `reminder_sent` audit entries
-- [ ] Frontend: Administrator "Remind everyone outstanding" button reporting the real reach or the day's rate limit
-- [ ] Backend tests: cadence, cap, suppression, suspension, resume, manual nudge limits; frontend test for the button
+- [x] The daily job reminds on campaigns where `auto_reminders` is on, a due date is set, the campaign is active, and the learner has outstanding mandatory modules; completed and superseded states are respected
+- [x] The one-email-per-learner-per-day cap is checked against the send log across campaign and module reminders; a second run the same day sends nothing
+- [x] Release 1 per-module reminders are suppressed for modules the campaign reminder covers
+- [x] No reminders for suspended or closed campaigns; after resume the next cadence step applies, with no catch-up
+- [x] `POST /api/content/campaigns/{id}/remind` is Administrator-only, rate-limited once per campaign per day against its own audit entry, and reports how many learners were actually reached
+- [x] Reminder email rendered in the recipient's `preferred_language`; `reminder_sent` audit entries
+- [x] Frontend: Administrator "Remind everyone outstanding" button reporting the real reach or the day's rate limit
+- [x] Backend tests: cadence, cap, suppression, suspension, resume, manual nudge limits; frontend test for the button
 
 ## 8. Quiz authoring and snapshotting
 

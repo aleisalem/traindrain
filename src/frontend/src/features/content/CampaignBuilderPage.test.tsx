@@ -121,6 +121,11 @@ function stubFetch(calls: Call[], existing: Campaign | null = CAMPAIGN) {
         }
         return json({ ...CAMPAIGN, status: "active" });
       }
+      if (url.endsWith("/remind") && method === "POST") {
+        return existing?.id === "camp-limited"
+          ? json({ detail: { code: "reminder_already_sent_today" } }, 429)
+          : json({ sent_count: 3 });
+      }
       if (url.endsWith("/close") && method === "POST") return json({ ...CAMPAIGN, status: "closed" });
       if (url.endsWith("/suspend") && method === "POST") {
         return json({ ...CAMPAIGN, status: "suspended", due_date: "2020-01-01" });
@@ -369,6 +374,41 @@ describe("CampaignBuilderPage", () => {
     expect(await screen.findByRole("button", { name: "Close campaign" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Activate campaign" })).not.toBeInTheDocument();
     expect(calls.some((c) => c.url.endsWith("/camp-1/activate") && c.method === "POST")).toBe(true);
+  });
+
+  it("offers the manual nudge only to an Administrator on an active campaign, and reports the reach", async () => {
+    const active: Campaign = { ...CAMPAIGN, status: "active" };
+    const calls: Call[] = [];
+    stubFetch(calls, active);
+    const { unmount } = renderBuilder("/content/campaigns/camp-1", false);
+    await screen.findByDisplayValue("Phishing programme");
+    expect(screen.queryByRole("button", { name: "Remind everyone outstanding" })).not.toBeInTheDocument();
+    unmount();
+
+    renderBuilder("/content/campaigns/camp-1", true);
+    await screen.findByDisplayValue("Phishing programme");
+    await userEvent.click(screen.getByRole("button", { name: "Remind everyone outstanding" }));
+
+    expect(await screen.findByText("Reminded 3 learners.")).toBeInTheDocument();
+    expect(calls.some((c) => c.url.endsWith("/camp-1/remind") && c.method === "POST")).toBe(true);
+  });
+
+  it("does not offer the nudge on a draft, even to an Administrator", async () => {
+    stubFetch([]);
+    renderBuilder("/content/campaigns/camp-1", true);
+    await screen.findByDisplayValue("Phishing programme");
+
+    expect(screen.queryByRole("button", { name: "Remind everyone outstanding" })).not.toBeInTheDocument();
+  });
+
+  it("reports the day's rate limit when the campaign was already nudged", async () => {
+    stubFetch([], { ...CAMPAIGN, id: "camp-limited", status: "active" });
+    renderBuilder("/content/campaigns/camp-limited", true);
+    await screen.findByDisplayValue("Phishing programme");
+
+    await userEvent.click(screen.getByRole("button", { name: "Remind everyone outstanding" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("This campaign has already been nudged today.");
   });
 
   it("explains a refused activation by naming the unpublished modules", async () => {
