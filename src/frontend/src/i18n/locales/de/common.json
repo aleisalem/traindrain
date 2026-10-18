@@ -484,7 +484,8 @@
     "other_modules_heading": "Weitere Lerninhalte",
     "module_state_completed": "Abgeschlossen",
     "module_state_in_progress": "In Bearbeitung",
-    "module_state_not_started": "Nicht begonnen"
+    "module_state_not_started": "Nicht begonnen",
+    "module_deleted_marker": "Gelöscht — nicht mehr erforderlich"
   },
   "assignments": {
     "heading": "Zuweisung",
@@ -651,6 +652,12 @@
     "lapsed_warning": "Das Fälligkeitsdatum ({{date}}) ist bereits verstrichen. Legen Sie ein neues Fälligkeitsdatum fest, damit Lernenden keine überfällige Kampagne angezeigt wird.",
     "lapsed_new_date_label": "Neues Fälligkeitsdatum",
     "lapsed_set_button": "Datum festlegen",
-    "transition_error_conflict": "Der Status der Kampagne hat sich geändert – laden Sie die Seite neu."
+    "transition_error_conflict": "Der Status der Kampagne hat sich geändert – laden Sie die Seite neu.",
+    "impact_heading": "Aus einer laufenden Kampagne entfernen?",
+    "impact_warning": "{{learners}} Lernende haben {{records}} Fortschrittseinträge zu dem, was Sie entfernen.",
+    "impact_module_line": "{{title}}: {{count}} Einträge",
+    "impact_body": "Ihre Einträge bleiben erhalten, aber diese Kampagne führt sie nicht mehr zum Material. Es wird niemand per E-Mail benachrichtigt.",
+    "impact_cancel": "Unverändert lassen",
+    "impact_confirm": "Trotzdem entfernen"
   }
 }

@@ -105,6 +105,8 @@ export type LearnerCampaignModule = {
   locked: boolean;
   prerequisite_translation_group_id: string | null;
   prerequisite_title: string | null;
+  /** Deleted elsewhere: shown as a marker, never openable, never required. */
+  unavailable?: boolean;
   overdue: boolean;
 };
 

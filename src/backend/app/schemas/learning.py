@@ -168,6 +168,9 @@ class LearnerCampaignModule(BaseModel):
     locked: bool = False
     prerequisite_translation_group_id: uuid.UUID | None = None
     prerequisite_title: str | None = None
+    # Deleted elsewhere: kept in the list as a marker so the programme does not
+    # silently shrink, but unopenable and never counted toward completion.
+    unavailable: bool = False
     overdue: bool
 
 

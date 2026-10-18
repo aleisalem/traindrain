@@ -216,12 +216,39 @@ class CampaignProgress:
         return self.required_total > 0 and self.required_done == self.required_total
 
 
+async def deleted_group_ids(
+    db: AsyncSession, group_ids: Collection[uuid.UUID]
+) -> frozenset[uuid.UUID]:
+    """Groups whose every variant is a Release 1 delete tombstone (or that have
+    no variant left). Nobody can complete these, so a campaign neither waits on
+    them nor counts them."""
+    if not group_ids:
+        return frozenset()
+    live = set(
+        (
+            await db.execute(
+                select(Module.translation_group_id).where(
+                    Module.translation_group_id.in_(group_ids), Module.status != "deleted"
+                )
+            )
+        ).scalars()
+    )
+    return frozenset(g for g in group_ids if g not in live)
+
+
 def compute_progress(
-    modules: list[CampaignModule], progress: dict[uuid.UUID, ModuleProgress]
+    modules: list[CampaignModule],
+    progress: dict[uuid.UUID, ModuleProgress],
+    deleted: Collection[uuid.UUID] = (),
 ) -> CampaignProgress:
     """Computed on every read and never stored: a superseded completion stops
-    counting the moment the publish marks it, with no campaign row to repair."""
-    mandatory = [row for row in modules if row.requirement == "mandatory"]
+    counting the moment the publish marks it, with no campaign row to repair.
+    A module deleted elsewhere (`deleted`) is shown but never required."""
+    mandatory = [
+        row
+        for row in modules
+        if row.requirement == "mandatory" and row.translation_group_id not in deleted
+    ]
     done = sum(
         1 for row in mandatory if is_current_completion(progress.get(row.translation_group_id))
     )
@@ -447,3 +474,85 @@ async def primary_variant_titles(
         chosen = next((m for m in variants if m.id == primaries.get(group_id)), variants[0])
         titles[group_id] = chosen.title
     return titles
+
+
+# --- Edit impact --------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class EditImpact:
+    """What a proposed edit to a running campaign would take away from learners.
+
+    `records` counts (learner, module) progress rows that stop being reachable
+    through the campaign; `learners` the distinct people behind them. The
+    progress rows themselves are never deleted — they are the learner's own
+    record — but the author is told before the route to them goes.
+    """
+
+    learners: int
+    records: int
+    completed: int
+    per_module: dict[uuid.UUID, int]
+
+
+async def edit_impact(
+    db: AsyncSession,
+    campaign: Campaign,
+    *,
+    new_group_ids: Collection[uuid.UUID],
+    new_targets: Collection[tuple[str, uuid.UUID]],
+) -> EditImpact:
+    """Diff the campaign as it stands against the proposed module and target sets.
+
+    A (learner, module) pair is affected when a currently-targeted learner has
+    progress on a campaign module and either the module is removed or the
+    learner is no longer targeted. This may over-count by progress made via
+    another route (catalog, assignment): it errs toward warning, never toward
+    silence. Additions never appear here.
+    A draft has no learners, so it is always zero.
+    """
+    empty = EditImpact(learners=0, records=0, completed=0, per_module={})
+    if campaign.status == "draft":
+        return empty
+    old_groups = {row.translation_group_id for row in campaign.modules}
+    removed_groups = old_groups - set(new_group_ids)
+    old_targets = {(t.target_type, t.target_id) for t in campaign.targets}
+    targets_removed = bool(old_targets - set(new_targets))
+    if not removed_groups and not targets_removed:
+        return empty
+
+    old_audience = {u.id for u in await resolve_campaign_audience(db, campaign)}
+    if not old_audience or not old_groups:
+        return empty
+    still_targeted: set[uuid.UUID] = set()
+    if targets_removed:
+        for target_type, target_id in new_targets:
+            for user in await resolve_target_users(
+                db, target_type=target_type, target_id=target_id
+            ):
+                still_targeted.add(user.id)
+
+    rows = (
+        await db.execute(
+            select(ModuleProgress).where(
+                ModuleProgress.user_id.in_(old_audience),
+                ModuleProgress.translation_group_id.in_(old_groups),
+            )
+        )
+    ).scalars()
+    learners: set[uuid.UUID] = set()
+    per_module: dict[uuid.UUID, int] = {}
+    records = completed = 0
+    for row in rows:
+        lost = row.translation_group_id in removed_groups or (
+            targets_removed and row.user_id not in still_targeted
+        )
+        if not lost:
+            continue
+        records += 1
+        learners.add(row.user_id)
+        completed += 1 if is_current_completion(row) else 0
+        per_module[row.translation_group_id] = per_module.get(row.translation_group_id, 0) + 1
+    return EditImpact(
+        learners=len(learners), records=records, completed=completed, per_module=per_module
+    )

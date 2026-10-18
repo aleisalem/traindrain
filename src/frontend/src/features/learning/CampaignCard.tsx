@@ -85,7 +85,9 @@ export function CampaignCard({ campaign }: { campaign: LearnerCampaign }) {
             className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-4 py-3 ${row.locked ? "bg-bg opacity-80" : ""}`}
           >
             <div className="flex flex-col gap-0.5">
-              <span className="font-medium">{row.title}</span>
+              <span className={`font-medium ${row.unavailable ? "text-fg-muted line-through" : ""}`}>
+                {row.title}
+              </span>
               <span className={`text-sm ${row.overdue ? "text-danger" : "text-fg-muted"}`}>
                 {t(`learning.requirement_${row.requirement}`)}
                 {" · "}
@@ -111,6 +113,8 @@ export function CampaignCard({ campaign }: { campaign: LearnerCampaign }) {
                   ? t("learning.locked_until", { title: row.prerequisite_title })
                   : t("learning.locked")}
               </span>
+            ) : row.unavailable ? (
+              <span className="text-sm text-fg-muted">{t("learning.module_deleted_marker")}</span>
             ) : (
               <span className="text-sm text-fg-muted">{t("learning.unavailable_short")}</span>
             )}

@@ -3,10 +3,12 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { CampaignCollaboratorsPanel } from "./CampaignCollaboratorsPanel";
+import { CampaignImpactDialog } from "./CampaignImpactDialog";
 import { CampaignLifecyclePanel } from "./CampaignLifecyclePanel";
 import { ModuleEditorsPresence } from "./ModuleEditorsPresence";
 import type {
   Campaign,
+  CampaignEditImpact,
   CampaignModule,
   CampaignTarget,
   ContentGroup,
@@ -75,6 +77,7 @@ export function CampaignBuilderPage({ isAdministrator = false }: { isAdministrat
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [pendingImpact, setPendingImpact] = useState<CampaignEditImpact | null>(null);
 
   function applyCampaign(campaign: Campaign) {
     setCampaign(campaign);
@@ -204,8 +207,32 @@ export function CampaignBuilderPage({ isAdministrator = false }: { isAdministrat
     return t("campaigns.error_unknown");
   }
 
+  /** Ask what removing modules/targets would cut off. A failed preview is
+   *  treated as "unknown": the PATCH itself still refuses an unconfirmed
+   *  removal, so nothing is saved past the warning either way. */
+  async function previewImpact(
+    modulesBody: unknown,
+    targetsBody: unknown,
+  ): Promise<CampaignEditImpact | null> {
+    try {
+      const response = await fetch(`/api/content/campaigns/${campaignId}/edit-impact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modules: modulesBody, targets: targetsBody }),
+      });
+      return response.ok ? await response.json() : null;
+    } catch {
+      return null;
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    await save(false);
+  }
+
+  async function save(confirmImpact: boolean) {
+    setPendingImpact(null);
     setSaved(false);
     if (name.trim() === "") {
       setError(t("campaigns.error_name_required"));
@@ -217,7 +244,7 @@ export function CampaignBuilderPage({ isAdministrator = false }: { isAdministrat
     }
     setBusy(true);
     setError(null);
-    const body = {
+    const body: Record<string, unknown> = {
       name: name.trim(),
       description: description.trim() === "" ? null : description.trim(),
       start_date: startDate === "" ? null : startDate,
@@ -231,6 +258,14 @@ export function CampaignBuilderPage({ isAdministrator = false }: { isAdministrat
       targets: targets.map((target) => ({ type: target.type, id: target.id })),
     };
     try {
+      if (!isNew && campaign && campaign.status !== "draft" && !confirmImpact) {
+        const impact = await previewImpact(body.modules, body.targets);
+        if (impact?.requires_confirmation) {
+          setPendingImpact(impact);
+          return;
+        }
+      }
+      if (confirmImpact) body.confirm_impact = true;
       const response = await fetch(
         isNew ? "/api/content/campaigns" : `/api/content/campaigns/${campaignId}`,
         {
@@ -239,16 +274,31 @@ export function CampaignBuilderPage({ isAdministrator = false }: { isAdministrat
           body: JSON.stringify(body),
         },
       );
+      if (response.status === 409 && !confirmImpact) {
+        // The preview failed open (or the data moved since); the server's
+        // refusal still gets the author to the same confirmation.
+        const refusal = await response.json().catch(() => null);
+        if (refusal?.detail?.code === "impact_confirmation_required") {
+          setPendingImpact({
+            learners: refusal.detail.learners,
+            records: refusal.detail.records,
+            completed: 0,
+            modules: [],
+            requires_confirmation: true,
+          });
+          return;
+        }
+      }
       if (!response.ok) {
         setError(describeFailure(response));
         return;
       }
-      const campaign: Campaign = await response.json();
+      const updated: Campaign = await response.json();
       if (isNew) {
-        navigate(`/content/campaigns/${campaign.id}`, { replace: true });
+        navigate(`/content/campaigns/${updated.id}`, { replace: true });
         return;
       }
-      applyCampaign(campaign);
+      applyCampaign(updated);
       setSaved(true);
     } catch {
       setError(t("campaigns.error_unknown"));
@@ -279,6 +329,13 @@ export function CampaignBuilderPage({ isAdministrator = false }: { isAdministrat
 
   return (
     <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-6">
+      {pendingImpact && (
+        <CampaignImpactDialog
+          impact={pendingImpact}
+          onConfirm={() => void save(true)}
+          onCancel={() => setPendingImpact(null)}
+        />
+      )}
       <ModuleEditorsPresence editors={editors} subject="campaign" />
       <div className="flex flex-col gap-1">
         <Link to="/content/campaigns" className="text-sm text-fg-muted underline">

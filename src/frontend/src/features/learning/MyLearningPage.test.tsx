@@ -38,6 +38,7 @@ const CAMPAIGN: LearnerCampaign = {
   modules: [
     { translation_group_id: "g1", position: 0, title: "Spot a phish", requirement: "mandatory", state: "completed", available: true, locked: false, prerequisite_translation_group_id: null, prerequisite_title: null, overdue: false },
     { translation_group_id: "g2", position: 1, title: "Report a phish", requirement: "mandatory", state: "not_started", available: true, locked: false, prerequisite_translation_group_id: null, prerequisite_title: null, overdue: true },
+    { translation_group_id: "g4", position: 3, title: "Retired module", requirement: "mandatory", state: "not_started", available: false, locked: false, prerequisite_translation_group_id: null, prerequisite_title: null, unavailable: true, overdue: false },
     { translation_group_id: "g3", position: 2, title: "Bonus reading", requirement: "recommended", state: "not_started", available: false, locked: false, prerequisite_translation_group_id: null, prerequisite_title: null, overdue: false },
   ],
 };
@@ -132,5 +133,15 @@ describe("MyLearningPage campaigns", () => {
     stub([], []);
     renderPage();
     expect(await screen.findByRole("link", { name: "Find something to read" })).toBeInTheDocument();
+  });
+
+  it("marks a module deleted elsewhere as unavailable rather than hiding it", async () => {
+    stub([CAMPAIGN], []);
+    renderPage();
+    const bar = await screen.findByRole("progressbar");
+    const card = bar.closest("li") as HTMLElement;
+    const row = within(card).getByText("Retired module").closest("li") as HTMLElement;
+    expect(within(row).getByText("Deleted — no longer required")).toBeInTheDocument();
+    expect(within(row).queryByRole("link")).not.toBeInTheDocument();
   });
 });

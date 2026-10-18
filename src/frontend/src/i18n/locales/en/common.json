@@ -484,7 +484,8 @@
     "other_modules_heading": "Other learning",
     "module_state_completed": "Completed",
     "module_state_in_progress": "In progress",
-    "module_state_not_started": "Not started"
+    "module_state_not_started": "Not started",
+    "module_deleted_marker": "Deleted — no longer required"
   },
   "assignments": {
     "heading": "Assignment",
@@ -651,6 +652,12 @@
     "lapsed_warning": "The due date ({{date}}) has already passed. Set a new due date so learners are not shown an overdue campaign.",
     "lapsed_new_date_label": "New due date",
     "lapsed_set_button": "Set due date",
-    "transition_error_conflict": "The campaign's status has changed — reload the page."
+    "transition_error_conflict": "The campaign's status has changed — reload the page.",
+    "impact_heading": "Remove from a running campaign?",
+    "impact_warning": "{{learners}} learner(s) have {{records}} progress record(s) on what you are removing.",
+    "impact_module_line": "{{title}}: {{count}} record(s)",
+    "impact_body": "Their records are kept, but this campaign will no longer lead them to the material. Nobody is emailed.",
+    "impact_cancel": "Keep it as it is",
+    "impact_confirm": "Remove anyway"
   }
 }

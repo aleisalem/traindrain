@@ -92,6 +92,9 @@ class CampaignUpdateRequest(BaseModel):
     sequential: bool | None = None
     modules: list[CampaignModuleInput] | None = Field(default=None, max_length=MAX_CAMPAIGN_MODULES)
     targets: list[CampaignTargetInput] | None = Field(default=None, max_length=MAX_CAMPAIGN_TARGETS)
+    # Explicit acknowledgement that removing modules or targets will cut off
+    # learners who already have progress. Not a campaign field: never stored.
+    confirm_impact: bool = False
 
     @model_validator(mode="after")
     def _validate(self) -> "CampaignUpdateRequest":
@@ -101,6 +104,33 @@ class CampaignUpdateRequest(BaseModel):
             if field in self.model_fields_set and getattr(self, field) is None:
                 raise ValueError(f"{field} cannot be null.")
         return self
+
+
+class EditImpactRequest(BaseModel):
+    """The edit being considered — the same `modules`/`targets` full
+    replacements a PATCH would carry. Omitted means unchanged."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    modules: list[CampaignModuleInput] | None = Field(default=None, max_length=MAX_CAMPAIGN_MODULES)
+    targets: list[CampaignTargetInput] | None = Field(default=None, max_length=MAX_CAMPAIGN_TARGETS)
+
+
+class ImpactModule(BaseModel):
+    translation_group_id: uuid.UUID
+    title: str | None
+    records: int
+
+
+class EditImpactResponse(BaseModel):
+    """What the edit would cut off, before it happens. `requires_confirmation`
+    is what the PATCH will insist on."""
+
+    learners: int
+    records: int
+    completed: int
+    modules: list[ImpactModule]
+    requires_confirmation: bool
 
 
 class CollaboratorAddRequest(BaseModel):

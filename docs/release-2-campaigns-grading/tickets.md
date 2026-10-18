@@ -85,12 +85,12 @@ Work the **frontier**: any ticket whose blockers are all done. Tickets 1 and 8 c
 
 **Blocked by:** 3
 
-- [ ] Add-module and add-target on an active campaign take effect for learners on their next read; newly targeted learners are not emailed retroactively
-- [ ] An impact endpoint reports how many learners and records a removal would affect before it happens; removal with affected progress requires explicit confirmation
-- [ ] Draft deletion by creator or Administrator only; deleting a campaign that ever activated is refused
-- [ ] A module tombstoned by Release 1's delete appears in the campaign view marked unavailable and does not count toward mandatory completion
-- [ ] Frontend: impact confirmation dialog and the unavailable-module marker
-- [ ] Backend tests: impact counts, confirmation requirement, deletion rules, tombstone handling; frontend tests for the dialog
+- [x] Add-module and add-target on an active campaign take effect for learners on their next read; newly targeted learners are not emailed retroactively
+- [x] An impact endpoint reports how many learners and records a removal would affect before it happens; removal with affected progress requires explicit confirmation
+- [x] Draft deletion by creator or Administrator only; deleting a campaign that ever activated is refused
+- [x] A module tombstoned by Release 1's delete appears in the campaign view marked unavailable and does not count toward mandatory completion
+- [x] Frontend: impact confirmation dialog and the unavailable-module marker
+- [x] Backend tests: impact counts, confirmation requirement, deletion rules, tombstone handling; frontend tests for the dialog
 
 ## 7. Campaign reminders
 

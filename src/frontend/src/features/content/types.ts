@@ -195,6 +195,15 @@ export type CampaignModule = {
   availability: ModuleAvailability;
 };
 
+/** What removing modules or targets from a running campaign would cut off. */
+export type CampaignEditImpact = {
+  learners: number;
+  records: number;
+  completed: number;
+  modules: { translation_group_id: string; title: string | null; records: number }[];
+  requires_confirmation: boolean;
+};
+
 export type CampaignTarget = {
   type: AssignmentTargetType;
   id: string;

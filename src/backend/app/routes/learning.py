@@ -39,6 +39,7 @@ from app.campaigns import (
     campaigns_targeting,
     suspended_translation_group_ids,
     compute_progress,
+    deleted_group_ids,
     is_current_completion,
     primary_variant_titles,
     sequential_locks,
@@ -654,6 +655,7 @@ async def list_my_campaigns(
     }
     versions = await _versions_by_id(db, list(chosen.values()))
     fallback_titles = await primary_variant_titles(db, group_ids)
+    deleted = await deleted_group_ids(db, group_ids)
 
     def chosen_title(group_id: uuid.UUID) -> str:
         variant = chosen.get(group_id)
@@ -671,7 +673,7 @@ async def list_my_campaigns(
         started_any = any(row.translation_group_id in progress for row in campaign.modules)
         if campaign.status == "closed" and not started_any:
             continue
-        summary = compute_progress(campaign.modules, progress)
+        summary = compute_progress(campaign.modules, progress, deleted)
         locks = (
             sequential_locks(campaign.modules, progress, set(published))
             if campaign.sequential and campaign.status == "active"
@@ -709,7 +711,11 @@ async def list_my_campaigns(
                     prerequisite_title=(
                         titles_by_group.get(prerequisite) if prerequisite else None
                     ),
-                    overdue=overdue and row.requirement == "mandatory" and not done,
+                    unavailable=group_id in deleted,
+                    overdue=overdue
+                    and row.requirement == "mandatory"
+                    and not done
+                    and group_id not in deleted,
                 )
             )
         results.append(

@@ -492,6 +492,15 @@ Release 2 (campaigns and grading) is in progress:
   unlocking module on "My learning" and a locked state in the viewer. Full details in
   [docs/references/release-2-campaigns-grading/campaign-sequential.md](docs/references/release-2-campaigns-grading/campaign-sequential.md).
 
+- Active-campaign edit safeguards: adding modules or targets to a running campaign takes effect on
+  the learner's next read with no email; removing one that has learner progress is a 409 until the
+  author confirms (`confirm_impact`), after `POST /api/content/campaigns/{id}/edit-impact` has
+  reported how many learners and records it would cut off (the builder shows a confirmation dialog
+  with the number). A campaign that was ever activated can never be deleted, and a module deleted
+  elsewhere stays in the campaign as an unavailable marker that no longer counts toward completion.
+  Full details in
+  [docs/references/release-2-campaigns-grading/campaign-edit-safeguards.md](docs/references/release-2-campaigns-grading/campaign-edit-safeguards.md).
+
 Release 1 infrastructure (ticket 14, closing out the release):
 
 - Terraform under `.deploy/dev` for Release 1's own AWS footprint: the private module-assets S3

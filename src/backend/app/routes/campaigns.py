@@ -20,7 +20,14 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.access import is_administrator, is_author
-from app.campaigns import activate_campaign, close_campaign, resume_campaign, suspend_campaign
+from app.campaigns import (
+    EditImpact,
+    activate_campaign,
+    close_campaign,
+    edit_impact,
+    resume_campaign,
+    suspend_campaign,
+)
 from app.db import get_db
 from app.dependencies import get_ses_client, require_content_manager
 from app.models import (
@@ -45,6 +52,9 @@ from app.schemas.campaigns import (
     CampaignTargetResponse,
     CampaignUpdateRequest,
     CollaboratorAddRequest,
+    EditImpactRequest,
+    EditImpactResponse,
+    ImpactModule,
     ModuleAvailability,
     OwnerChangeRequest,
 )
@@ -237,6 +247,28 @@ async def _module_responses(
     return responses
 
 
+async def _impact_of(
+    db: AsyncSession,
+    campaign: Campaign,
+    modules: list[CampaignModuleInput] | None,
+    targets: list[CampaignTargetInput] | None,
+) -> EditImpact:
+    return await edit_impact(
+        db,
+        campaign,
+        new_group_ids=(
+            {m.translation_group_id for m in modules}
+            if modules is not None
+            else {row.translation_group_id for row in campaign.modules}
+        ),
+        new_targets=(
+            {(t.type, t.id) for t in targets}
+            if targets is not None
+            else {(row.target_type, row.target_id) for row in campaign.targets}
+        ),
+    )
+
+
 async def _target_responses(
     db: AsyncSession, campaign: Campaign, *, caller: User
 ) -> list[CampaignTargetResponse]:
@@ -402,6 +434,26 @@ async def update_campaign(
             detail="The due date cannot be before the start date.",
         )
 
+    impact = await _impact_of(
+        db,
+        campaign,
+        payload.modules if "modules" in fields else None,
+        payload.targets if "targets" in fields else None,
+    )
+    if impact.records and not payload.confirm_impact:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "impact_confirmation_required",
+                "message": (
+                    "This change cuts off learners who already have progress. "
+                    "Review the impact and confirm to proceed."
+                ),
+                "learners": impact.learners,
+                "records": impact.records,
+            },
+        )
+
     changed: list[str] = []
     # A date that is today or later (or no date at all) settles the lapse;
     # another past date does not.
@@ -432,11 +484,49 @@ async def update_campaign(
             db,
             actor_user_id=caller.id,
             action="campaign_updated",
-            detail={"campaign_id": str(campaign.id), "changed": changed},
+            detail={
+                "campaign_id": str(campaign.id),
+                "changed": changed,
+                **(
+                    {
+                        "confirmed_impact": {
+                            "learners": impact.learners,
+                            "records": impact.records,
+                        }
+                    }
+                    if impact.records
+                    else {}
+                ),
+            },
         )
     await db.commit()
     await db.refresh(campaign)
     return await _to_response(db, campaign, caller=caller)
+
+
+@router.post("/{campaign_id}/edit-impact", response_model=EditImpactResponse)
+async def preview_edit_impact(
+    campaign_id: uuid.UUID,
+    payload: EditImpactRequest,
+    db: AsyncSession = Depends(get_db),
+    caller: User = Depends(require_content_manager),
+) -> EditImpactResponse:
+    """Read-only: how many learners and records removing modules or targets
+    would cut off, asked before the PATCH that does it. A POST only because
+    the proposed lists travel in the body."""
+    campaign = await _get_campaign_or_404(db, campaign_id, caller)
+    impact = await _impact_of(db, campaign, payload.modules, payload.targets)
+    titles = {m.translation_group_id: m.title for m in await _module_responses(db, campaign)}
+    return EditImpactResponse(
+        learners=impact.learners,
+        records=impact.records,
+        completed=impact.completed,
+        modules=[
+            ImpactModule(translation_group_id=g, title=titles.get(g), records=n)
+            for g, n in sorted(impact.per_module.items(), key=lambda kv: str(kv[0]))
+        ],
+        requires_confirmation=impact.records > 0,
+    )
 
 
 # --- Collaborators and ownership ---------------------------------------------
@@ -572,12 +662,18 @@ async def delete_campaign(
     db: AsyncSession = Depends(get_db),
     caller: User = Depends(require_content_manager),
 ) -> None:
-    """Hard-delete a draft. Creator or Administrator only; anything past draft
-    is a conflict (the finer rules for campaigns that ran arrive with ticket 6)."""
+    """Hard-delete a draft. Creator or Administrator only. `draft` is the
+    initial state and nothing returns to it, so a campaign that is not a draft
+    has gone live at some point and its learners' records hang off it: never
+    deletable, however it ended up (suspended, closed)."""
     campaign = await _get_managed_campaign(db, campaign_id, caller)
     if campaign.status != "draft":
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Only a draft can be deleted."
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "campaign_already_activated",
+                "message": "A campaign that has been activated cannot be deleted.",
+            },
         )
     await record_audit_log(
         db,

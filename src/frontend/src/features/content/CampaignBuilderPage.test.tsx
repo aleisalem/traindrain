@@ -91,6 +91,27 @@ function stubFetch(calls: Call[], existing: Campaign | null = CAMPAIGN) {
       if (url === "/api/content/campaigns" && method === "POST") {
         return json({ ...(existing ?? CAMPAIGN), ...body, id: "camp-new" }, 201);
       }
+      if (url.endsWith("/edit-impact") && method === "POST" && existing?.id === "camp-nopreview") {
+        return json({}, 500);
+      }
+      if (url.endsWith("/camp-nopreview") && method === "PATCH" && !body.confirm_impact) {
+        return json(
+          { detail: { code: "impact_confirmation_required", learners: 2, records: 2 } },
+          409,
+        );
+      }
+      if (url.endsWith("/edit-impact") && method === "POST") {
+        const removing = (body.modules ?? []).length < 2;
+        return json({
+          learners: removing ? 3 : 0,
+          records: removing ? 4 : 0,
+          completed: 1,
+          modules: removing
+            ? [{ translation_group_id: "g-draft", title: "Unfinished", records: 4 }]
+            : [],
+          requires_confirmation: removing,
+        });
+      }
       if (url.endsWith("/activate") && method === "POST") {
         if (existing?.id === "camp-refuse") {
           return json(
@@ -415,5 +436,74 @@ describe("CampaignBuilderPage", () => {
     stubFetch([]);
     renderBuilder("/content/campaigns/camp-1");
     expect(await screen.findByRole("button", { name: "Kampagne speichern" })).toBeInTheDocument();
+  });
+
+  it("asks for confirmation, naming the number, before removing from a running campaign", async () => {
+    const calls: Call[] = [];
+    stubFetch(calls, { ...CAMPAIGN, status: "active" });
+    renderBuilder("/content/campaigns/camp-1");
+    await screen.findByDisplayValue("Phishing programme");
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove Unfinished" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save campaign" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/3 learner\(s\) have 4 progress record\(s\)/)).toBeInTheDocument();
+    expect(within(dialog).getByText("Unfinished: 4 record(s)")).toBeInTheDocument();
+    // Nothing was saved yet, and the heading — not the confirm button — has focus.
+    expect(calls.some((c) => c.method === "PATCH")).toBe(false);
+    expect(within(dialog).getByRole("heading")).toHaveFocus();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remove anyway" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect((calls.find((c) => c.method === "PATCH")!.body as { confirm_impact: boolean }).confirm_impact).toBe(true);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps the campaign untouched when the author cancels the impact dialog", async () => {
+    const calls: Call[] = [];
+    stubFetch(calls, { ...CAMPAIGN, status: "active" });
+    renderBuilder("/content/campaigns/camp-1");
+    await screen.findByDisplayValue("Phishing programme");
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove Unfinished" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save campaign" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Keep it as it is" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(calls.some((c) => c.method === "PATCH")).toBe(false);
+  });
+
+  it("saves an addition to a running campaign without any dialog", async () => {
+    const calls: Call[] = [];
+    stubFetch(calls, { ...CAMPAIGN, status: "active" });
+    renderBuilder("/content/campaigns/camp-1");
+    await screen.findByDisplayValue("Phishing programme");
+
+    await userEvent.click(screen.getByRole("button", { name: "Save campaign" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("never previews impact for a draft", async () => {
+    const calls: Call[] = [];
+    stubFetch(calls);
+    renderBuilder("/content/campaigns/camp-1");
+    await screen.findByDisplayValue("Phishing programme");
+    await userEvent.click(screen.getByRole("button", { name: "Remove Unfinished" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save campaign" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect(calls.some((c) => c.url.endsWith("/edit-impact"))).toBe(false);
+  });
+
+  it("still reaches the confirmation when the preview fails and the server refuses", async () => {
+    const calls: Call[] = [];
+    stubFetch(calls, { ...CAMPAIGN, id: "camp-nopreview", status: "active" });
+    renderBuilder("/content/campaigns/camp-nopreview");
+    await screen.findByDisplayValue("Phishing programme");
+    await userEvent.click(screen.getByRole("button", { name: "Remove Unfinished" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save campaign" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/2 learner\(s\) have 2 progress record\(s\)/)).toBeInTheDocument();
   });
 });
