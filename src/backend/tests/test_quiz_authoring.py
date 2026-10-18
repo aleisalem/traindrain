@@ -466,7 +466,9 @@ async def test_learner_module_payloads_never_carry_the_quiz(
     response = await client.get(f"/api/me/modules/{module.translation_group_id}")
     assert response.status_code == 200, response.text
     assert "is_correct" not in response.text
-    assert "quiz" not in response.json()
+    # A summary (counts and settings) is fine; the questions never are.
+    assert "questions" not in response.text
+    assert response.json()["quiz"]["question_count"] == 1
 
 
 # --- Revision impact --------------------------------------------------------

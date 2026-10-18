@@ -129,15 +129,15 @@ Work the **frontier**: any ticket whose blockers are all done. Tickets 1 and 8 c
 
 **Blocked by:** 8 (and `ux-discovery` for the quiz-taking flow)
 
-- [ ] `POST` start/resume attempt, `PUT` answer, and `POST` submit routes against the learner's resolved variant; payload carries question text and options only
-- [ ] Single-choice and true/false match the one correct option; multiple-choice is all-or-nothing on the exact set
-- [ ] Attempt cap enforced server-side with a clear exhausted state; submission rate-limited
-- [ ] Completion requires all pages viewed, then a passing attempt, then the attestation; any other order is a 409; completion stores score and quiz version; modules without a quiz behave as before
-- [ ] Retake-quiz-only keeps `pages_viewed`; retake-module clears it; both are explicit requests
-- [ ] A republish during an in-progress attempt does not invalidate it; new attempts use the new version, and old attempts do not count toward the new version's cap
-- [ ] Reveal of correct answers and explanations only after a pass and only when the author enabled it
-- [ ] Frontend: the quiz-taking experience, result screen, retake choice, attempts-remaining message, fully keyboard- and screen-reader-operable with focus moved and results announced via a live region, engaging in all three themes and both languages
-- [ ] Backend tests: grading for all three types, no correctness data in any learner response, forged or foreign question ids rejected, cap and rate limit, resume, gating order and 409s, both retake paths, mid-attempt republish; frontend tests including keyboard operation
+- [x] `POST` start/resume attempt, `PUT` answer, and `POST` submit routes against the learner's resolved variant; payload carries question text and options only
+- [x] Single-choice and true/false match the one correct option; multiple-choice is all-or-nothing on the exact set
+- [x] Attempt cap enforced server-side with a clear exhausted state; submission rate-limited
+- [x] Completion requires all pages viewed, then a passing attempt, then the attestation; any other order is a 409; completion stores score and quiz version; modules without a quiz behave as before
+- [x] Retake-quiz-only keeps `pages_viewed`; retake-module clears it; both are explicit requests
+- [x] A republish during an in-progress attempt does not invalidate it; new attempts use the new version, and old attempts do not count toward the new version's cap
+- [x] Reveal of correct answers and explanations only after a pass and only when the author enabled it
+- [x] Frontend: the quiz-taking experience, result screen, retake choice, attempts-remaining message, fully keyboard- and screen-reader-operable with focus moved and results announced via a live region, engaging in all three themes and both languages
+- [x] Backend tests: grading for all three types, no correctness data in any learner response, forged or foreign question ids rejected, cap and rate limit, resume, gating order and 409s, both retake paths, mid-attempt republish; frontend tests including keyboard operation
 
 ## 10. Quizzes across translations, duplicate, export and import
 

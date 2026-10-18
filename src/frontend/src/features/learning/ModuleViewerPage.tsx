@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 
 import { PagePreview } from "../content/PagePreview";
-import type { LearnerModule, ProgressState } from "./types";
+import { QuizPanel } from "./QuizPanel";
+import type { LearnerModule, ProgressState, QuizSummary } from "./types";
 
 type ViewState =
   | { status: "loading" }
@@ -44,6 +45,9 @@ export function ModuleViewerPage() {
   const [superseded, setSuperseded] = useState(false);
   const [attesting, setAttesting] = useState(false);
   const [attestError, setAttestError] = useState<string | null>(null);
+  // Null for a module without a quiz; otherwise kept current by the quiz panel,
+  // since whether it is passed is what the attestation waits on.
+  const [quiz, setQuiz] = useState<QuizSummary | null>(null);
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<string | null>(null);
 
@@ -62,6 +66,7 @@ export function ModuleViewerPage() {
     setViewed(body.progress?.pages_viewed ?? []);
     setCompletedAt(body.progress?.completed_at ?? null);
     setSuperseded(body.progress?.superseded_at != null);
+    setQuiz(body.quiz ?? null);
     // Resume: back at the page they left off on, not at the beginning of
     // material they have already read. A language switch resets
     // `current_page_id`, which lands this at the first page of the new text.
@@ -178,15 +183,20 @@ export function ModuleViewerPage() {
         // The server sends the counts with its refusal so this can say how much
         // is left, rather than "no" and nothing else.
         let outstanding: number | undefined;
+        let code: string | undefined;
         try {
-          outstanding = (await response.json())?.detail?.pages_outstanding;
+          const detail = (await response.json())?.detail;
+          outstanding = detail?.pages_outstanding;
+          code = detail?.code;
         } catch {
           // A non-JSON body leaves the general message below.
         }
         setAttestError(
-          response.status === 409
-            ? t("learning.attest_error_outstanding", { count: outstanding ?? 0 })
-            : t("learning.attest_error_unknown"),
+          code === "quiz_not_passed"
+            ? t("learning.attest_quiz_required")
+            : response.status === 409
+              ? t("learning.attest_error_outstanding", { count: outstanding ?? 0 })
+              : t("learning.attest_error_unknown"),
         );
         return;
       }
@@ -391,7 +401,24 @@ export function ModuleViewerPage() {
 
       {/* The attestation lives on the last page and nowhere else: it is the end
           of the material, and offering it earlier would invite confirming
-          something unread. Release 2's quiz gate goes immediately above it. */}
+          something unread. A module with a quiz puts the quiz immediately above
+          it, and the attestation stays locked until that is passed. */}
+      {onLastPage && quiz && (
+        <QuizPanel
+          groupId={groupId ?? ""}
+          summary={quiz}
+          pagesDone={allViewed}
+          onSummary={setQuiz}
+          onReread={() => {
+            // "Re-read the module" was an explicit request: the server has
+            // cleared its record of the pages, so the viewer starts over too.
+            settled.current = false;
+            setViewed([]);
+            setIndex(0);
+          }}
+        />
+      )}
+
       {onLastPage && (
         <section className="flex flex-col gap-3 rounded-2xl border border-border bg-bg-elevated p-5 shadow-[var(--shadow)]">
           <h3 className="text-lg font-medium">{t("learning.attest_heading")}</h3>
@@ -401,6 +428,9 @@ export function ModuleViewerPage() {
               {t("learning.attest_outstanding", { count: total - viewedCount })}
             </p>
           )}
+          {allViewed && quiz && !quiz.passed && (
+            <p className="text-sm text-fg-muted">{t("learning.attest_quiz_required")}</p>
+          )}
           {attestError && (
             <p role="alert" className="text-sm text-danger">
               {attestError}
@@ -408,7 +438,7 @@ export function ModuleViewerPage() {
           )}
           <button
             type="button"
-            disabled={!allViewed || attesting || (completedAt !== null && !superseded)}
+            disabled={!allViewed || (quiz !== null && !quiz.passed) || attesting || (completedAt !== null && !superseded)}
             onClick={() => void attest()}
             className="self-start rounded-full bg-[image:var(--gradient)] px-5 py-2.5 text-sm font-semibold text-primary-fg transition hover:-translate-y-0.5 hover:shadow-[var(--shadow)] disabled:opacity-50 disabled:hover:translate-y-0"
           >

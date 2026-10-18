@@ -18,8 +18,8 @@ able to name exactly what was read.
 """
 
 import uuid
-from datetime import UTC, date, datetime
 from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -37,12 +37,12 @@ from app.assignments import (
 from app.campaigns import (
     campaign_access,
     campaigns_targeting,
-    suspended_translation_group_ids,
     compute_progress,
     deleted_group_ids,
     is_current_completion,
     primary_variant_titles,
     sequential_locks,
+    suspended_translation_group_ids,
 )
 from app.db import get_db
 from app.dependencies import require_active_user
@@ -54,6 +54,7 @@ from app.models import (
     ModuleVersion,
     User,
 )
+from app.quiz_attempts import best_counting_pass, quiz_summary, snapshot_quiz
 from app.routes.assets import asset_url
 from app.schemas.learning import (
     CatalogEntry,
@@ -227,6 +228,8 @@ def _to_progress_state(progress: ModuleProgress) -> ProgressState:
         completed_at=progress.completed_at,
         completed_version_number=progress.completed_version_number,
         completed_module_id=progress.completed_module_id,
+        completed_score_percent=progress.completed_score_percent,
+        completed_quiz_version_number=progress.completed_quiz_version_number,
         superseded_at=progress.superseded_at,
     )
 
@@ -751,6 +754,7 @@ async def _readable_variants(
 
 async def _to_learner_module(
     db: AsyncSession,
+    user: User,
     module: Module,
     version: ModuleVersion,
     progress: ModuleProgress | None,
@@ -796,6 +800,8 @@ async def _to_learner_module(
             for asset in attachments
         ],
         progress=None if progress is None else _to_progress_state(progress),
+        # Counts and settings only — the questions are served by the quiz routes.
+        quiz=await quiz_summary(db, user, module.translation_group_id, version),
         # Every language this learner could switch to, so the viewer can offer
         # the choice only when there is one to make.
         available_languages=available_languages,
@@ -821,7 +827,7 @@ async def get_my_module(
     readable = await _readable_variants(db, user, translation_group_id, reach)
 
     return await _to_learner_module(
-        db, module, version, progress, sorted({variant.language for variant in readable})
+        db, user, module, version, progress, sorted({variant.language for variant in readable})
     )
 
 
@@ -863,7 +869,7 @@ async def switch_variant_language(
     await db.commit()
 
     return await _to_learner_module(
-        db, target, version, progress, sorted({variant.language for variant in readable})
+        db, user, target, version, progress, sorted({variant.language for variant in readable})
     )
 
 
@@ -933,7 +939,21 @@ async def complete_module(
             },
         )
 
+    winner = None
+    if snapshot_quiz(version) is not None:
+        winner = await best_counting_pass(db, user, module.translation_group_id, version)
+        if winner is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "quiz_not_passed",
+                    "message": "Pass the quiz before confirming.",
+                },
+            )
+
     progress.completed_at = datetime.now(UTC)
+    progress.completed_score_percent = winner.score_percent if winner else None
+    progress.completed_quiz_version_number = winner.version_number if winner else None
     progress.completed_version_number = version.version_number
     progress.completed_module_id = module.id
     # A completion of the current text is current by definition, whatever a

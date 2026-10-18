@@ -312,6 +312,10 @@ class ModuleProgress(Base):
     completed_module_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("modules.id")
     )
+    # For a module with a quiz: the winning attempt's score and the version
+    # whose quiz it was. Null for a module without one.
+    completed_score_percent: Mapped[int | None] = mapped_column(Integer)
+    completed_quiz_version_number: Mapped[int | None] = mapped_column(Integer)
     # Set by a substantive republish to mark a completion as no longer current.
     # Never erases `completed_at` — the person did read v2, and that stays true.
     superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

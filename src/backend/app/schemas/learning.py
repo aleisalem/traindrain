@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.schemas.assignments import Requirement
 from app.schemas.modules import ModuleLanguage
+from app.schemas.quiz_taking import LearnerQuizSummary
 
 
 class CatalogEntry(BaseModel):
@@ -89,6 +90,9 @@ class ProgressState(BaseModel):
     # module a learner is reading now, since an explicit language switch moves
     # that on to a different variant with its own, unrelated version numbers.
     completed_module_id: uuid.UUID | None
+    # The quiz result the completion rests on; null for a module without a quiz.
+    completed_score_percent: int | None = None
+    completed_quiz_version_number: int | None = None
     # Set when a substantive republish puts a completed learner back in the
     # outstanding pile. The completion itself is never erased.
     superseded_at: datetime | None
@@ -110,6 +114,8 @@ class LearnerModule(BaseModel):
     # read and stays one — it writes nothing — so nothing is recorded about
     # somebody who clicked the wrong card and left again.
     progress: ProgressState | None
+    # Null when the module has no quiz.
+    quiz: LearnerQuizSummary | None = None
     # Every language of this material the learner may read, so the viewer can
     # offer a switch only when there is genuinely a choice to make.
     available_languages: list[str]

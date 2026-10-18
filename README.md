@@ -526,6 +526,21 @@ Release 2 (campaigns and grading) is in progress:
   Frontend: `ModuleQuizPanel.tsx`, `QuizQuestionForm.tsx`, `QuizTryout.tsx`. Full details in
   [docs/references/release-2-campaigns-grading/quiz-authoring.md](docs/references/release-2-campaigns-grading/quiz-authoring.md).
 
+- Quiz-taking, grading and completion gating: a learner reaches a module's quiz after the last
+  page, answers one question at a time (saved as they go, resumable after closing the tab), and
+  sees their score and pass/fail at once. `GET /api/me/modules/{id}/quiz`, `POST .../quiz/attempts`,
+  `PUT .../attempts/{id}/answers/{question_id}`, `POST .../attempts/{id}/submit`, `POST
+  .../quiz/retake`. The server grades everything and no learner payload carries correctness data —
+  after a failure the learner sees which questions were wrong, and the key and explanations are
+  revealed only after a pass and only if the author allowed it. Attempts are stored with version,
+  score, answers and shuffle seed; the attempt cap counts per version, submissions are
+  rate-limited, and a republish mid-attempt lets the learner finish the version they started.
+  Completion needs every page viewed, then a pass (409 otherwise), then the attestation, and
+  records the winning score and quiz version. After a failure the learner chooses to retake only
+  the quiz or the whole module (clears page progress). Frontend:
+  `src/frontend/src/features/learning/QuizPanel.tsx`. Full details in
+  [docs/references/release-2-campaigns-grading/quiz-taking.md](docs/references/release-2-campaigns-grading/quiz-taking.md).
+
 Release 1 infrastructure (ticket 14, closing out the release):
 
 - Terraform under `.deploy/dev` for Release 1's own AWS footprint: the private module-assets S3
@@ -566,6 +581,7 @@ src/
                    and once for the full roster (Administrator) — what the report endpoint and its
                    CSV export both read
       quiz.py      Quiz serialization, the publish-time validity gate and server-side grading
+      quiz_attempts.py  Learner-side quiz rules: seeded ordering, attempt counting, which pass counts
       search.py    Language-aware title/description search and tag filtering, shared by the
                    authoring module list and the learner catalog so they can't disagree
       jobs/        Entrypoints invoked as scripts rather than through the API — `send_reminders.py`

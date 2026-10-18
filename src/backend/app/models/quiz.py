@@ -3,10 +3,12 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     UniqueConstraint,
@@ -104,3 +106,57 @@ class QuizOption(Base):
     # UI can localize the label rather than the server picking a language.
     text: Mapped[str] = mapped_column(String(500), nullable=False)
     is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class QuizAttempt(Base):
+    """One learner's go at one version's quiz.
+
+    In progress until `submitted_at` is set; at most one open attempt per learner
+    and material (partial unique index), which is what makes "resume after
+    closing the tab" unambiguous. Everything needed to reproduce what the
+    learner saw is stored: the version, and the shuffle seed that fixes question
+    and option order. `answers` is question id -> chosen option ids, validated
+    on write against the attempt's own version, never the current one.
+    """
+
+    __tablename__ = "quiz_attempts"
+    __table_args__ = (
+        Index("ix_quiz_attempts_learner", "user_id", "translation_group_id"),
+        Index(
+            "uq_quiz_attempts_one_open",
+            "user_id",
+            "translation_group_id",
+            unique=True,
+            postgresql_where="submitted_at is null",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    translation_group_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("module_translation_groups.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    module_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("modules.id"), nullable=False
+    )
+    version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("module_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    shuffle_seed: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    answers: Mapped[dict[str, list[str]]] = mapped_column(JSONB, nullable=False, default=dict)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    score_percent: Mapped[int | None] = mapped_column(Integer)
+    correct_count: Mapped[int | None] = mapped_column(Integer)
+    total_questions: Mapped[int | None] = mapped_column(Integer)
+    passed: Mapped[bool | None] = mapped_column(Boolean)
+    # question id -> bool. Never the correct option ids: those live only in the
+    # version snapshot and leave the server only through `reveal`.
+    question_results: Mapped[dict[str, bool] | None] = mapped_column(JSONB)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

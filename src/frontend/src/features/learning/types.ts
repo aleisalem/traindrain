@@ -49,8 +49,55 @@ export type ProgressState = {
    *  one being read now, since an explicit language switch can move that on to
    *  a different variant with its own, unrelated version numbers. */
   completed_module_id: string | null;
+  /** The quiz result the completion rests on; null for a module without one. */
+  completed_score_percent?: number | null;
+  completed_quiz_version_number?: number | null;
   superseded_at: string | null;
 };
+
+export type QuizSummary = {
+  question_count: number;
+  pass_mark_percent: number;
+  max_attempts: number | null;
+  attempts_used: number;
+  attempts_remaining: number | null;
+  exhausted: boolean;
+  passed: boolean;
+  best_score_percent: number | null;
+};
+
+export type AttemptQuestion = {
+  id: string;
+  type: "single_choice" | "multiple_choice" | "true_false";
+  schema_version: number;
+  prompt: PageDocument;
+  options: { id: string; text: string }[];
+};
+
+export type AttemptResult = {
+  score_percent: number;
+  correct_count: number;
+  total: number;
+  pass_mark_percent: number;
+  passed: boolean;
+  questions: { question_id: string; correct: boolean }[];
+  /** Present only after a pass, and only if the author allowed it. */
+  revealed:
+    | { question_id: string; correct_option_ids: string[]; explanation: PageDocument | null }[]
+    | null;
+};
+
+export type Attempt = {
+  id: string;
+  version_number: number;
+  started_at: string;
+  submitted_at: string | null;
+  questions: AttemptQuestion[];
+  answers: Record<string, string[]>;
+  result: AttemptResult | null;
+};
+
+export type QuizState = { summary: QuizSummary; attempt: Attempt | null };
 
 export type LearnerModule = {
   translation_group_id: string;
@@ -63,6 +110,8 @@ export type LearnerModule = {
   pages: LearnerPage[];
   attachments: LearnerAttachment[];
   progress: ProgressState;
+  /** Null when the module has no quiz. */
+  quiz?: QuizSummary | null;
   /** Every language of this material the learner may read — including the one
    *  they are on — so the viewer offers a switch only when there is a choice. */
   available_languages: string[];
