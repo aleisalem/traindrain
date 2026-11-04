@@ -306,4 +306,36 @@ describe("ModuleQuizPanel", () => {
 
     expect(await screen.findByRole("button", { name: "Quiz hinzufügen" })).toBeInTheDocument();
   });
+  it("copies settings from the primary variant, asking before replacing questions", async () => {
+    const user = userEvent.setup();
+    const COPY_URL = `${QUIZ_URL}/copy-from-primary`;
+    const requests = mockBackend({
+      [`GET ${QUIZ_URL}`]: { status: 200, body: quiz([question("q1", 0, "Q one")]) },
+      [`POST ${COPY_URL}`]: {
+        status: 200,
+        body: quiz([question("q9", 0, "Copied")], { pass_mark_percent: 70 }),
+      },
+    });
+    render(<ModuleQuizPanel moduleId={MODULE_ID} assets={NO_ASSETS} canCopyFromPrimary />);
+
+    await user.click(await screen.findByLabelText("Also copy the questions as a starting point for translation"));
+    await user.click(screen.getByRole("button", { name: "Copy from primary" }));
+    // Replacing existing questions needs a second, explicit press.
+    expect(screen.getByRole("alert")).toHaveTextContent("replaces the 1 question");
+    expect(requests.some((r) => r.key === `POST ${COPY_URL}`)).toBe(false);
+
+    await user.click(screen.getByRole("button", { name: "Replace and copy" }));
+
+    const post = requests.find((r) => r.key === `POST ${COPY_URL}`);
+    expect(post?.body).toEqual({ include_questions: true });
+    expect(await screen.findByLabelText("Pass mark (%)")).toHaveValue(70);
+    expect(screen.getByRole("status")).toHaveTextContent("Copied from the primary variant.");
+  });
+
+  it("does not offer copying on a module that is not a non-primary variant", async () => {
+    mockBackend({ [`GET ${QUIZ_URL}`]: { status: 200, body: null } });
+    render(<ModuleQuizPanel moduleId={MODULE_ID} assets={NO_ASSETS} />);
+    await screen.findByRole("button", { name: "Add a quiz" });
+    expect(screen.queryByRole("button", { name: "Copy from primary" })).toBeNull();
+  });
 });

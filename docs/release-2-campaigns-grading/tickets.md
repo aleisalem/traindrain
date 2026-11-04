@@ -145,12 +145,12 @@ Work the **frontier**: any ticket whose blockers are all done. Tickets 1 and 8 c
 
 **Blocked by:** 8
 
-- [ ] Quiz is per module row; variants are authored independently
-- [ ] Linking a variant into a group is a 409 when quiz presence differs; the response says which side lacks one
-- [ ] "Copy from primary" copies settings (pass mark, cap, shuffle, reveal) and, optionally, question structure as a starting point for translation
-- [ ] Duplicate produces a copy of the draft quiz; export includes the quiz in the manifest; import re-validates it and never trusts the manifest's own claims
-- [ ] Frontend: copy-from-primary control and link-refusal message
-- [ ] Backend tests: link refusals, copy behaviour, duplicate, export/import round trip, hostile imported quiz rejected; frontend tests for the control
+- [x] Quiz is per module row; variants are authored independently
+- [x] Linking a variant into a group is a 409 when quiz presence differs; the response says which side lacks one
+- [x] "Copy from primary" copies settings (pass mark, cap, shuffle, reveal) and, optionally, question structure as a starting point for translation
+- [x] Duplicate produces a copy of the draft quiz; export includes the quiz in the manifest; import re-validates it and never trusts the manifest's own claims
+- [x] Frontend: copy-from-primary control and link-refusal message
+- [x] Backend tests: link refusals, copy behaviour, duplicate, export/import round trip, hostile imported quiz rejected; frontend tests for the control
 
 ## 11. Attempt administration and erase
 

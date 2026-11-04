@@ -318,7 +318,17 @@ export function ModuleFormPage({ isAdministrator }: Props) {
           nothing to attach them to until the metadata has been saved once. */}
       {isEdit && moduleId && <ModulePagesPanel moduleId={moduleId} assets={assets} />}
       {isEdit && moduleId && <ModuleAssetsPanel assets={assets} />}
-      {isEdit && moduleId && <ModuleQuizPanel moduleId={moduleId} assets={assets} />}
+      {isEdit && moduleId && (
+        <ModuleQuizPanel
+          moduleId={moduleId}
+          assets={assets}
+          canCopyFromPrimary={
+            translations.group !== null &&
+            translations.group.variants.length > 1 &&
+            translations.group.primary_module_id !== moduleId
+          }
+        />
+      )}
       {/* Last, and after the pages: publishing is what everything above it is
           for, and there is nothing to publish before the material exists. */}
       {isEdit && module && <ModulePublishPanel module={module} onChanged={setModule} />}

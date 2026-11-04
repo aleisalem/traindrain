@@ -281,7 +281,9 @@
     "import_error_encrypted_pdf": "Password-protected PDFs cannot be imported.",
     "import_error_empty_document": "This document has no content to import.",
     "import_error_too_large": "This document is too large or too complex to import.",
-    "import_error_unknown": "Something went wrong. Please try again."
+    "import_error_unknown": "Something went wrong. Please try again.",
+    "translations_error_quiz_source_lacks": "The module you chose has no quiz, but this translation group does. Add a quiz to it first, so learners are graded in every language.",
+    "translations_error_quiz_group_lacks": "The module you chose has a quiz, but this translation group does not. Add a quiz to the group's variants, or remove it, so learners are graded in every language."
   },
   "editor": {
     "pages_heading": "Pages",
@@ -736,7 +738,17 @@
     "remove_confirm": "Remove the quiz and all its questions from the draft?",
     "remove_yes": "Yes, remove it",
     "error_rejected": "The server rejected that. Check the question text and options.",
-    "error_unknown": "Something went wrong with the quiz. Please try again."
+    "error_unknown": "Something went wrong with the quiz. Please try again.",
+    "copy_heading": "Copy from the primary variant",
+    "copy_description": "Start this variant's quiz from the primary variant's settings, then translate it. Variants are graded independently.",
+    "copy_questions": "Also copy the questions as a starting point for translation",
+    "copy_replace_warning_one": "This replaces the {{count}} question currently in this quiz. Press the button again to confirm.",
+    "copy_replace_warning_other": "This replaces the {{count}} questions currently in this quiz. Press the button again to confirm.",
+    "copy_button": "Copy from primary",
+    "copy_confirm": "Replace and copy",
+    "copy_done": "Copied from the primary variant.",
+    "error_is_primary_variant": "This is the primary variant; there is nothing to copy from.",
+    "error_primary_has_no_quiz": "The primary variant has no quiz to copy from."
   },
   "quiz_taking": {
     "heading": "Quiz",

@@ -12,6 +12,8 @@ type Props = {
   moduleId: string;
   /** Shared with the page editor so prompts can embed the module's images. */
   assets: ModuleAssetsState;
+  /** True when this module is a non-primary variant, so the primary's quiz can seed it. */
+  canCopyFromPrimary?: boolean;
 };
 
 const pillClassName =
@@ -28,7 +30,7 @@ type Editing = { questionId: string | null; type: QuestionType };
  * into the version. The panel shows what would block a publish as it stands, so
  * the author is never surprised by a refusal.
  */
-export function ModuleQuizPanel({ moduleId, assets }: Props) {
+export function ModuleQuizPanel({ moduleId, assets, canCopyFromPrimary = false }: Props) {
   const { t } = useTranslation();
   const state = useModuleQuiz(moduleId);
   const { quiz } = state;
@@ -38,6 +40,9 @@ export function ModuleQuizPanel({ moduleId, assets }: Props) {
   // Unsaved edits laid over the stored settings; cleared on a successful save.
   const [edits, setEdits] = useState<QuizSettings | null>(null);
   const [savedSettings, setSavedSettings] = useState(false);
+  const [copyQuestions, setCopyQuestions] = useState(false);
+  const [confirmingCopy, setConfirmingCopy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   if (state.loading) return null;
   if (state.loadError) {
@@ -88,6 +93,59 @@ export function ModuleQuizPanel({ moduleId, assets }: Props) {
         <p role="alert" className="text-sm text-danger">
           {t(`quiz.${state.error}`)}
         </p>
+      )}
+
+      {canCopyFromPrimary && (
+        <div
+          role="group"
+          aria-label={t("quiz.copy_heading")}
+          className="flex flex-col gap-2 rounded-2xl border border-border bg-bg-elevated p-4 text-sm"
+        >
+          <p className="font-medium">{t("quiz.copy_heading")}</p>
+          <p className="text-fg-muted">{t("quiz.copy_description")}</p>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={copyQuestions}
+              onChange={(event) => {
+                setCopyQuestions(event.target.checked);
+                setConfirmingCopy(false);
+                setCopied(false);
+              }}
+            />
+            {t("quiz.copy_questions")}
+          </label>
+          {confirmingCopy && (
+            <p role="alert" className="text-danger">
+              {t("quiz.copy_replace_warning", { count: quiz?.questions.length ?? 0 })}
+            </p>
+          )}
+          <div>
+            <button
+              type="button"
+              disabled={state.busy}
+              onClick={async () => {
+                const replaces = copyQuestions && (quiz?.questions.length ?? 0) > 0;
+                if (replaces && !confirmingCopy) {
+                  setConfirmingCopy(true);
+                  return;
+                }
+                const ok = await state.copyFromPrimary(copyQuestions);
+                setConfirmingCopy(false);
+                setCopied(ok);
+                if (ok) setEdits(null);
+              }}
+              className={pillClassName}
+            >
+              {confirmingCopy ? t("quiz.copy_confirm") : t("quiz.copy_button")}
+            </button>
+          </div>
+          {copied && (
+            <p role="status" className="text-fg-muted">
+              {t("quiz.copy_done")}
+            </p>
+          )}
+        </div>
       )}
 
       {quiz === null || settings === null ? (

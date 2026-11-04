@@ -540,6 +540,16 @@ Release 2 (campaigns and grading) is in progress:
   the quiz or the whole module (clears page progress). Frontend:
   `src/frontend/src/features/learning/QuizPanel.tsx`. Full details in
   [docs/references/release-2-campaigns-grading/quiz-taking.md](docs/references/release-2-campaigns-grading/quiz-taking.md).
+- Quizzes across translations, duplicate, export and import: each language variant carries its
+  own quiz and settings. Linking a variant into a translation group is a 409
+  (`quiz_presence_mismatch`, naming the side that lacks one) unless both have a quiz or neither
+  does. `POST /api/content/modules/{id}/quiz/copy-from-primary` seeds a non-primary variant's quiz
+  from the primary's settings and, optionally, its questions (replacing any it has). Duplicate
+  copies the draft quiz; export includes it in `module.json`, and import rebuilds it through the
+  authoring request models and the page-body validator, so a hostile prompt is rejected, never
+  stripped. Frontend: a copy-from-primary control in `ModuleQuizPanel.tsx` and the link-refusal
+  message in `useTranslationGroup.ts`. Full details in
+  [docs/references/release-2-campaigns-grading/quiz-translations.md](docs/references/release-2-campaigns-grading/quiz-translations.md).
 
 Release 1 infrastructure (ticket 14, closing out the release):
 

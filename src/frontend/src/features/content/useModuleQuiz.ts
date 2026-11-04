@@ -13,6 +13,7 @@ export type ModuleQuizState = {
   createQuiz: () => Promise<boolean>;
   saveSettings: (settings: QuizSettings) => Promise<boolean>;
   removeQuiz: () => Promise<boolean>;
+  copyFromPrimary: (includeQuestions: boolean) => Promise<boolean>;
   addQuestion: (draft: QuestionDraft) => Promise<boolean>;
   updateQuestion: (id: string, draft: QuestionDraft) => Promise<boolean>;
   deleteQuestion: (id: string) => Promise<boolean>;
@@ -71,7 +72,17 @@ export function useModuleQuiz(moduleId: string): ModuleQuizState {
           body: body === undefined ? undefined : JSON.stringify(body),
         });
         if (!response.ok) {
-          setError(response.status === 422 ? "error_rejected" : "error_unknown");
+          let code: string | undefined;
+          try {
+            code = (await response.json())?.detail?.code;
+          } catch {
+            // A non-JSON body falls through to the general messages.
+          }
+          if (code === "is_primary_variant" || code === "primary_has_no_quiz") {
+            setError(`error_${code}`);
+          } else {
+            setError(response.status === 422 ? "error_rejected" : "error_unknown");
+          }
           return null;
         }
         return response;
@@ -117,6 +128,8 @@ export function useModuleQuiz(moduleId: string): ModuleQuizState {
       if (response) setQuiz(null);
       return response !== null;
     },
+    copyFromPrimary: (includeQuestions) =>
+      write(`${base}/copy-from-primary`, "POST", { include_questions: includeQuestions }),
     addQuestion: (draft) => write(`${base}/questions`, "POST", payload(draft)),
     updateQuestion: (id, draft) => write(`${base}/questions/${id}`, "PATCH", payload(draft)),
     deleteQuestion: (id) => write(`${base}/questions/${id}`, "DELETE"),

@@ -19,11 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.access import ensure_module_editable
 from app.db import get_db
 from app.dependencies import get_module_or_404, require_content_manager
-from app.models import Module, ModuleQuiz, QuizOption, QuizQuestion, User
-from app.quiz import grade, load_draft_quiz, quiz_problems, serialize_quiz
+from app.models import Module, ModuleQuiz, ModuleTranslationGroup, QuizOption, QuizQuestion, User
+from app.quiz import clone_draft_quiz, grade, load_draft_quiz, quiz_problems, serialize_quiz
 from app.routes.content import validate_page_body
 from app.schemas.quiz import (
     MAX_QUESTIONS_PER_QUIZ,
+    CopyFromPrimaryRequest,
     OptionInput,
     QuestionCreateRequest,
     QuestionReorderRequest,
@@ -141,6 +142,52 @@ async def put_quiz(
     quiz.reveal_after_pass = payload.reveal_after_pass
     await db.flush()
     await _audit(db, author, module, "created" if created else "settings_updated")
+    await db.commit()
+    response = await _response(db, module.id)
+    assert response is not None
+    return response
+
+
+@router.post("/modules/{module_id}/quiz/copy-from-primary", response_model=QuizResponse)
+async def copy_quiz_from_primary(
+    module_id: uuid.UUID,
+    payload: CopyFromPrimaryRequest,
+    db: AsyncSession = Depends(get_db),
+    author: User = Depends(require_content_manager),
+) -> QuizResponse:
+    """Seed this variant's quiz from its translation group's primary variant."""
+    module = await get_module_or_404(db, module_id, for_update=True)
+    ensure_module_editable(module)
+    group = await db.get(ModuleTranslationGroup, module.translation_group_id)
+    primary_id = group.primary_module_id if group is not None else None
+    if primary_id is None or primary_id == module.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "is_primary_variant",
+                "message": "This is the primary variant; there is nothing to copy from.",
+            },
+        )
+    primary = await db.get(Module, primary_id)
+    if primary is None or await load_draft_quiz(db, primary.id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "primary_has_no_quiz",
+                "message": "The primary variant has no quiz to copy from.",
+            },
+        )
+    await clone_draft_quiz(
+        db, primary.id, module.id, include_questions=payload.include_questions
+    )
+    await _audit(
+        db,
+        author,
+        module,
+        "copied_from_primary",
+        source_module_id=str(primary.id),
+        include_questions=payload.include_questions,
+    )
     await db.commit()
     response = await _response(db, module.id)
     assert response is not None

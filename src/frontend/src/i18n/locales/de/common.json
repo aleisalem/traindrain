@@ -281,7 +281,9 @@
     "import_error_encrypted_pdf": "Passwortgeschützte PDF-Dateien können nicht importiert werden.",
     "import_error_empty_document": "Dieses Dokument enthält keinen importierbaren Inhalt.",
     "import_error_too_large": "Dieses Dokument ist zu groß oder zu komplex für den Import.",
-    "import_error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
+    "import_error_unknown": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+    "translations_error_quiz_source_lacks": "Das gewählte Modul hat kein Quiz, diese Übersetzungsgruppe aber schon. Fügen Sie zuerst ein Quiz hinzu, damit Lernende in jeder Sprache bewertet werden.",
+    "translations_error_quiz_group_lacks": "Das gewählte Modul hat ein Quiz, diese Übersetzungsgruppe aber nicht. Fügen Sie den Varianten der Gruppe ein Quiz hinzu oder entfernen Sie es, damit Lernende in jeder Sprache bewertet werden."
   },
   "editor": {
     "pages_heading": "Seiten",
@@ -736,7 +738,17 @@
     "remove_confirm": "Das Quiz und alle Fragen aus dem Entwurf entfernen?",
     "remove_yes": "Ja, entfernen",
     "error_rejected": "Der Server hat das abgelehnt. Prüfe Fragetext und Optionen.",
-    "error_unknown": "Beim Quiz ist etwas schiefgelaufen. Bitte versuche es erneut."
+    "error_unknown": "Beim Quiz ist etwas schiefgelaufen. Bitte versuche es erneut.",
+    "copy_heading": "Aus der Hauptvariante kopieren",
+    "copy_description": "Starten Sie das Quiz dieser Variante mit den Einstellungen der Hauptvariante und übersetzen Sie es anschließend. Varianten werden unabhängig bewertet.",
+    "copy_questions": "Auch die Fragen als Ausgangspunkt für die Übersetzung kopieren",
+    "copy_replace_warning_one": "Dies ersetzt die {{count}} Frage in diesem Quiz. Klicken Sie erneut, um zu bestätigen.",
+    "copy_replace_warning_other": "Dies ersetzt die {{count}} Fragen in diesem Quiz. Klicken Sie erneut, um zu bestätigen.",
+    "copy_button": "Aus Hauptvariante kopieren",
+    "copy_confirm": "Ersetzen und kopieren",
+    "copy_done": "Aus der Hauptvariante kopiert.",
+    "error_is_primary_variant": "Dies ist die Hauptvariante; es gibt nichts zu kopieren.",
+    "error_primary_has_no_quiz": "Die Hauptvariante hat kein Quiz zum Kopieren."
   },
   "quiz_taking": {
     "heading": "Quiz",

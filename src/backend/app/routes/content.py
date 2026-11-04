@@ -33,7 +33,13 @@ from app.models import (
     Tag,
     User,
 )
-from app.quiz import classify_change, load_draft_quiz, quiz_problems, serialize_quiz
+from app.quiz import (
+    classify_change,
+    clone_draft_quiz,
+    load_draft_quiz,
+    quiz_problems,
+    serialize_quiz,
+)
 from app.routes.assets import asset_url
 from app.schemas.modules import (
     DeletionImpactResponse,
@@ -1150,6 +1156,7 @@ async def duplicate_module(
         db, s3_client, source=source, copy=copy, author=author
     )
     await _duplicate_pages(db, source=source, copy=copy, urls=asset_urls)
+    copied_quiz = await clone_draft_quiz(db, source.id, copy.id, include_questions=True)
 
     await record_audit_log(
         db,
@@ -1160,6 +1167,7 @@ async def duplicate_module(
             "source_module_id": str(source.id),
             "title": copy.title,
             "language": copy.language,
+            "quiz_copied": copied_quiz is not None,
         },
     )
     await db.commit()
@@ -1248,6 +1256,42 @@ async def _translation_group_response(
     )
 
 
+async def _require_matching_quiz_presence(
+    db: AsyncSession, source: Module, variants: list[Module]
+) -> None:
+    """Refuse a link that would grade learners in one language and not the other.
+
+    A quiz belongs to a module row, so each variant carries its own; what must
+    agree across a group is only whether there is one. The response names the
+    side that lacks it so the author knows which module to fix.
+    """
+    ids = [source.id, *(variant.id for variant in variants)]
+    with_quiz = set(
+        (
+            await db.execute(select(ModuleQuiz.module_id).where(ModuleQuiz.module_id.in_(ids)))
+        ).scalars()
+    )
+    source_has = source.id in with_quiz
+    for variant in variants:
+        if (variant.id in with_quiz) == source_has:
+            continue
+        lacking = variant if source_has else source
+        side = "group" if source_has else "source"
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "quiz_presence_mismatch",
+                "message": (
+                    f"Only one of these modules has a quiz: the {side} module "
+                    f"({lacking.language}) has none. Add or remove a quiz so both match."
+                ),
+                "lacking_side": side,
+                "lacking_module_id": str(lacking.id),
+                "lacking_language": lacking.language,
+            },
+        )
+
+
 @router.get("/translation-groups/{group_id}", response_model=TranslationGroupResponse)
 async def get_translation_group(
     group_id: uuid.UUID,
@@ -1325,6 +1369,8 @@ async def link_variant(
                 "message": f"This group already has a {source.language} variant.",
             },
         )
+
+    await _require_matching_quiz_presence(db, source, await _group_variants(db, group_id))
 
     has_progress = (
         await db.execute(

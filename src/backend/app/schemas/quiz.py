@@ -111,3 +111,16 @@ class TryoutResponse(BaseModel):
     pass_mark_percent: int
     passed: bool
     questions: list[TryoutQuestionResult]
+
+
+class CopyFromPrimaryRequest(BaseModel):
+    """Start this variant's quiz from the primary variant's.
+
+    Settings are always copied. `include_questions` also replaces this quiz's
+    questions with copies of the primary's, as a starting point for translating
+    them; the copies are ordinary draft rows, edited independently afterwards.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    include_questions: bool = False

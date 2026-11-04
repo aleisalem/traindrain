@@ -14,7 +14,7 @@ Three jobs, shared by authoring now and by learner attempts (ticket 9) later:
 import uuid
 from typing import Any, Literal
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.content import extract_search_text
@@ -198,3 +198,87 @@ def grade(quiz: dict[str, Any], answers: dict[str, set[str]]) -> dict[str, Any]:
         "passed": total > 0 and score >= quiz["pass_mark_percent"],
         "questions": results,
     }
+
+
+async def clone_draft_quiz(
+    db: AsyncSession,
+    source_module_id: uuid.UUID,
+    target_module_id: uuid.UUID,
+    *,
+    include_questions: bool,
+) -> ModuleQuiz | None:
+    """Copy one module's draft quiz onto another, with fresh row ids.
+
+    Settings are always copied (creating the target's quiz if it has none). With
+    `include_questions` the target's questions are *replaced* by copies of the
+    source's; without it they are left untouched. Prompts and explanations were
+    validated when they were written, and are copied verbatim — a copy cannot
+    hold anything its source did not.
+    """
+    loaded = await load_draft_quiz(db, source_module_id)
+    if loaded is None:
+        return None
+    source_quiz, source_questions = loaded
+    target = (
+        await db.execute(select(ModuleQuiz).where(ModuleQuiz.module_id == target_module_id))
+    ).scalar_one_or_none()
+    if target is None:
+        target = ModuleQuiz(module_id=target_module_id)
+        db.add(target)
+    target.pass_mark_percent = source_quiz.pass_mark_percent
+    target.max_attempts = source_quiz.max_attempts
+    target.shuffle = source_quiz.shuffle
+    target.reveal_after_pass = source_quiz.reveal_after_pass
+    await db.flush()
+    if not include_questions:
+        return target
+
+    await db.execute(delete(QuizQuestion).where(QuizQuestion.quiz_id == target.id))
+    await db.flush()
+    for question, options in source_questions:
+        await add_question_rows(
+            db,
+            target,
+            position=question.position,
+            type=question.type,
+            schema_version=question.schema_version,
+            prompt=question.prompt,
+            explanation=question.explanation,
+            options=[(o.text, o.is_correct) for o in options],
+        )
+    await db.flush()
+    return target
+
+
+async def add_question_rows(
+    db: AsyncSession,
+    quiz: ModuleQuiz,
+    *,
+    position: int,
+    type: str,
+    schema_version: int,
+    prompt: dict[str, Any],
+    explanation: dict[str, Any] | None,
+    options: list[tuple[str, bool]],
+) -> QuizQuestion:
+    question = QuizQuestion(
+        id=uuid.uuid4(),
+        quiz_id=quiz.id,
+        position=position,
+        type=type,
+        prompt=prompt,
+        explanation=explanation,
+        schema_version=schema_version,
+    )
+    db.add(question)
+    await db.flush()
+    for option_position, (text, is_correct) in enumerate(options):
+        db.add(
+            QuizOption(
+                question_id=question.id,
+                position=option_position,
+                text=text,
+                is_correct=is_correct,
+            )
+        )
+    return question

@@ -51,10 +51,19 @@ export function useTranslationGroup(groupId: string | undefined): TranslationGro
   const describeFailure = useCallback(
     async (response: Response): Promise<string> => {
       let code: string | undefined;
+      let lackingSide: string | undefined;
       try {
-        code = (await response.json())?.detail?.code;
+        const detail = (await response.json())?.detail;
+        code = detail?.code;
+        lackingSide = detail?.lacking_side;
       } catch {
         // A non-JSON body leaves the general message below.
+      }
+      if (code === "quiz_presence_mismatch") {
+        // Name the side to fix: learners must never be graded in one language only.
+        return lackingSide === "source"
+          ? t("content.translations_error_quiz_source_lacks")
+          : t("content.translations_error_quiz_group_lacks");
       }
       if (code === "language_already_exists") {
         return t("content.translations_error_language_exists");
