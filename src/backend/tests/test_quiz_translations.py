@@ -342,3 +342,39 @@ async def test_archives_from_before_quizzes_still_import(
     assert "quiz" not in manifest
     response = await _import(client, _build_zip({"module.json": json.dumps(manifest).encode()}))
     assert response.status_code == 201, response.text
+
+
+async def test_duplicate_and_import_repoint_quiz_images_at_their_own_assets(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    from tests.test_module_transfer import _upload
+    from tests.test_upload_sniffing import PNG
+
+    await _author(client, db_session, "qt-img@example.com")
+    module = await _make_module(client, title="Img", language="en")
+    asset = (await _upload(client, module["id"], data=PNG, filename="d.png")).json()["assets"][0]
+    url = f"/api/modules/{module['id']}/assets/{asset['id']}"
+    prompt = {"type": "doc", "content": [{"type": "paragraph", "content": [
+        {"type": "text", "text": "see"}]}, {"type": "image", "attrs": {"src": url, "alt": "d"}}]}
+    assert (await _create_quiz(client, module["id"])).status_code == 200
+    created = await _add_question(client, module["id"], {**_question(), "prompt": prompt})
+    assert created.status_code == 201, created.text
+
+    dup = await client.post(f"/api/content/modules/{module['id']}/duplicate", json={})
+    imported = await _import(client, await _export(client, module["id"]))
+    for copy_id in (dup.json()["id"], imported.json()["id"]):
+        got = (await client.get(f"/api/content/modules/{copy_id}/quiz")).json()
+        src = got["questions"][0]["prompt"]["content"][1]["attrs"]["src"]
+        assert src != url and f"/api/modules/{copy_id}/assets/" in src
+
+
+async def test_copy_from_a_deleted_primary_is_refused(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    await _author(client, db_session, "qt-delprimary@example.com")
+    en, de = await _linked_with_quizzes(client)
+    assert (await client.delete(f"/api/content/modules/{en['id']}")).status_code in (200, 204)
+    response = await client.post(
+        f"/api/content/modules/{de['id']}/quiz/copy-from-primary", json={}
+    )
+    assert response.status_code == 409

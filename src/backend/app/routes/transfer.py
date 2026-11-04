@@ -447,8 +447,14 @@ async def import_module(
                 position=position,
                 type=question.type,
                 schema_version=question.schema_version,
-                prompt=prompt,
-                explanation=explanation,
+                # Repointed at this import's own assets, like page bodies, then
+                # re-validated so what is stored is the validator's canonical form.
+                prompt=validate_document(_rewrite_asset_references_by_id(prompt, urls_by_old_id)),
+                explanation=(
+                    validate_document(_rewrite_asset_references_by_id(explanation, urls_by_old_id))
+                    if explanation is not None
+                    else None
+                ),
                 options=[(option.text.strip(), option.is_correct) for option in question.options],
             )
 

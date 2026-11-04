@@ -1156,7 +1156,15 @@ async def duplicate_module(
         db, s3_client, source=source, copy=copy, author=author
     )
     await _duplicate_pages(db, source=source, copy=copy, urls=asset_urls)
-    copied_quiz = await clone_draft_quiz(db, source.id, copy.id, include_questions=True)
+    copied_quiz = await clone_draft_quiz(
+        db,
+        source.id,
+        copy.id,
+        include_questions=True,
+        # Quiz prompts can embed the module's images too: repoint them at the
+        # copy's own assets, as pages are, so deleting the original can't blank them.
+        rewrite=lambda doc: validate_document(_rewrite_asset_references(doc, asset_urls)),
+    )
 
     await record_audit_log(
         db,

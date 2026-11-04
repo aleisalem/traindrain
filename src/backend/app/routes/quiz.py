@@ -169,7 +169,11 @@ async def copy_quiz_from_primary(
             },
         )
     primary = await db.get(Module, primary_id)
-    if primary is None or await load_draft_quiz(db, primary.id) is None:
+    if (
+        primary is None
+        or primary.status == "deleted"
+        or await load_draft_quiz(db, primary.id) is None
+    ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={

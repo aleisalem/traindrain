@@ -12,6 +12,7 @@ Three jobs, shared by authoring now and by learner attempts (ticket 9) later:
 """
 
 import uuid
+from collections.abc import Callable
 from typing import Any, Literal
 
 from sqlalchemy import delete, select
@@ -206,6 +207,7 @@ async def clone_draft_quiz(
     target_module_id: uuid.UUID,
     *,
     include_questions: bool,
+    rewrite: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
 ) -> ModuleQuiz | None:
     """Copy one module's draft quiz onto another, with fresh row ids.
 
@@ -213,8 +215,10 @@ async def clone_draft_quiz(
     `include_questions` the target's questions are *replaced* by copies of the
     source's; without it they are left untouched. Prompts and explanations were
     validated when they were written, and are copied verbatim — a copy cannot
-    hold anything its source did not.
+    hold anything its source did not. `rewrite`, when given, maps each rich-text
+    tree (e.g. to repoint asset references at the target module's own assets).
     """
+    fix = rewrite or (lambda doc: doc)
     loaded = await load_draft_quiz(db, source_module_id)
     if loaded is None:
         return None
@@ -242,8 +246,8 @@ async def clone_draft_quiz(
             position=question.position,
             type=question.type,
             schema_version=question.schema_version,
-            prompt=question.prompt,
-            explanation=question.explanation,
+            prompt=fix(question.prompt),
+            explanation=fix(question.explanation) if question.explanation is not None else None,
             options=[(o.text, o.is_correct) for o in options],
         )
     await db.flush()
