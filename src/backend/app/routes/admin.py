@@ -10,6 +10,7 @@ from app.db import get_db
 from app.dependencies import get_current_session, get_ses_client, require_administrator
 from app.models import Group, Invite, Role, TwoFactorCredential, User
 from app.models import Session as SessionModel
+from app.quiz_attempts import deidentify_attempts
 from app.schemas.groups import GroupCreateRequest, GroupResponse, GroupUpdateRequest
 from app.schemas.invites import (
     InviteCreateRequest,
@@ -263,6 +264,9 @@ async def erase_user(
     target.erased_at = now
     target.disabled_at = now
     await revoke_other_sessions(db, user_id=target.id, keep_session_id=None)
+    # Per-answer quiz data is hard-deleted; scores survive as de-identified
+    # aggregates against this tombstone.
+    await deidentify_attempts(db, target.id)
 
     # No email in the detail blob, unlike the disable/enable log entries —
     # logging the erased personal data right back into a permanent audit

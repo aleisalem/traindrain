@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import i18n from "../../i18n";
 import "../../i18n";
@@ -63,7 +64,7 @@ describe("ModuleReportPanel", () => {
   });
 
   afterEach(() => {
-    // no globals stubbed here
+    vi.unstubAllGlobals();
   });
 
   it("shows a Content Manager per-group counts with no identities and no CSV export", () => {
@@ -162,5 +163,62 @@ describe("ModuleReportPanel", () => {
     );
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("lets an Administrator reset a learner's quiz attempts after confirming", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ attempts_deleted: 2 }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <ModuleReportPanel
+        moduleId="module-1"
+        report={stateWith({ report: adminReport() })}
+        isAdministrator={true}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Reset attempts for Lena Learner" }));
+    // Nothing is sent until the second click.
+    expect(fetchMock).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Delete Lena Learner's attempts" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("2 attempts deleted"),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/content/modules/module-1/quiz/attempts/reset",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ user_id: "user-1" }) }),
+    );
+  });
+
+  it("can back out of a reset without sending anything", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <ModuleReportPanel
+        moduleId="module-1"
+        report={stateWith({ report: adminReport() })}
+        isAdministrator={true}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Reset attempts for Lena Learner" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Reset attempts for Lena Learner" }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers no reset control to a Content Manager", () => {
+    render(
+      <ModuleReportPanel
+        moduleId="module-1"
+        report={stateWith({ report: cmReport() })}
+        isAdministrator={false}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /Reset attempts/ })).not.toBeInTheDocument();
   });
 });

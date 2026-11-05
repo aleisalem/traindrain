@@ -552,7 +552,14 @@
     "state_not_started": "Nicht begonnen",
     "overdue_flag": "Überfällig",
     "version_number": "v{{number}}",
-    "no_due_date": "Kein Fälligkeitsdatum"
+    "no_due_date": "Kein Fälligkeitsdatum",
+    "column_quiz": "Quiz-Versuche",
+    "reset_attempts": "Versuche von {{name}} zurücksetzen",
+    "reset_attempts_confirm": "Versuche von {{name}} löschen",
+    "reset_attempts_cancel": "Abbrechen",
+    "reset_attempts_done_one": "1 Versuch gelöscht. Es kann erneut versucht werden.",
+    "reset_attempts_done_other": "{{count}} Versuche gelöscht. Es kann erneut versucht werden.",
+    "reset_attempts_error": "Die Versuche konnten nicht zurückgesetzt werden. Bitte erneut versuchen."
   },
   "contentReports": {
     "nav_link": "Berichte",

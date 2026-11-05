@@ -158,12 +158,12 @@ Work the **frontier**: any ticket whose blockers are all done. Tickets 1 and 8 c
 
 **Blocked by:** 9, 10
 
-- [ ] `POST` attempt-reset route, Administrator-only, audit-logged with module and learner
-- [ ] Cap counts attempts across a translation group; a language switch keeps attempts and any prior pass
-- [ ] The existing user-erase action deletes answer rows and detaches attempts from identity, leaving aggregates against the tombstone
-- [ ] Reports computed after an erase still include the de-identified aggregates
-- [ ] Frontend: Administrator reset control and the exhausted-attempts message pointing to it
-- [ ] Backend tests: reset, cross-variant cap, erase deleting answers while keeping aggregates and completions; frontend test for the control
+- [x] `POST` attempt-reset route, Administrator-only, audit-logged with module and learner
+- [x] Cap counts attempts across a translation group; a language switch keeps attempts and any prior pass
+- [x] The existing user-erase action deletes answer rows and detaches attempts from identity, leaving aggregates against the tombstone
+- [x] Reports computed after an erase still include the de-identified aggregates
+- [x] Frontend: Administrator reset control and the exhausted-attempts message pointing to it
+- [x] Backend tests: reset, cross-variant cap, erase deleting answers while keeping aggregates and completions; frontend test for the control
 
 ## 12. Campaign reports
 

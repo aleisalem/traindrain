@@ -92,3 +92,13 @@ class RetakeRequest(BaseModel):
     # quiz: straight back to a fresh attempt, page progress kept.
     # module: page progress cleared so the pages must be read again.
     mode: Literal["quiz", "module"]
+
+
+class ResetAttemptsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: uuid.UUID
+
+
+class ResetAttemptsResponse(BaseModel):
+    attempts_deleted: int

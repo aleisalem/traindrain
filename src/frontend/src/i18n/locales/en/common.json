@@ -552,7 +552,14 @@
     "state_not_started": "Not started",
     "overdue_flag": "Overdue",
     "version_number": "v{{number}}",
-    "no_due_date": "No due date"
+    "no_due_date": "No due date",
+    "column_quiz": "Quiz attempts",
+    "reset_attempts": "Reset attempts for {{name}}",
+    "reset_attempts_confirm": "Delete {{name}}'s attempts",
+    "reset_attempts_cancel": "Cancel",
+    "reset_attempts_done_one": "1 attempt deleted. They can try again.",
+    "reset_attempts_done_other": "{{count}} attempts deleted. They can try again.",
+    "reset_attempts_error": "Couldn't reset attempts. Please try again."
   },
   "contentReports": {
     "nav_link": "Reports",

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type {
@@ -80,7 +81,7 @@ export function ModuleReportPanel({ moduleId, report, isAdministrator }: Props) 
       {isGroupSummary(report.report) ? (
         <GroupSummaryTable report={report.report} />
       ) : (
-        <RosterTable report={report.report} />
+        <RosterTable report={report.report} moduleId={moduleId} />
       )}
     </section>
   );
@@ -126,7 +127,92 @@ function GroupSummaryTable({ report }: { report: ContentManagerModuleReport }) {
   );
 }
 
-function RosterTable({ report }: { report: AdministratorModuleReport }) {
+/**
+ * Gives one learner a clean slate on this module's quiz. Two clicks, because
+ * it deletes attempts for good; the outcome is announced in a live region.
+ */
+function ResetAttemptsControl({
+  moduleId,
+  userId,
+  name,
+}: {
+  moduleId: string;
+  userId: string;
+  name: string;
+}) {
+  const { t } = useTranslation();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [outcome, setOutcome] = useState<{ ok: boolean; deleted: number } | null>(null);
+
+  async function reset() {
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/content/modules/${moduleId}/quiz/attempts/reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId }),
+      });
+      const body = response.ok ? await response.json() : null;
+      setOutcome({ ok: response.ok, deleted: body?.attempts_deleted ?? 0 });
+    } catch {
+      setOutcome({ ok: false, deleted: 0 });
+    } finally {
+      setBusy(false);
+      setConfirming(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      {confirming ? (
+        <span className="flex gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void reset()}
+            className="rounded-full bg-danger px-3 py-1 text-xs font-medium text-white disabled:opacity-60"
+          >
+            {t("report.reset_attempts_confirm", { name })}
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            className="rounded-full border border-border px-3 py-1 text-xs font-medium"
+          >
+            {t("report.reset_attempts_cancel")}
+          </button>
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setOutcome(null);
+            setConfirming(true);
+          }}
+          className="rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:-translate-y-0.5"
+        >
+          {t("report.reset_attempts", { name })}
+        </button>
+      )}
+      <span role="status" className="text-xs text-fg-muted">
+        {outcome === null
+          ? ""
+          : outcome.ok
+            ? t("report.reset_attempts_done", { count: outcome.deleted })
+            : t("report.reset_attempts_error")}
+      </span>
+    </div>
+  );
+}
+
+function RosterTable({
+  report,
+  moduleId,
+}: {
+  report: AdministratorModuleReport;
+  moduleId: string;
+}) {
   const { t } = useTranslation();
 
   if (report.learners.length === 0) {
@@ -135,7 +221,7 @@ function RosterTable({ report }: { report: AdministratorModuleReport }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[42rem] text-left text-sm">
+      <table className="w-full min-w-[52rem] text-left text-sm">
         <thead>
           <tr className="border-b border-border text-xs uppercase tracking-wide text-fg-muted">
             <th className="py-2 pr-4">{t("report.column_name")}</th>
@@ -143,6 +229,7 @@ function RosterTable({ report }: { report: AdministratorModuleReport }) {
             <th className="py-2 pr-4">{t("report.column_status")}</th>
             <th className="py-2 pr-4">{t("report.column_completed_version")}</th>
             <th className="py-2 pr-4">{t("report.column_due_date")}</th>
+            <th className="py-2 pr-4">{t("report.column_quiz")}</th>
           </tr>
         </thead>
         <tbody>
@@ -163,6 +250,13 @@ function RosterTable({ report }: { report: AdministratorModuleReport }) {
               </td>
               <td className="py-2 pr-4">
                 {learner.due_date ? learner.due_date : t("report.no_due_date")}
+              </td>
+              <td className="py-2 pr-4">
+                <ResetAttemptsControl
+                  moduleId={moduleId}
+                  userId={learner.user_id}
+                  name={learner.name}
+                />
               </td>
             </tr>
           ))}

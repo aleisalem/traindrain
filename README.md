@@ -551,6 +551,17 @@ Release 2 (campaigns and grading) is in progress:
   message in `useTranslationGroup.ts`. Full details in
   [docs/references/release-2-campaigns-grading/quiz-translations.md](docs/references/release-2-campaigns-grading/quiz-translations.md).
 
+- Attempt administration and erase: `POST /api/content/modules/{id}/quiz/attempts/reset`
+  (Administrator-only, audit-logged as `quiz_attempts_reset`) deletes a learner's quiz attempts on a
+  material in every language, so an exhausted learner can try again; their completion record is
+  untouched. The attempt cap and any prior pass now follow the learner across translation variants
+  — switching language cannot dodge the cap — while a republish still starts the count afresh. The
+  user-erase action hard-deletes a learner's answers (and any attempt in progress) and leaves
+  submitted attempts as de-identified aggregates (score, pass/fail, version, timestamp) against the
+  tombstone, so statistics stay correct (`app.quiz_attempts.attempt_aggregates`). Frontend: a
+  per-learner reset control in the Administrator roster, `ModuleReportPanel.tsx`. Full details in
+  [docs/references/release-2-campaigns-grading/quiz-administration.md](docs/references/release-2-campaigns-grading/quiz-administration.md).
+
 Release 1 infrastructure (ticket 14, closing out the release):
 
 - Terraform under `.deploy/dev` for Release 1's own AWS footprint: the private module-assets S3

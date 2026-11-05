@@ -18,9 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.access import ensure_module_editable
 from app.db import get_db
-from app.dependencies import get_module_or_404, require_content_manager
+from app.dependencies import get_module_or_404, require_administrator, require_content_manager
 from app.models import Module, ModuleQuiz, ModuleTranslationGroup, QuizOption, QuizQuestion, User
 from app.quiz import clone_draft_quiz, grade, load_draft_quiz, quiz_problems, serialize_quiz
+from app.quiz_attempts import reset_attempts
 from app.routes.content import validate_page_body
 from app.schemas.quiz import (
     MAX_QUESTIONS_PER_QUIZ,
@@ -34,6 +35,7 @@ from app.schemas.quiz import (
     TryoutRequest,
     TryoutResponse,
 )
+from app.schemas.quiz_taking import ResetAttemptsRequest, ResetAttemptsResponse
 from app.security.audit import record_audit_log
 
 router = APIRouter(prefix="/api/content", tags=["quiz"])
@@ -425,3 +427,36 @@ async def tryout_quiz(
         answers[str(question_id)] = chosen
     result = grade(quiz, answers)
     return TryoutResponse(pass_mark_percent=quiz["pass_mark_percent"], **result)
+
+
+@router.post("/modules/{module_id}/quiz/attempts/reset", response_model=ResetAttemptsResponse)
+async def reset_learner_attempts(
+    module_id: uuid.UUID,
+    payload: ResetAttemptsRequest,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> ResetAttemptsResponse:
+    """Give a learner a clean slate on this module's quiz.
+
+    Administrator-only: it undoes a cap the author set. Attempts are held per
+    translation group, so every language variant's attempts go together. The
+    learner's completion record, if any, is a separate row and is untouched.
+    """
+    module = await get_module_or_404(db, module_id)
+    learner = await db.get(User, payload.user_id)
+    if learner is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    deleted = await reset_attempts(db, learner.id, module.translation_group_id)
+    await record_audit_log(
+        db,
+        actor_user_id=admin.id,
+        action="quiz_attempts_reset",
+        target_user_id=learner.id,
+        detail={
+            "module_id": str(module.id),
+            "translation_group_id": str(module.translation_group_id),
+            "attempts_deleted": deleted,
+        },
+    )
+    await db.commit()
+    return ResetAttemptsResponse(attempts_deleted=deleted)
