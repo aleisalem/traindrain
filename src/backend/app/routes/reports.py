@@ -74,6 +74,7 @@ async def get_module_report(
             module.translation_group_id,
             today=today,
             include_unassigned_progress=module.status == "deleted",
+            include_quiz_attempters=True,
         )
         return AdministratorModuleReport(
             translation_group_id=module.translation_group_id,
@@ -117,6 +118,7 @@ async def get_module_report_csv(
         module.translation_group_id,
         today=today,
         include_unassigned_progress=module.status == "deleted",
+        include_quiz_attempters=True,
     )
 
     buffer = io.StringIO()

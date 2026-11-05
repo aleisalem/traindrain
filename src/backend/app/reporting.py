@@ -25,7 +25,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assignments import is_overdue, nearer_due_date, resolve_target_users
-from app.models import Assignment, Group, ModuleProgress, User
+from app.models import Assignment, Group, ModuleProgress, QuizAttempt, User
 
 LearnerState = Literal["completed", "in_progress", "not_started"]
 
@@ -138,6 +138,7 @@ async def full_roster(
     *,
     today: date,
     include_unassigned_progress: bool = False,
+    include_quiz_attempters: bool = False,
 ) -> list[LearnerStanding]:
     """Every learner targeted by any assignment on this material — group or
     individual — deduplicated, with the nearest due date across whatever
@@ -184,6 +185,25 @@ async def full_roster(
                 (
                     await db.execute(select(User).where(User.id.in_(unassigned_ids)))
                 ).scalars()
+            ):
+                users[member.id] = member
+                due_dates[member.id] = None
+
+    if include_quiz_attempters:
+        # Someone who reached the quiz through the open catalog is named by no
+        # assignment, yet is exactly who an Administrator may need to reset.
+        attempter_ids = set(
+            (
+                await db.execute(
+                    select(QuizAttempt.user_id)
+                    .where(QuizAttempt.translation_group_id == translation_group_id)
+                    .distinct()
+                )
+            ).scalars()
+        ) - set(users)
+        if attempter_ids:
+            for member in _live(
+                (await db.execute(select(User).where(User.id.in_(attempter_ids)))).scalars()
             ):
                 users[member.id] = member
                 due_dates[member.id] = None

@@ -13,3 +13,5 @@
   figures are unchanged by an erase.
 - **Frontend**: a two-step "Reset attempts" button per learner in the Administrator roster; the learner's
   exhausted-attempts message already tells them to ask an Administrator.
+- **Roster reach**: the Administrator roster (and CSV) also lists learners who have quiz attempts on the
+  material but are named by no assignment (e.g. catalog readers), so they can be reset.

@@ -293,3 +293,16 @@ async def test_erase_deletes_an_attempt_in_progress(
 
     db_session.expire_all()
     assert await db_session.get(QuizAttempt, uuid.UUID(attempt_id)) is None
+
+
+async def test_a_catalog_learner_with_attempts_is_on_the_administrator_roster(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    quiz = await _publish_quiz_module(client, db_session, "ro1", max_attempts=1)
+    await _ready(client, quiz)
+    await _take(client, quiz, quiz.answers(right=set()))  # reached via the catalog, no assignment
+    learner_id = await _learner_id(db_session, "ro1-learner@example.com")
+
+    await _admin(client, db_session, "ro1-admin@example.com")
+    roster = (await client.get(f"/api/content/modules/{quiz.module_id}/report")).json()["learners"]
+    assert [row["user_id"] for row in roster] == [str(learner_id)]
