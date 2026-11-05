@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { CampaignCollaboratorsPanel } from "./CampaignCollaboratorsPanel";
 import { CampaignImpactDialog } from "./CampaignImpactDialog";
 import { CampaignLifecyclePanel } from "./CampaignLifecyclePanel";
+import { CampaignReportSection } from "./CampaignReportsSection";
 import { ModuleEditorsPresence } from "./ModuleEditorsPresence";
 import type {
   Campaign,
@@ -618,6 +619,10 @@ export function CampaignBuilderPage({ isAdministrator = false }: { isAdministrat
           </div>
         )}
       </section>
+
+      {campaign && campaign.status !== "draft" && (
+        <CampaignReportSection campaignId={campaign.id} isAdministrator={isAdministrator} />
+      )}
 
       {campaign && (
         <CampaignLifecyclePanel

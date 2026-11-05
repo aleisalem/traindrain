@@ -799,5 +799,31 @@
     "error_rate_limited": "Too many submissions. Wait a few minutes and try again.",
     "error_unknown": "Something went wrong with the quiz. Please try again.",
     "passed_badge": "Quiz passed ({{score}}%)"
+  },
+  "campaignReport": {
+    "heading": "Campaign report",
+    "description": "Did people do this programme?",
+    "load_error": "We couldn't load this. Please try again.",
+    "empty": "Nobody is targeted by this campaign yet.",
+    "export_csv": "Export CSV",
+    "suspended_note": "This campaign is suspended: unfinished learners are counted as suspended and nothing is overdue.",
+    "column_suspended": "Suspended",
+    "column_average": "Average progress",
+    "column_progress": "Progress",
+    "average_label": "Progress for {{name}}",
+    "required_done": "{{done}} of {{total}} required",
+    "untitled_module": "Untitled module",
+    "requirement_mandatory": "Mandatory",
+    "requirement_recommended": "Recommended",
+    "state_completed": "Completed",
+    "state_in_progress": "In progress",
+    "state_not_started": "Not started",
+    "state_suspended": "Suspended",
+    "state_module_unavailable": "Unavailable",
+    "previously_completed": "Completed v{{version}} earlier",
+    "tab_modules": "Modules",
+    "tab_campaigns": "Campaigns",
+    "search_campaigns": "Search campaigns",
+    "no_campaigns": "No campaigns match your search."
   }
 }

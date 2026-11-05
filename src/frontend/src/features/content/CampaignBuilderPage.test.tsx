@@ -152,6 +152,28 @@ function stubFetch(calls: Call[], existing: Campaign | null = CAMPAIGN) {
       if (url.includes("/collaborators/") && method === "DELETE") {
         return json({ ...CAMPAIGN, collaborators: [] });
       }
+      if (url.endsWith("/report")) {
+        return json({
+          campaign_id: "camp-1",
+          campaign_name: "Phishing programme",
+          status: existing?.status ?? "draft",
+          due_date: null,
+          modules: [],
+          groups: [
+            {
+              group_id: "t1",
+              group_name: "Warehouse Staff",
+              member_count: 2,
+              completed: 1,
+              in_progress: 1,
+              not_started: 0,
+              overdue: 0,
+              suspended: 0,
+              average_progress: 75,
+            },
+          ],
+        });
+      }
       if (url.startsWith("/api/content/campaigns/")) {
         if (method === "PATCH") return json({ ...(existing ?? CAMPAIGN), name: body.name });
         return existing ? json(existing) : json({ detail: "x" }, 404);
@@ -391,6 +413,21 @@ describe("CampaignBuilderPage", () => {
 
     expect(await screen.findByText("Reminded 3 learners.")).toBeInTheDocument();
     expect(calls.some((c) => c.url.endsWith("/camp-1/remind") && c.method === "POST")).toBe(true);
+  });
+
+  it("shows the campaign report once live, but not on a draft", async () => {
+    stubFetch([], { ...CAMPAIGN, status: "active" });
+    const { unmount } = renderBuilder("/content/campaigns/camp-1");
+    expect(await screen.findByText("Warehouse Staff", { exact: false })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Campaign report" })).toBeInTheDocument();
+    unmount();
+
+    const calls: Call[] = [];
+    stubFetch(calls);
+    renderBuilder("/content/campaigns/camp-1");
+    await screen.findByDisplayValue("Phishing programme");
+    expect(screen.queryByRole("heading", { name: "Campaign report" })).not.toBeInTheDocument();
+    expect(calls.some((c) => c.url.endsWith("/report"))).toBe(false);
   });
 
   it("does not offer the nudge on a draft, even to an Administrator", async () => {

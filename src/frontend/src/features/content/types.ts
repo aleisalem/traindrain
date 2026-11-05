@@ -308,3 +308,70 @@ export type TryoutResult = {
   passed: boolean;
   questions: { question_id: string; correct: boolean; correct_option_ids: string[] }[];
 };
+
+/** A campaign report's learner state. `suspended` replaces in-progress and
+ *  not-started for anyone unfinished while the campaign is suspended. */
+export type CampaignLearnerState = "completed" | "in_progress" | "not_started" | "suspended";
+
+export type CampaignReportModule = {
+  translation_group_id: string;
+  title: string | null;
+  requirement: "mandatory" | "recommended";
+  unavailable: boolean;
+};
+
+/** One targeted group across a campaign — counts and an average, never a
+ *  name. The four states sum to `member_count`; `overdue` overlaps them. */
+export type CampaignReportGroupSummary = {
+  group_id: string;
+  group_name: string;
+  member_count: number;
+  completed: number;
+  in_progress: number;
+  not_started: number;
+  overdue: number;
+  suspended: number;
+  average_progress: number;
+};
+
+export type ContentManagerCampaignReport = {
+  campaign_id: string;
+  campaign_name: string;
+  status: string;
+  due_date: string | null;
+  modules: CampaignReportModule[];
+  groups: CampaignReportGroupSummary[];
+};
+
+export type CampaignReportModuleCell = {
+  translation_group_id: string;
+  requirement: "mandatory" | "recommended";
+  state: "completed" | "in_progress" | "not_started";
+  unavailable: boolean;
+  completed_at: string | null;
+  completed_version_number: number | null;
+};
+
+export type CampaignReportLearner = {
+  user_id: string;
+  name: string;
+  email: string;
+  state: CampaignLearnerState;
+  overdue: boolean;
+  required_total: number;
+  required_done: number;
+  progress_percent: number;
+  modules: CampaignReportModuleCell[];
+};
+
+export type AdministratorCampaignReport = {
+  campaign_id: string;
+  campaign_name: string;
+  status: string;
+  due_date: string | null;
+  modules: CampaignReportModule[];
+  learners: CampaignReportLearner[];
+};
+
+/** `"groups"` only appears on the Content Manager shape, so it is the discriminant. */
+export type CampaignReport = ContentManagerCampaignReport | AdministratorCampaignReport;

@@ -562,6 +562,16 @@ Release 2 (campaigns and grading) is in progress:
   per-learner reset control in the Administrator roster, `ModuleReportPanel.tsx`. Full details in
   [docs/references/release-2-campaigns-grading/quiz-administration.md](docs/references/release-2-campaigns-grading/quiz-administration.md).
 
+- Campaign reports: `GET /api/content/campaigns/{id}/report` answers "did people do this programme?"
+  with the module report's privacy split, decided on the server — a Content Manager (only for
+  campaigns they may edit; anyone else gets a 404) sees per-group counts of completed, in progress,
+  not started, overdue and suspended learners plus average progress and never a name or email; an
+  Administrator sees the per-learner roster with each module's state, and alone may export it
+  (`GET .../report.csv`). Counts use the learner view's live completion, so a superseded completion
+  reports as outstanding. Frontend: `CampaignReportPanel.tsx`, in the campaign builder and under the
+  "Campaigns" tab of Reports. Full details in
+  [docs/references/release-2-campaigns-grading/campaign-reports.md](docs/references/release-2-campaigns-grading/campaign-reports.md).
+
 Release 1 infrastructure (ticket 14, closing out the release):
 
 - Terraform under `.deploy/dev` for Release 1's own AWS footprint: the private module-assets S3

@@ -171,11 +171,11 @@ Work the **frontier**: any ticket whose blockers are all done. Tickets 1 and 8 c
 
 **Blocked by:** 3, 4
 
-- [ ] `GET /api/content/campaigns/{id}/report` returns the caller-appropriate shape, decided on the server
-- [ ] `GET .../report.csv` is Administrator-only
-- [ ] Counts use the same live completion computation as the learner view, so a superseded completion reports as outstanding while keeping its prior record visible to Administrators
-- [ ] Frontend: a campaign report panel reachable from the campaign and from the Reports area, CSV link shown only to Administrators
-- [ ] Backend tests: shape per role, no names or emails for Content Managers, 404 for non-participants, CSV Administrator-only, suspended counted; frontend tests for panel and gating
+- [x] `GET /api/content/campaigns/{id}/report` returns the caller-appropriate shape, decided on the server
+- [x] `GET .../report.csv` is Administrator-only
+- [x] Counts use the same live completion computation as the learner view, so a superseded completion reports as outstanding while keeping its prior record visible to Administrators
+- [x] Frontend: a campaign report panel reachable from the campaign and from the Reports area, CSV link shown only to Administrators
+- [x] Backend tests: shape per role, no names or emails for Content Managers, 404 for non-participants, CSV Administrator-only, suspended counted; frontend tests for panel and gating
 
 ## 13. Quiz reports, and Release 2 wrap-up
 

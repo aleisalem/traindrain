@@ -22,15 +22,29 @@ from app.access import is_administrator
 from app.db import get_db
 from app.dependencies import get_module_or_404, require_administrator, require_content_manager
 from app.models import User
-from app.reporting import LearnerStanding, full_roster, group_standings
+from app.reporting import (
+    LearnerStanding,
+    campaign_full_roster,
+    campaign_group_standings,
+    full_roster,
+    group_standings,
+)
 from app.schemas.modules import ModuleActor
 from app.schemas.reports import (
+    AdministratorCampaignReport,
     AdministratorModuleReport,
+    CampaignReportGroupSummary,
+    CampaignReportLearner,
+    CampaignReportModule,
+    CampaignReportModuleCell,
+    ContentManagerCampaignReport,
     ContentManagerModuleReport,
     ModuleReportGroupSummary,
     ModuleReportLearner,
 )
 from app.security.system_settings import deployment_today
+from app.routes.campaigns import _get_campaign_or_404, _module_responses
+from app.models import Campaign
 
 router = APIRouter(prefix="/api/content", tags=["reports"])
 
@@ -146,3 +160,153 @@ async def get_module_report_csv(
             "Content-Disposition": f'attachment; filename="module-{module_id}-report.csv"'
         },
     )
+
+
+# --- Campaign reports ---------------------------------------------------------
+#
+# "Did people do this programme?" Visibility is `may_see_campaign` — exactly
+# the people who may edit it — so a non-participant gets the same 404 every
+# other campaign route gives.
+
+
+async def _campaign_modules(db: AsyncSession, campaign: Campaign) -> list[CampaignReportModule]:
+    return [
+        CampaignReportModule(
+            translation_group_id=m.translation_group_id,
+            title=m.title,
+            requirement=m.requirement,
+            unavailable=m.availability == "deleted",
+        )
+        for m in await _module_responses(db, campaign)
+    ]
+
+
+async def _administrator_campaign_report(
+    db: AsyncSession, campaign: Campaign
+) -> AdministratorCampaignReport:
+    today = await deployment_today(db)
+    standings = await campaign_full_roster(db, campaign, today=today)
+    return AdministratorCampaignReport(
+        campaign_id=campaign.id,
+        campaign_name=campaign.name,
+        status=campaign.status,
+        due_date=campaign.due_date,
+        modules=await _campaign_modules(db, campaign),
+        learners=[
+            CampaignReportLearner(
+                user_id=s.user.id,
+                name=ModuleActor.from_user(s.user).display_name,
+                email=s.user.email,
+                state=s.state,
+                overdue=s.overdue,
+                required_total=s.required_total,
+                required_done=s.required_done,
+                progress_percent=s.progress_percent,
+                modules=[
+                    CampaignReportModuleCell(
+                        translation_group_id=c.translation_group_id,
+                        requirement=c.requirement,
+                        state=c.state,
+                        unavailable=c.unavailable,
+                        completed_at=c.completed_at,
+                        completed_version_number=c.completed_version_number,
+                    )
+                    for c in s.cells
+                ],
+            )
+            for s in standings
+        ],
+    )
+
+
+@router.get("/campaigns/{campaign_id}/report", response_model=None)
+async def get_campaign_report(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    caller: User = Depends(require_content_manager),
+) -> AdministratorCampaignReport | ContentManagerCampaignReport:
+    """Per-group counts for a Content Manager, the per-learner roster for an
+    Administrator — the shape is decided here, never by the client."""
+    campaign = await _get_campaign_or_404(db, campaign_id, caller)
+    if is_administrator(caller):
+        return await _administrator_campaign_report(db, campaign)
+
+    today = await deployment_today(db)
+    summaries = []
+    for group, standings in await campaign_group_standings(db, campaign, today=today):
+        total = len(standings)
+        summaries.append(
+            CampaignReportGroupSummary(
+                group_id=group.id,
+                group_name=group.name,
+                member_count=total,
+                completed=sum(1 for s in standings if s.state == "completed"),
+                in_progress=sum(1 for s in standings if s.state == "in_progress"),
+                not_started=sum(1 for s in standings if s.state == "not_started"),
+                overdue=sum(1 for s in standings if s.overdue),
+                suspended=sum(1 for s in standings if s.state == "suspended"),
+                average_progress=(
+                    round(sum(s.progress_percent for s in standings) / total) if total else 0
+                ),
+            )
+        )
+    return ContentManagerCampaignReport(
+        campaign_id=campaign.id,
+        campaign_name=campaign.name,
+        status=campaign.status,
+        due_date=campaign.due_date,
+        modules=await _campaign_modules(db, campaign),
+        groups=summaries,
+    )
+
+
+@router.get("/campaigns/{campaign_id}/report.csv")
+async def get_campaign_report_csv(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_administrator),
+) -> Response:
+    """The roster as a file: one row per learner, one column per module."""
+    campaign = await _get_campaign_or_404(db, campaign_id, admin)
+    report = await _administrator_campaign_report(db, campaign)
+    titles = {m.translation_group_id: (m.title or "") for m in report.modules}
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    first = report.learners[0].modules if report.learners else []
+    module_columns = [
+        (c.translation_group_id, titles.get(c.translation_group_id, "")) for c in first
+    ] or [(m.translation_group_id, m.title or "") for m in report.modules]
+    writer.writerow(
+        ["Name", "Email", "Status", "Overdue", "Required Done", "Required Total", "Progress %"]
+        + [_csv_safe(title) for _, title in module_columns]
+    )
+    for learner in report.learners:
+        cells = {c.translation_group_id: c for c in learner.modules}
+        writer.writerow(
+            [
+                _csv_safe(learner.name),
+                _csv_safe(learner.email),
+                learner.state,
+                "yes" if learner.overdue else "no",
+                learner.required_done,
+                learner.required_total,
+                learner.progress_percent,
+            ]
+            + [
+                cells[g].state if g in cells else ""
+                for g, _ in module_columns
+            ]
+        )
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="campaign-{campaign_id}-report.csv"'
+        },
+    )
+
+
+def _csv_safe(value: str) -> str:
+    """Neutralize spreadsheet formula injection in user-supplied text."""
+    return "'" + value if value[:1] in ("=", "+", "-", "@", "\t", "\r") else value

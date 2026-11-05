@@ -799,5 +799,31 @@
     "error_rate_limited": "Zu viele Abgaben. Warten Sie einige Minuten und versuchen Sie es erneut.",
     "error_unknown": "Beim Quiz ist etwas schiefgelaufen. Bitte versuchen Sie es erneut.",
     "passed_badge": "Quiz bestanden ({{score}} %)"
+  },
+  "campaignReport": {
+    "heading": "Kampagnenbericht",
+    "description": "Haben die Mitarbeitenden dieses Programm absolviert?",
+    "load_error": "Das konnte nicht geladen werden. Bitte versuche es erneut.",
+    "empty": "Diese Kampagne richtet sich noch an niemanden.",
+    "export_csv": "CSV exportieren",
+    "suspended_note": "Diese Kampagne ist pausiert: Unfertige Lernende werden als pausiert gezählt, nichts ist überfällig.",
+    "column_suspended": "Pausiert",
+    "column_average": "Durchschnittlicher Fortschritt",
+    "column_progress": "Fortschritt",
+    "average_label": "Fortschritt von {{name}}",
+    "required_done": "{{done}} von {{total}} Pflichtmodulen",
+    "untitled_module": "Modul ohne Titel",
+    "requirement_mandatory": "Pflicht",
+    "requirement_recommended": "Empfohlen",
+    "state_completed": "Abgeschlossen",
+    "state_in_progress": "In Bearbeitung",
+    "state_not_started": "Nicht begonnen",
+    "state_suspended": "Pausiert",
+    "state_module_unavailable": "Nicht verfügbar",
+    "previously_completed": "Zuvor mit v{{version}} abgeschlossen",
+    "tab_modules": "Module",
+    "tab_campaigns": "Kampagnen",
+    "search_campaigns": "Kampagnen suchen",
+    "no_campaigns": "Keine Kampagnen entsprechen deiner Suche."
   }
 }
