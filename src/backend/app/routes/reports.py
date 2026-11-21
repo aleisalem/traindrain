@@ -162,8 +162,8 @@ async def get_module_report_csv(
     for standing in learners:
         writer.writerow(
             [
-                ModuleActor.from_user(standing.user).display_name,
-                standing.user.email,
+                _csv_safe(ModuleActor.from_user(standing.user).display_name),
+                _csv_safe(standing.user.email),
                 standing.state,
                 standing.completed_at.isoformat() if standing.completed_at else "",
                 standing.completed_version_number if standing.completed_version_number else "",

@@ -403,3 +403,22 @@ async def test_the_csv_export_lists_the_roster_and_is_administrator_only(
     completed_row = next(row for row in data_rows if row[1] == fixture["completed_learner"].email)
     assert completed_row[2] == "completed"
     assert completed_row[4] == "1"
+
+
+async def test_the_csv_export_neutralizes_spreadsheet_formulas_in_names(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A learner chooses their own name; the Administrator opens the file in a
+    spreadsheet, so a leading `=`, `+`, `-` or `@` must not survive as a formula."""
+    await _pin_timezone_to_utc(db_session)
+    fixture = await _setup_three_learner_group(client, db_session, prefix="csvinj")
+    victim = fixture["completed_learner"]
+    victim.first_name = '=HYPERLINK("http://evil.example","x")'
+    await db_session.flush()
+
+    await _login_with_role(client, db_session, email="csvinj-admin@example.com", role_name="Administrator")
+    response = await client.get(f"/api/content/modules/{fixture['module']['id']}/report.csv")
+
+    names = [row[0] for row in list(csv.reader(io.StringIO(response.text)))[1:]]
+    assert not any(name[:1] in ("=", "+", "-", "@") for name in names if name)
+    assert any(name.startswith("'=HYPERLINK") for name in names)
