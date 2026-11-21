@@ -434,7 +434,8 @@ Release 1 (learning modules) is complete — all 14 tickets, per
   (shown before the upload starts), and, on success, the conversion report plus a link to open the
   new draft for review. Full details in [docs/document-import.md](docs/document-import.md).
 
-Release 2 (campaigns and grading) is in progress:
+Release 2 (campaigns and grading) is complete — all 13 tickets, per
+[docs/release-2-campaigns-grading/tickets.md](docs/release-2-campaigns-grading/tickets.md):
 
 - Campaign drafts: a Content Manager builds a campaign — name, description, an ordered list of
   modules (each `mandatory` or `recommended`, referenced by translation group), group targets,
@@ -572,6 +573,14 @@ Release 2 (campaigns and grading) is in progress:
   "Campaigns" tab of Reports. Full details in
   [docs/references/release-2-campaigns-grading/campaign-reports.md](docs/references/release-2-campaigns-grading/campaign-reports.md).
 
+- Quiz reports: the module report gains a quiz section — a Content Manager sees, per targeted group,
+  pass rate, average score and attempts-to-pass, plus per-question percent-correct to spot broken or
+  confusing questions, and never a name or an individual answer; an Administrator also gets each
+  learner's best score and attempt count in the roster and CSV. Individual answers appear in no report
+  or CSV, and the figures stay correct after a user erase. Release 2 adds no new infrastructure
+  (nothing under `.deploy/` changed). Frontend: `QuizReportSection.tsx`. Full details in
+  [docs/references/release-2-campaigns-grading/quiz-reports.md](docs/references/release-2-campaigns-grading/quiz-reports.md).
+
 Release 1 infrastructure (ticket 14, closing out the release):
 
 - Terraform under `.deploy/dev` for Release 1's own AWS footprint: the private module-assets S3
@@ -613,6 +622,8 @@ src/
                    CSV export both read
       quiz.py      Quiz serialization, the publish-time validity gate and server-side grading
       quiz_attempts.py  Learner-side quiz rules: seeded ordering, attempt counting, which pass counts
+      quiz_reporting.py  Group-level quiz statistics and per-question percent-correct for the module
+                   report — never an individual answer
       search.py    Language-aware title/description search and tag filtering, shared by the
                    authoring module list and the learner catalog so they can't disagree
       jobs/        Entrypoints invoked as scripts rather than through the API — `send_reminders.py`

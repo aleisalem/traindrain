@@ -183,10 +183,10 @@ Work the **frontier**: any ticket whose blockers are all done. Tickets 1 and 8 c
 
 **Blocked by:** 9, 11, 12
 
-- [ ] Module report extended with group-level quiz statistics and per-question percent-correct for Content Managers; no names, no individual answers
-- [ ] Administrator roster and CSV gain best score and attempt count; individual answers never present
-- [ ] Statistics remain correct after a user erase
-- [ ] Frontend: quiz section in the report panel
-- [ ] README updated (features, structure, tests); a brief summary of each feature added under `docs/references/`; `docs/references/infrastructure.md` notes that Release 2 adds no new Terraform
-- [ ] `security-scan` run over the release's changes and findings recorded
-- [ ] Backend tests: statistics correctness, no answer leakage, post-erase correctness; frontend tests for the section
+- [x] Module report extended with group-level quiz statistics and per-question percent-correct for Content Managers; no names, no individual answers
+- [x] Administrator roster and CSV gain best score and attempt count; individual answers never present
+- [x] Statistics remain correct after a user erase
+- [x] Frontend: quiz section in the report panel
+- [x] README updated (features, structure, tests); a brief summary of each feature added under `docs/references/`; `docs/references/infrastructure.md` notes that Release 2 adds no new Terraform
+- [x] `security-scan` run over the release's changes and findings recorded
+- [x] Backend tests: statistics correctness, no answer leakage, post-erase correctness; frontend tests for the section

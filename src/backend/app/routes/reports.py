@@ -21,7 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.access import is_administrator
 from app.db import get_db
 from app.dependencies import get_module_or_404, require_administrator, require_content_manager
-from app.models import User
+from app.models import Campaign, User
+from app.quiz_reporting import LearnerQuizStats, group_stats, quiz_facts
 from app.reporting import (
     LearnerStanding,
     campaign_full_roster,
@@ -29,6 +30,7 @@ from app.reporting import (
     full_roster,
     group_standings,
 )
+from app.routes.campaigns import _get_campaign_or_404, _module_responses
 from app.schemas.modules import ModuleActor
 from app.schemas.reports import (
     AdministratorCampaignReport,
@@ -43,14 +45,17 @@ from app.schemas.reports import (
     ModuleReportLearner,
 )
 from app.security.system_settings import deployment_today
-from app.routes.campaigns import _get_campaign_or_404, _module_responses
-from app.models import Campaign
 
 router = APIRouter(prefix="/api/content", tags=["reports"])
 
 
-def _to_learner_row(standing: LearnerStanding) -> ModuleReportLearner:
+def _to_learner_row(
+    standing: LearnerStanding, quiz: dict[uuid.UUID, LearnerQuizStats] | None = None
+) -> ModuleReportLearner:
+    stats = (quiz or {}).get(standing.user.id)
     return ModuleReportLearner(
+        best_score_percent=stats.best if stats else None,
+        attempt_count=stats.attempts if stats else 0,
         user_id=standing.user.id,
         name=ModuleActor.from_user(standing.user).display_name,
         email=standing.user.email,
@@ -81,6 +86,7 @@ async def get_module_report(
     """
     module = await get_module_or_404(db, module_id)
     today = await deployment_today(db)
+    facts = await quiz_facts(db, module)
 
     if is_administrator(caller):
         learners = await full_roster(
@@ -92,7 +98,11 @@ async def get_module_report(
         )
         return AdministratorModuleReport(
             translation_group_id=module.translation_group_id,
-            learners=[_to_learner_row(standing) for standing in learners],
+            learners=[
+                _to_learner_row(standing, facts.per_learner if facts else None)
+                for standing in learners
+            ],
+            quiz=facts.report if facts else None,
         )
 
     groups = await group_standings(db, module.translation_group_id, today=today)
@@ -107,9 +117,15 @@ async def get_module_report(
                 in_progress=sum(1 for s in standings if s.state == "in_progress"),
                 not_started=sum(1 for s in standings if s.state == "not_started"),
                 overdue=sum(1 for s in standings if s.overdue),
+                quiz=(
+                    group_stats(facts.per_learner, [s.user.id for s in standings])
+                    if facts
+                    else None
+                ),
             )
             for group, standings in groups
         ],
+        quiz=facts.report if facts else None,
     )
 
 
@@ -134,11 +150,14 @@ async def get_module_report_csv(
         include_unassigned_progress=module.status == "deleted",
         include_quiz_attempters=True,
     )
+    facts = await quiz_facts(db, module)
+    per_learner = facts.per_learner if facts else {}
 
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(
         ["Name", "Email", "Status", "Completed At", "Completed Version", "Due Date", "Overdue"]
+        + (["Best Quiz Score %", "Quiz Attempts"] if facts else [])
     )
     for standing in learners:
         writer.writerow(
@@ -151,6 +170,18 @@ async def get_module_report_csv(
                 standing.due_date.isoformat() if standing.due_date else "",
                 "yes" if standing.overdue else "no",
             ]
+            + (
+                [
+                    per_learner[standing.user.id].best
+                    if standing.user.id in per_learner
+                    else "",
+                    per_learner[standing.user.id].attempts
+                    if standing.user.id in per_learner
+                    else 0,
+                ]
+                if facts
+                else []
+            )
         )
 
     return Response(

@@ -138,6 +138,31 @@ export type LearnerState = "completed" | "in_progress" | "not_started";
 /** One targeted group's material, aggregated — a Content Manager's view, so
  *  no member is ever named here. `overdue` overlaps `in_progress`/`not_started`
  *  rather than being a fourth exclusive bucket. */
+/** Quiz results for a set of learners — counts and averages, no answers. */
+export type QuizGroupStats = {
+  attempted: number;
+  passed: number;
+  pass_rate_percent: number | null;
+  average_score_percent: number | null;
+  average_attempts_to_pass: number | null;
+};
+
+export type QuizQuestionStat = {
+  question_id: string;
+  position: number;
+  prompt_text: string;
+  answered: number;
+  correct: number;
+  percent_correct: number | null;
+};
+
+export type QuizReport = {
+  pass_mark_percent: number;
+  attempts: number;
+  overall: QuizGroupStats;
+  questions: QuizQuestionStat[];
+};
+
 export type ModuleReportGroupSummary = {
   group_id: string;
   group_name: string;
@@ -146,11 +171,13 @@ export type ModuleReportGroupSummary = {
   in_progress: number;
   not_started: number;
   overdue: number;
+  quiz?: QuizGroupStats | null;
 };
 
 export type ContentManagerModuleReport = {
   translation_group_id: string;
   groups: ModuleReportGroupSummary[];
+  quiz?: QuizReport | null;
 };
 
 /** One targeted learner, as far as an Administrator may see one. */
@@ -163,11 +190,14 @@ export type ModuleReportLearner = {
   due_date: string | null;
   completed_at: string | null;
   completed_version_number: number | null;
+  best_score_percent?: number | null;
+  attempt_count?: number;
 };
 
 export type AdministratorModuleReport = {
   translation_group_id: string;
   learners: ModuleReportLearner[];
+  quiz?: QuizReport | null;
 };
 
 /** `GET /api/content/modules/{id}/report`'s response shape differs by the

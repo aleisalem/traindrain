@@ -221,4 +221,101 @@ describe("ModuleReportPanel", () => {
     );
     expect(screen.queryByRole("button", { name: /Reset attempts/ })).not.toBeInTheDocument();
   });
+
+  describe("quiz section", () => {
+    const quiz = {
+      pass_mark_percent: 80,
+      attempts: 4,
+      overall: {
+        attempted: 3,
+        passed: 2,
+        pass_rate_percent: 67,
+        average_score_percent: 58,
+        average_attempts_to_pass: 1.5,
+      },
+      questions: [
+        {
+          question_id: "q1",
+          position: 1,
+          prompt_text: "Which link is safe?",
+          answered: 4,
+          correct: 1,
+          percent_correct: 25,
+        },
+        {
+          question_id: "q2",
+          position: 2,
+          prompt_text: "Never answered question",
+          answered: 0,
+          correct: 0,
+          percent_correct: null,
+        },
+      ],
+    };
+
+    it("shows a Content Manager group pass rate, average score, attempts to pass and per-question percent correct", () => {
+      render(
+        <ModuleReportPanel
+          moduleId="module-1"
+          report={stateWith({
+            report: cmReport({
+              quiz,
+              groups: [
+                {
+                  ...cmReport().groups[0],
+                  quiz: {
+                    attempted: 3,
+                    passed: 2,
+                    pass_rate_percent: 67,
+                    average_score_percent: 58,
+                    average_attempts_to_pass: 1.5,
+                  },
+                },
+              ],
+            }),
+          })}
+          isAdministrator={false}
+        />,
+      );
+
+      expect(screen.getByRole("heading", { name: "Quiz results" })).toBeInTheDocument();
+      expect(screen.getByRole("table", { name: "By group" })).toBeInTheDocument();
+      expect(screen.getByText("1.5")).toBeInTheDocument();
+      expect(screen.getByText("58%")).toBeInTheDocument();
+      expect(screen.getByText("Which link is safe?")).toBeInTheDocument();
+      expect(screen.getByText("25%")).toBeInTheDocument();
+      expect(screen.queryByText("lena@example.com")).not.toBeInTheDocument();
+    });
+
+    it("shows an Administrator each learner's best score and attempt count", () => {
+      render(
+        <ModuleReportPanel
+          moduleId="module-1"
+          report={stateWith({
+            report: adminReport({
+              quiz,
+              learners: [{ ...adminReport().learners[0], best_score_percent: 92, attempt_count: 3 }],
+            }),
+          })}
+          isAdministrator={true}
+        />,
+      );
+
+      expect(screen.getByRole("columnheader", { name: "Best score" })).toBeInTheDocument();
+      expect(screen.getByText("92%")).toBeInTheDocument();
+      expect(screen.getByText("3")).toBeInTheDocument();
+    });
+
+    it("renders no quiz section for a module without a quiz", () => {
+      render(
+        <ModuleReportPanel
+          moduleId="module-1"
+          report={stateWith({ report: cmReport({ quiz: null }) })}
+          isAdministrator={false}
+        />,
+      );
+
+      expect(screen.queryByRole("heading", { name: "Quiz results" })).not.toBeInTheDocument();
+    });
+  });
 });

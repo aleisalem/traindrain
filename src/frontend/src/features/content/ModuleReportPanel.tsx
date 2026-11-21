@@ -6,6 +6,7 @@ import type {
   ContentManagerModuleReport,
   LearnerState,
 } from "./types";
+import { QuizReportSection } from "./QuizReportSection";
 import type { ModuleReportState } from "./useModuleReport";
 
 type Props = {
@@ -82,6 +83,13 @@ export function ModuleReportPanel({ moduleId, report, isAdministrator }: Props) 
         <GroupSummaryTable report={report.report} />
       ) : (
         <RosterTable report={report.report} moduleId={moduleId} />
+      )}
+
+      {report.report.quiz && (
+        <QuizReportSection
+          quiz={report.report.quiz}
+          groups={isGroupSummary(report.report) ? report.report.groups : []}
+        />
       )}
     </section>
   );
@@ -229,6 +237,12 @@ function RosterTable({
             <th className="py-2 pr-4">{t("report.column_status")}</th>
             <th className="py-2 pr-4">{t("report.column_completed_version")}</th>
             <th className="py-2 pr-4">{t("report.column_due_date")}</th>
+            {report.quiz && (
+              <>
+                <th className="py-2 pr-4">{t("report.column_best_score")}</th>
+                <th className="py-2 pr-4">{t("report.column_attempt_count")}</th>
+              </>
+            )}
             <th className="py-2 pr-4">{t("report.column_quiz")}</th>
           </tr>
         </thead>
@@ -251,6 +265,14 @@ function RosterTable({
               <td className="py-2 pr-4">
                 {learner.due_date ? learner.due_date : t("report.no_due_date")}
               </td>
+              {report.quiz && (
+                <>
+                  <td className="py-2 pr-4">
+                    {learner.best_score_percent == null ? "—" : `${learner.best_score_percent}%`}
+                  </td>
+                  <td className="py-2 pr-4">{learner.attempt_count ?? 0}</td>
+                </>
+              )}
               <td className="py-2 pr-4">
                 <ResetAttemptsControl
                   moduleId={moduleId}
