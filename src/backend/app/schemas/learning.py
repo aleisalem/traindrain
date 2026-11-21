@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.schemas.assignments import Requirement
 from app.schemas.modules import ModuleLanguage
+from app.schemas.quiz_taking import LearnerQuizSummary
 
 
 class CatalogEntry(BaseModel):
@@ -89,6 +90,9 @@ class ProgressState(BaseModel):
     # module a learner is reading now, since an explicit language switch moves
     # that on to a different variant with its own, unrelated version numbers.
     completed_module_id: uuid.UUID | None
+    # The quiz result the completion rests on; null for a module without a quiz.
+    completed_score_percent: int | None = None
+    completed_quiz_version_number: int | None = None
     # Set when a substantive republish puts a completed learner back in the
     # outstanding pile. The completion itself is never erased.
     superseded_at: datetime | None
@@ -110,6 +114,8 @@ class LearnerModule(BaseModel):
     # read and stays one — it writes nothing — so nothing is recorded about
     # somebody who clicked the wrong card and left again.
     progress: ProgressState | None
+    # Null when the module has no quiz.
+    quiz: LearnerQuizSummary | None = None
     # Every language of this material the learner may read, so the viewer can
     # offer a switch only when there is genuinely a choice to make.
     available_languages: list[str]
@@ -149,3 +155,42 @@ class LearnerModuleSummary(BaseModel):
     due_date: date | None
     requirement: Requirement | None
     overdue: bool
+
+
+class LearnerCampaignModule(BaseModel):
+    """One module inside a campaign, as this learner stands with it."""
+
+    translation_group_id: uuid.UUID
+    position: int
+    title: str
+    requirement: Requirement
+    # not_started | in_progress | completed. A completion a substantive
+    # republish superseded reads as in_progress: it must be read again.
+    state: str
+    # Whether it can be opened right now through this campaign.
+    available: bool
+    # A sequential campaign holds this module back until the one before it is
+    # complete (and no other route — catalog, assignment — reaches it).
+    locked: bool = False
+    prerequisite_translation_group_id: uuid.UUID | None = None
+    prerequisite_title: str | None = None
+    # Deleted elsewhere: kept in the list as a marker so the programme does not
+    # silently shrink, but unopenable and never counted toward completion.
+    unavailable: bool = False
+    overdue: bool
+
+
+class LearnerCampaign(BaseModel):
+    """A campaign as its targeted learner sees it, computed on every read."""
+
+    id: uuid.UUID
+    name: str
+    description: str | None
+    status: str
+    sequential: bool = False
+    due_date: date | None
+    overdue: bool
+    required_total: int
+    required_done: int
+    complete: bool
+    modules: list[LearnerCampaignModule]

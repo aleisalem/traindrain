@@ -10,9 +10,10 @@ know about is rejected, not silently ignored.
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.modules import AssetKind, ModuleLanguage
+from app.schemas.quiz import MAX_QUESTIONS_PER_QUIZ, QuestionCreateRequest, QuizSettingsRequest
 
 # Versioned so a future, incompatible export shape can be told apart from this
 # one rather than misread as it. There is exactly one version today.
@@ -43,6 +44,19 @@ class ExportedAsset(BaseModel):
     size_bytes: int
 
 
+class ExportedQuiz(QuizSettingsRequest):
+    """A draft quiz: its settings and questions, with no ids and no verdicts.
+
+    Built from the very request models authoring uses, so an imported quiz is
+    held to the same field limits (pass mark range, option count, question
+    count, option text length, question type). Rich text is validated again by
+    the import route through the page-body validator. Nothing in the manifest
+    can claim a quiz is "valid" or "published": the publish gate decides that.
+    """
+
+    questions: list[QuestionCreateRequest] = Field(max_length=MAX_QUESTIONS_PER_QUIZ)
+
+
 class ModuleExportDocument(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -53,3 +67,5 @@ class ModuleExportDocument(BaseModel):
     estimated_duration_minutes: int | None = None
     pages: list[ExportedPage]
     assets: list[ExportedAsset]
+    # Absent in archives written before quizzes existed.
+    quiz: ExportedQuiz | None = None

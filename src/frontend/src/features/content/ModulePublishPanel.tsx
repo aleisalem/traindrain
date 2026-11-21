@@ -71,7 +71,13 @@ export function ModulePublishPanel({ module, onChanged }: Props) {
         } catch {
           // A non-JSON body leaves the generic message below.
         }
-        setError(code === "empty_module" ? t("publish.error_empty") : t("publish.error_unknown"));
+        setError(
+          code === "empty_module"
+            ? t("publish.error_empty")
+            : code === "invalid_quiz"
+              ? t("publish.error_invalid_quiz")
+              : t("publish.error_unknown"),
+        );
         return null;
       }
       return await response.json();

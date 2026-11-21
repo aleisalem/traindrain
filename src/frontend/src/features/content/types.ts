@@ -1,3 +1,5 @@
+import type { PageDocument } from "../../content/schema";
+
 export type ModuleActor = {
   id: string;
   display_name: string;
@@ -63,7 +65,13 @@ export type RevisionKind = "minor" | "substantive";
 export type RevisionImpact = {
   completed_learners: number;
   in_progress_learners: number;
+  /** How the draft's quiz differs from the last published one. */
+  quiz_change: QuizChange;
+  /** Learners a substantive publish would send back to sit the new quiz. */
+  quiz_affected_learners: number;
 };
+
+export type QuizChange = "none" | "added" | "changed" | "removed";
 
 /** How many completion records a delete's tombstone would carry. Read while
  *  the author is still deciding, the same shape as `RevisionImpact`. */
@@ -130,6 +138,31 @@ export type LearnerState = "completed" | "in_progress" | "not_started";
 /** One targeted group's material, aggregated — a Content Manager's view, so
  *  no member is ever named here. `overdue` overlaps `in_progress`/`not_started`
  *  rather than being a fourth exclusive bucket. */
+/** Quiz results for a set of learners — counts and averages, no answers. */
+export type QuizGroupStats = {
+  attempted: number;
+  passed: number;
+  pass_rate_percent: number | null;
+  average_score_percent: number | null;
+  average_attempts_to_pass: number | null;
+};
+
+export type QuizQuestionStat = {
+  question_id: string;
+  position: number;
+  prompt_text: string;
+  answered: number;
+  correct: number;
+  percent_correct: number | null;
+};
+
+export type QuizReport = {
+  pass_mark_percent: number;
+  attempts: number;
+  overall: QuizGroupStats;
+  questions: QuizQuestionStat[];
+};
+
 export type ModuleReportGroupSummary = {
   group_id: string;
   group_name: string;
@@ -138,11 +171,13 @@ export type ModuleReportGroupSummary = {
   in_progress: number;
   not_started: number;
   overdue: number;
+  quiz?: QuizGroupStats | null;
 };
 
 export type ContentManagerModuleReport = {
   translation_group_id: string;
   groups: ModuleReportGroupSummary[];
+  quiz?: QuizReport | null;
 };
 
 /** One targeted learner, as far as an Administrator may see one. */
@@ -155,11 +190,14 @@ export type ModuleReportLearner = {
   due_date: string | null;
   completed_at: string | null;
   completed_version_number: number | null;
+  best_score_percent?: number | null;
+  attempt_count?: number;
 };
 
 export type AdministratorModuleReport = {
   translation_group_id: string;
   learners: ModuleReportLearner[];
+  quiz?: QuizReport | null;
 };
 
 /** `GET /api/content/modules/{id}/report`'s response shape differs by the
@@ -181,3 +219,189 @@ export type DocumentImportResponse = {
   module: ModuleBody;
   conversion_report: ConversionReportEntry[];
 };
+
+export type CampaignStatus = "draft" | "active" | "suspended" | "closed";
+/** Whether learners could read a module right now. A draft campaign may name
+ *  anything; the builder flags what to fix before activating. */
+export type ModuleAvailability = "published" | "unpublished" | "deleted";
+
+export type CampaignModule = {
+  translation_group_id: string;
+  position: number;
+  requirement: Requirement;
+  title: string | null;
+  availability: ModuleAvailability;
+};
+
+/** What removing modules or targets from a running campaign would cut off. */
+export type CampaignEditImpact = {
+  learners: number;
+  records: number;
+  completed: number;
+  modules: { translation_group_id: string; title: string | null; records: number }[];
+  requires_confirmation: boolean;
+};
+
+export type CampaignTarget = {
+  type: AssignmentTargetType;
+  id: string;
+  /** A group's name; a person's only for an Administrator. */
+  name: string | null;
+};
+
+export type CampaignSummary = {
+  id: string;
+  name: string;
+  status: CampaignStatus;
+  start_date: string | null;
+  due_date: string | null;
+  module_count: number;
+  target_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Campaign = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: CampaignStatus;
+  sequential: boolean;
+  auto_reminders: boolean;
+  start_date: string | null;
+  due_date: string | null;
+  /** Resumed after the due date passed; stays set until a later date is saved. */
+  due_date_lapsed: boolean;
+  created_by: ModuleActor;
+  collaborators: ModuleActor[];
+  /** Creator or Administrator: may manage collaborators and delete the draft. */
+  can_manage: boolean;
+  modules: CampaignModule[];
+  targets: CampaignTarget[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type QuestionType = "single_choice" | "multiple_choice" | "true_false";
+
+export type QuizOption = {
+  id: string;
+  position: number;
+  /** For `true_false` the literal "true" / "false", localized by the UI. */
+  text: string;
+  is_correct: boolean;
+};
+
+export type QuizQuestion = {
+  id: string;
+  position: number;
+  type: QuestionType;
+  schema_version: number;
+  prompt: PageDocument;
+  explanation: PageDocument | null;
+  options: QuizOption[];
+};
+
+export type QuizProblem = {
+  code: string;
+  message: string;
+  question_id: string | null;
+};
+
+/** The author's view of a draft quiz — correct answers included. */
+export type QuizBody = {
+  pass_mark_percent: number;
+  max_attempts: number | null;
+  shuffle: boolean;
+  reveal_after_pass: boolean;
+  questions: QuizQuestion[];
+  problems: QuizProblem[];
+};
+
+export type QuizSettings = Pick<
+  QuizBody,
+  "pass_mark_percent" | "max_attempts" | "shuffle" | "reveal_after_pass"
+>;
+
+export type QuestionDraft = {
+  type: QuestionType;
+  prompt: PageDocument;
+  explanation: PageDocument | null;
+  options: { text: string; is_correct: boolean }[];
+};
+
+export type TryoutResult = {
+  score_percent: number;
+  correct_count: number;
+  total: number;
+  pass_mark_percent: number;
+  passed: boolean;
+  questions: { question_id: string; correct: boolean; correct_option_ids: string[] }[];
+};
+
+/** A campaign report's learner state. `suspended` replaces in-progress and
+ *  not-started for anyone unfinished while the campaign is suspended. */
+export type CampaignLearnerState = "completed" | "in_progress" | "not_started" | "suspended";
+
+export type CampaignReportModule = {
+  translation_group_id: string;
+  title: string | null;
+  requirement: "mandatory" | "recommended";
+  unavailable: boolean;
+};
+
+/** One targeted group across a campaign — counts and an average, never a
+ *  name. The four states sum to `member_count`; `overdue` overlaps them. */
+export type CampaignReportGroupSummary = {
+  group_id: string;
+  group_name: string;
+  member_count: number;
+  completed: number;
+  in_progress: number;
+  not_started: number;
+  overdue: number;
+  suspended: number;
+  average_progress: number;
+};
+
+export type ContentManagerCampaignReport = {
+  campaign_id: string;
+  campaign_name: string;
+  status: string;
+  due_date: string | null;
+  modules: CampaignReportModule[];
+  groups: CampaignReportGroupSummary[];
+};
+
+export type CampaignReportModuleCell = {
+  translation_group_id: string;
+  requirement: "mandatory" | "recommended";
+  state: "completed" | "in_progress" | "not_started";
+  unavailable: boolean;
+  completed_at: string | null;
+  completed_version_number: number | null;
+};
+
+export type CampaignReportLearner = {
+  user_id: string;
+  name: string;
+  email: string;
+  state: CampaignLearnerState;
+  overdue: boolean;
+  required_total: number;
+  required_done: number;
+  progress_percent: number;
+  modules: CampaignReportModuleCell[];
+};
+
+export type AdministratorCampaignReport = {
+  campaign_id: string;
+  campaign_name: string;
+  status: string;
+  due_date: string | null;
+  modules: CampaignReportModule[];
+  learners: CampaignReportLearner[];
+};
+
+/** `"groups"` only appears on the Content Manager shape, so it is the discriminant. */
+export type CampaignReport = ContentManagerCampaignReport | AdministratorCampaignReport;

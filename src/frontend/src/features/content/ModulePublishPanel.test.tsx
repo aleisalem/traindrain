@@ -321,6 +321,50 @@ describe("ModulePublishPanel", () => {
     expect(within(dialog).queryByText(/will be sent back/)).not.toBeInTheDocument();
   });
 
+  it("names a quiz change, and how many learners must sit it on a substantive publish", async () => {
+    const user = userEvent.setup();
+    mockBackend({
+      "GET /api/content/modules/module-1/versions": { status: 200, body: [VERSION] },
+      "GET /api/content/modules/module-1/revision-impact": {
+        status: 200,
+        body: {
+          completed_learners: 4,
+          in_progress_learners: 1,
+          quiz_change: "added",
+          quiz_affected_learners: 4,
+        },
+      },
+    });
+    renderPanel(PUBLISHED);
+
+    await user.click(screen.getByRole("button", { name: "Publish changes" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText(/adds a quiz/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("radio", { name: /Substantive/ }));
+    expect(within(dialog).getByText(/4 of them will have to sit the quiz/)).toBeInTheDocument();
+  });
+
+  it("says removing a quiz sends nobody back", async () => {
+    const user = userEvent.setup();
+    mockBackend({
+      "GET /api/content/modules/module-1/versions": { status: 200, body: [VERSION] },
+      "GET /api/content/modules/module-1/revision-impact": {
+        status: 200,
+        body: {
+          completed_learners: 4,
+          in_progress_learners: 0,
+          quiz_change: "removed",
+          quiz_affected_learners: 0,
+        },
+      },
+    });
+    renderPanel(PUBLISHED);
+
+    await user.click(screen.getByRole("button", { name: "Publish changes" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText(/always minor/)).toBeInTheDocument();
+  });
+
   it("publishes even when the impact count cannot be loaded", async () => {
     const user = userEvent.setup();
     const requested = mockBackend({

@@ -20,9 +20,19 @@ _ASSIGNMENT_SUBJECTS = {
     "de": "Ihnen wurde ein neues Training auf TrainDrain zugewiesen",
 }
 
+_CAMPAIGN_ACTIVATION_SUBJECTS = {
+    "en": "A new training campaign has started on TrainDrain",
+    "de": "Eine neue Trainingskampagne hat auf TrainDrain begonnen",
+}
+
 _REMINDER_SUBJECTS = {
     "en": "Reminder: training due on TrainDrain",
     "de": "Erinnerung: Fälliges Training auf TrainDrain",
+}
+
+_CAMPAIGN_REMINDER_SUBJECTS = {
+    "en": "Reminder: campaign training outstanding on TrainDrain",
+    "de": "Erinnerung: Offenes Kampagnentraining auf TrainDrain",
 }
 
 
@@ -112,6 +122,40 @@ async def send_assignment_email(
     await _send(ses_client, to_email=to_email, subject=subject, body=body)
 
 
+def _campaign_activation_email_body(
+    language: str, *, campaign_name: str, due_date: date | None, url: str
+) -> str:
+    if language == "de":
+        due_line = f"Fällig am: {due_date.isoformat()}\n\n" if due_date else ""
+        return (
+            f"Für Sie hat eine neue Trainingskampagne begonnen: {campaign_name}\n\n"
+            f"{due_line}"
+            f"Öffnen Sie Ihre Trainings hier:\n{url}"
+        )
+    due_line = f"Due: {due_date.isoformat()}\n\n" if due_date else ""
+    return (
+        f"A new training campaign has started for you: {campaign_name}\n\n"
+        f"{due_line}"
+        f"Open your learning here:\n{url}"
+    )
+
+
+async def send_campaign_activation_email(
+    ses_client: SESClient,
+    *,
+    to_email: str,
+    language: str,
+    campaign_name: str,
+    due_date: date | None,
+    url: str,
+) -> None:
+    subject = _CAMPAIGN_ACTIVATION_SUBJECTS.get(language, _CAMPAIGN_ACTIVATION_SUBJECTS["en"])
+    body = _campaign_activation_email_body(
+        language, campaign_name=campaign_name, due_date=due_date, url=url
+    )
+    await _send(ses_client, to_email=to_email, subject=subject, body=body)
+
+
 def _reminder_headline(language: str, *, module_title: str, due: str, kind: str) -> str:
     """The one line that varies by cadence checkpoint — one entry per kind,
     each carrying both languages together, rather than two parallel
@@ -154,6 +198,72 @@ async def send_reminder_email(
     subject = _REMINDER_SUBJECTS.get(language, _REMINDER_SUBJECTS["en"])
     body = _reminder_email_body(
         language, module_title=module_title, due_date=due_date, module_url=module_url, kind=kind
+    )
+    await _send(ses_client, to_email=to_email, subject=subject, body=body)
+
+
+def _campaign_reminder_headline(language: str, *, campaign_name: str, due: str, kind: str) -> str:
+    # Kind strings rather than `app.reminders`'s constants, for the same
+    # circular-import reason as `_reminder_headline`.
+    en_manual = f"Still outstanding in {campaign_name}" + (f" (due: {due})" if due else "")
+    de_manual = f"Noch ausstehend in {campaign_name}" + (f" (fällig: {due})" if due else "")
+    headlines: dict[str, tuple[str, str]] = {
+        "advance_7": (
+            f"{campaign_name} is due in 7 days ({due})",
+            f"{campaign_name} ist in 7 Tagen fällig ({due})",
+        ),
+        "advance_1": (
+            f"{campaign_name} is due tomorrow ({due})",
+            f"{campaign_name} ist morgen fällig ({due})",
+        ),
+        "due": (f"{campaign_name} is due today ({due})", f"{campaign_name} ist heute fällig ({due})"),
+        "overdue_weekly": (
+            f"{campaign_name} has been overdue since {due}",
+            f"{campaign_name} ist seit {due} überfällig",
+        ),
+        "manual": (en_manual, de_manual),
+    }
+    en, de = headlines.get(kind, (campaign_name, campaign_name))
+    return de if language == "de" else en
+
+
+def _campaign_reminder_email_body(
+    language: str,
+    *,
+    campaign_name: str,
+    module_titles: list[str],
+    due_date: date | None,
+    url: str,
+    kind: str,
+) -> str:
+    due = due_date.isoformat() if due_date else ""
+    headline = _campaign_reminder_headline(language, campaign_name=campaign_name, due=due, kind=kind)
+    intro = "Das steht für Sie noch aus:" if language == "de" else "Still to complete:"
+    close = "Öffnen Sie Ihre Trainings hier" if language == "de" else "Open your learning here"
+    items = "\n".join(f"- {title}" for title in module_titles)
+    return f"{headline}\n\n{intro}\n{items}\n\n{close}:\n{url}"
+
+
+async def send_campaign_reminder_email(
+    ses_client: SESClient,
+    *,
+    to_email: str,
+    language: str,
+    campaign_name: str,
+    module_titles: list[str],
+    due_date: date | None,
+    url: str,
+    kind: str,
+) -> None:
+    """One email per campaign, listing every mandatory module still owed."""
+    subject = _CAMPAIGN_REMINDER_SUBJECTS.get(language, _CAMPAIGN_REMINDER_SUBJECTS["en"])
+    body = _campaign_reminder_email_body(
+        language,
+        campaign_name=campaign_name,
+        module_titles=module_titles,
+        due_date=due_date,
+        url=url,
+        kind=kind,
     )
     await _send(ses_client, to_email=to_email, subject=subject, body=body)
 

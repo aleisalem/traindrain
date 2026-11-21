@@ -25,7 +25,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assignments import is_overdue, nearer_due_date, resolve_target_users
-from app.models import Assignment, Group, ModuleProgress, User
+from app.models import (
+    Assignment,
+    Campaign,
+    CampaignModule,
+    Group,
+    ModuleProgress,
+    QuizAttempt,
+    User,
+)
 
 LearnerState = Literal["completed", "in_progress", "not_started"]
 
@@ -138,6 +146,7 @@ async def full_roster(
     *,
     today: date,
     include_unassigned_progress: bool = False,
+    include_quiz_attempters: bool = False,
 ) -> list[LearnerStanding]:
     """Every learner targeted by any assignment on this material — group or
     individual — deduplicated, with the nearest due date across whatever
@@ -188,8 +197,202 @@ async def full_roster(
                 users[member.id] = member
                 due_dates[member.id] = None
 
+    if include_quiz_attempters:
+        # Someone who reached the quiz through the open catalog is named by no
+        # assignment, yet is exactly who an Administrator may need to reset.
+        attempter_ids = set(
+            (
+                await db.execute(
+                    select(QuizAttempt.user_id)
+                    .where(QuizAttempt.translation_group_id == translation_group_id)
+                    .distinct()
+                )
+            ).scalars()
+        ) - set(users)
+        if attempter_ids:
+            for member in _live(
+                (await db.execute(select(User).where(User.id.in_(attempter_ids)))).scalars()
+            ):
+                users[member.id] = member
+                due_dates[member.id] = None
+
     progress = await _progress_by_user(db, translation_group_id, users.keys())
     return [
         _standing(user, progress.get(user_id), due_date=due_dates[user_id], today=today)
         for user_id, user in users.items()
+    ]
+
+
+# --- Campaign reports ---------------------------------------------------------
+#
+# The same privacy split as the module report, over a campaign. Everything is
+# computed live from `module_progress` through the one completion notion
+# (`is_current_completion`) the learner's own view and the sequential lock use,
+# so a superseded completion reports as outstanding while its prior record
+# stays visible to Administrators.
+
+CampaignLearnerState = Literal["completed", "in_progress", "not_started", "suspended"]
+ModuleCellState = Literal["completed", "in_progress", "not_started"]
+
+
+@dataclass(frozen=True)
+class CampaignModuleCell:
+    """One learner's standing on one campaign module (Administrator roster)."""
+
+    translation_group_id: uuid.UUID
+    requirement: str
+    state: ModuleCellState
+    unavailable: bool
+    completed_at: datetime | None
+    completed_version_number: int | None
+
+
+@dataclass(frozen=True)
+class CampaignLearnerStanding:
+    """Where one targeted learner stands against a whole campaign.
+
+    `suspended` replaces `in_progress`/`not_started` for anyone who has not
+    completed while the campaign is suspended — the learner cannot act, so
+    neither "behind" nor "waiting" is honest — and `overdue` is frozen false
+    then, as it is on the learner's own view. `progress_percent` is mandatory
+    modules currently complete over mandatory modules required (0 when none).
+    """
+
+    user: User
+    state: CampaignLearnerState
+    overdue: bool
+    required_total: int
+    required_done: int
+    progress_percent: int
+    cells: list[CampaignModuleCell]
+
+
+async def _campaign_context(
+    db: AsyncSession, campaign: Campaign
+) -> tuple[frozenset[uuid.UUID], list[CampaignModule]]:
+    from app.campaigns import deleted_group_ids
+
+    modules = sorted(campaign.modules, key=lambda row: row.position)
+    deleted = await deleted_group_ids(db, [row.translation_group_id for row in modules])
+    return deleted, modules
+
+
+def _campaign_standing(
+    user: User,
+    campaign: Campaign,
+    modules: list[CampaignModule],
+    deleted: Collection[uuid.UUID],
+    progress: dict[uuid.UUID, ModuleProgress],
+    *,
+    today: date,
+) -> CampaignLearnerStanding:
+    from app.campaigns import compute_progress, is_current_completion
+
+    summary = compute_progress(modules, progress, deleted)
+    touched = any(row.translation_group_id in progress for row in modules)
+    state: CampaignLearnerState
+    if summary.complete:
+        state = "completed"
+    elif campaign.status == "suspended":
+        state = "suspended"
+    else:
+        state = "in_progress" if touched else "not_started"
+    cells = []
+    for row in modules:
+        row_progress = progress.get(row.translation_group_id)
+        done = is_current_completion(row_progress)
+        cells.append(
+            CampaignModuleCell(
+                translation_group_id=row.translation_group_id,
+                requirement=row.requirement,
+                state="completed" if done else ("in_progress" if row_progress else "not_started"),
+                unavailable=row.translation_group_id in deleted,
+                completed_at=row_progress.completed_at if row_progress else None,
+                completed_version_number=(
+                    row_progress.completed_version_number if row_progress else None
+                ),
+            )
+        )
+    percent = (
+        round(100 * summary.required_done / summary.required_total) if summary.required_total else 0
+    )
+    return CampaignLearnerStanding(
+        user=user,
+        state=state,
+        overdue=(
+            campaign.status == "active"
+            and not summary.complete
+            and is_overdue(campaign.due_date, completed=False, today=today)
+        ),
+        required_total=summary.required_total,
+        required_done=summary.required_done,
+        progress_percent=percent,
+        cells=cells,
+    )
+
+
+async def _campaign_progress(
+    db: AsyncSession, modules: list[CampaignModule], user_ids: Collection[uuid.UUID]
+) -> dict[uuid.UUID, dict[uuid.UUID, ModuleProgress]]:
+    """user id -> translation group id -> progress, for the campaign's modules."""
+    by_user: dict[uuid.UUID, dict[uuid.UUID, ModuleProgress]] = {}
+    group_ids = [row.translation_group_id for row in modules]
+    if not user_ids or not group_ids:
+        return by_user
+    rows = (
+        await db.execute(
+            select(ModuleProgress).where(
+                ModuleProgress.user_id.in_(user_ids),
+                ModuleProgress.translation_group_id.in_(group_ids),
+            )
+        )
+    ).scalars()
+    for row in rows:
+        by_user.setdefault(row.user_id, {})[row.translation_group_id] = row
+    return by_user
+
+
+async def campaign_group_standings(
+    db: AsyncSession, campaign: Campaign, *, today: date
+) -> list[tuple[Group, list[CampaignLearnerStanding]]]:
+    """Each targeted group and how its live members stand — group targets only,
+    so an individually-targeted learner never becomes a one-person aggregate."""
+    deleted, modules = await _campaign_context(db, campaign)
+    summaries: list[tuple[Group, list[CampaignLearnerStanding]]] = []
+    for target in campaign.targets:
+        if target.target_type != "group":
+            continue
+        group = await db.get(Group, target.target_id)
+        if group is None:
+            continue
+        members = _live(
+            await resolve_target_users(db, target_type="group", target_id=target.target_id)
+        )
+        progress = await _campaign_progress(db, modules, [m.id for m in members])
+        summaries.append(
+            (
+                group,
+                [
+                    _campaign_standing(
+                        m, campaign, modules, deleted, progress.get(m.id, {}), today=today
+                    )
+                    for m in members
+                ],
+            )
+        )
+    return summaries
+
+
+async def campaign_full_roster(
+    db: AsyncSession, campaign: Campaign, *, today: date
+) -> list[CampaignLearnerStanding]:
+    """Every currently-targeted learner, group or individual, once each."""
+    from app.campaigns import resolve_campaign_audience
+
+    deleted, modules = await _campaign_context(db, campaign)
+    audience = await resolve_campaign_audience(db, campaign)
+    progress = await _campaign_progress(db, modules, [u.id for u in audience])
+    return [
+        _campaign_standing(u, campaign, modules, deleted, progress.get(u.id, {}), today=today)
+        for u in audience
     ]

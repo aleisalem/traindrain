@@ -12,9 +12,10 @@ nothing on the reruns.
 import asyncio
 import logging
 
+from app.campaigns import activate_due_campaigns
 from app.db import async_session_factory
 from app.dependencies import get_ses_client
-from app.reminders import run_scheduled_reminders
+from app.reminders import run_scheduled_campaign_reminders, run_scheduled_reminders
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("traindrain.reminders")
@@ -23,9 +24,17 @@ logger = logging.getLogger("traindrain.reminders")
 async def main() -> None:
     ses_client = get_ses_client()
     async with async_session_factory() as db:
+        # Campaigns whose start date has arrived go live first, so the same
+        # run's reminders already see them. Idempotent: the status flip is the
+        # guard, so a rerun the same day activates nothing.
+        activated = await activate_due_campaigns(db, ses_client)
+        logger.info("Activated %d campaign(s).", activated)
+        # Campaign reminders before module ones: the campaign email covers a
+        # module for the day, and the module path then skips it.
+        campaign_sent = await run_scheduled_campaign_reminders(db, ses_client)
         sent_count = await run_scheduled_reminders(db, ses_client)
         await db.commit()
-    logger.info("Sent %d reminder email(s).", sent_count)
+    logger.info("Sent %d campaign reminder(s) and %d module reminder(s).", campaign_sent, sent_count)
 
 
 if __name__ == "__main__":

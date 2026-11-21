@@ -41,7 +41,7 @@ Zero learning-content features. Establishes the permission/identity substrate ev
 Split out of Release 1 during its spec, because SCORM is a runtime rather than an import format and shares almost nothing with the native content model.
 
 - Import and playback of SCORM 1.2 / 2004 packages: a sandboxed player served from an origin separate from the application (the package is third-party HTML and JavaScript; same-origin hosting would expose the session cookie to it), plus the SCORM run-time API that receives the package's own completion signal.
-- Introduces a second module type — opaque and unversioned — alongside Release 1's native pages, reusing Release 1's assignment, targeting, and reporting mechanisms.
+- Introduces a second module type alongside Release 1's native pages, reusing Release 1's assignment, targeting, reporting, versioning, and translation mechanisms (revised during Release 2.5 grilling: SCORM modules are versioned and translatable like native ones; only the page editor, platform quiz, and document import do not apply). The package's own pass/completion counts as the module's completion for campaigns and sequencing, and is recorded as self-reported.
 - Numbered `2.5` rather than renumbering the releases below it, so existing references to Releases 3–8 stay accurate.
 
 ## Release 3 — AI Chat Foundation

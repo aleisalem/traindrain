@@ -75,3 +75,26 @@
 :root {
   --gradient: linear-gradient(135deg, var(--primary), var(--accent));
 }
+
+/* A pass gets a short burst of confetti. Only for people who have not asked
+   the OS to reduce motion; everyone else sees the static result card. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes confetti-fall {
+    0% {
+      transform: translateY(-1.5rem) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(8rem) rotate(540deg);
+      opacity: 0;
+    }
+  }
+  .confetti-piece {
+    animation: confetti-fall 1.6s ease-out forwards;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .confetti-piece {
+    display: none;
+  }
+}

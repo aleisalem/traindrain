@@ -29,16 +29,19 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assignments import resolve_target_users
+from app.campaigns import deleted_group_ids, is_current_completion, resolve_campaign_audience
 from app.core.config import get_settings
 from app.models import (
     Assignment,
+    Campaign,
+    CampaignReminder,
     Module,
     ModuleProgress,
     ModuleReminder,
     ModuleTranslationGroup,
     User,
 )
-from app.security.mailer import SESClient, send_reminder_email
+from app.security.mailer import SESClient, send_campaign_reminder_email, send_reminder_email
 from app.security.system_settings import get_reminder_timezone
 
 KIND_ADVANCE_7 = "advance_7"
@@ -154,7 +157,21 @@ async def _already_reminded_today(
             ModuleReminder.sent_at < day_end,
         )
     )
-    return bool(count)
+    if count:
+        return True
+    # A campaign email that already listed this module today covers it: the
+    # learner is chased once, not once by the campaign and again by the module.
+    covered = await db.scalar(
+        select(func.count())
+        .select_from(CampaignReminder)
+        .where(
+            CampaignReminder.user_id == user_id,
+            CampaignReminder.translation_group_ids.contains([translation_group_id]),
+            CampaignReminder.sent_at >= day_start,
+            CampaignReminder.sent_at < day_end,
+        )
+    )
+    return bool(covered)
 
 
 async def _send_one_reminder(
@@ -280,3 +297,166 @@ async def send_manual_reminders(
             already_reminded.add(learner.id)
             sent_count += 1
     return sent_count
+
+
+# --- Campaign reminders ---------------------------------------------------------
+#
+# A learner is chased once per campaign, not once per module: one email that
+# lists every mandatory module they still owe. It writes `CampaignReminder`
+# rows, which the module path above consults (so a module the campaign email
+# already covered today is not chased again) and which this path checks
+# against the module path's `ModuleReminder` rows in turn (so a module
+# already chased today is left off the campaign email). Whichever runs first
+# the same day, the learner is reached once for any given module.
+
+
+def _campaign_reminder_eligible(campaign: Campaign) -> bool:
+    """Active, auto-reminded and dated. A suspended or closed campaign sends
+    nothing; a resumed one needs no special case, since the cadence matches
+    exact days and so never produces a catch-up burst for the days missed."""
+    return (
+        campaign.status == "active"
+        and campaign.auto_reminders
+        and campaign.due_date is not None
+    )
+
+
+async def _send_campaign_reminders(
+    db: AsyncSession, ses_client: SESClient, campaign: Campaign, *, kind: str, window: ReminderWindow
+) -> int:
+    # Material nobody can read (no published variant) or that was deleted
+    # elsewhere is not "owed", mirroring how campaign progress counts it.
+    mandatory = [row.translation_group_id for row in campaign.modules if row.requirement == "mandatory"]
+    mandatory = list(dict.fromkeys(mandatory))
+    gone = await deleted_group_ids(db, mandatory)
+    titles: dict[uuid.UUID, str] = {}
+    for group_id in mandatory:
+        if group_id in gone:
+            continue
+        module = await _module_for_notification(db, group_id)
+        if module is not None:
+            titles[group_id] = module.title
+    if not titles:
+        return 0
+
+    audience = await resolve_campaign_audience(db, campaign)
+    if not audience:
+        return 0
+    user_ids = [u.id for u in audience]
+
+    progress = {
+        (row.user_id, row.translation_group_id): row
+        for row in (
+            await db.execute(
+                select(ModuleProgress).where(
+                    ModuleProgress.user_id.in_(user_ids),
+                    ModuleProgress.translation_group_id.in_(list(titles)),
+                )
+            )
+        ).scalars()
+    }
+    # Already chased today, by either path: the send log, read once.
+    module_chased = set(
+        (
+            await db.execute(
+                select(ModuleReminder.user_id, Assignment.translation_group_id)
+                .join(Assignment, Assignment.id == ModuleReminder.assignment_id)
+                .where(
+                    ModuleReminder.user_id.in_(user_ids),
+                    Assignment.translation_group_id.in_(list(titles)),
+                    ModuleReminder.sent_at >= window.start,
+                    ModuleReminder.sent_at < window.end,
+                )
+            )
+        ).tuples()
+    )
+    campaign_chased_today = (
+        await db.execute(
+            select(CampaignReminder).where(
+                CampaignReminder.user_id.in_(user_ids),
+                CampaignReminder.sent_at >= window.start,
+                CampaignReminder.sent_at < window.end,
+            )
+        )
+    ).scalars()
+    covered: dict[uuid.UUID, set[uuid.UUID]] = {}
+    already_this_campaign: set[uuid.UUID] = set()
+    for row in campaign_chased_today:
+        covered.setdefault(row.user_id, set()).update(row.translation_group_ids)
+        if row.campaign_id == campaign.id:
+            already_this_campaign.add(row.user_id)
+
+    url = f"{get_settings().frontend_base_url}/modules"
+    sent = 0
+    for learner in audience:
+        if learner.id in already_this_campaign:
+            continue
+        owed = [
+            group_id
+            for group_id in titles
+            if not is_current_completion(progress.get((learner.id, group_id)))
+            and (learner.id, group_id) not in module_chased
+            and group_id not in covered.get(learner.id, set())
+        ]
+        if not owed:
+            continue
+        await send_campaign_reminder_email(
+            ses_client,
+            to_email=learner.email,
+            language=learner.preferred_language or "en",
+            campaign_name=campaign.name,
+            module_titles=[titles[g] for g in owed],
+            due_date=campaign.due_date,
+            url=url,
+            kind=kind,
+        )
+        db.add(
+            CampaignReminder(
+                campaign_id=campaign.id, user_id=learner.id, kind=kind, translation_group_ids=owed
+            )
+        )
+        await db.flush()
+        sent += 1
+    return sent
+
+
+async def run_scheduled_campaign_reminders(db: AsyncSession, ses_client: SESClient) -> int:
+    """The daily job's campaign half. Does not commit — the caller owns that."""
+    window = await deployment_day_bounds(db)
+    campaigns = (
+        (
+            await db.execute(
+                select(Campaign).where(
+                    Campaign.status == "active",
+                    Campaign.auto_reminders.is_(True),
+                    Campaign.due_date.is_not(None),
+                )
+            )
+        )
+        .scalars()
+        .unique()
+    )
+    sent = 0
+    for campaign in campaigns:
+        assert campaign.due_date is not None  # enforced by the query
+        kind = scheduled_kind_for_due_date(campaign.due_date, window.today)
+        if kind is None:
+            continue
+        sent += await _send_campaign_reminders(db, ses_client, campaign, kind=kind, window=window)
+    return sent
+
+
+async def send_manual_campaign_reminders(
+    db: AsyncSession, ses_client: SESClient, campaign: Campaign
+) -> int:
+    """An Administrator's immediate nudge for one campaign.
+
+    Same audience the scheduled cadence would reach — an active, auto-
+    reminded, due-dated campaign — and the same per-learner cap. Does not
+    enforce its own once-per-campaign-per-day limit: the route checks that
+    first, against the `reminder_sent` audit entry.
+    """
+    if not _campaign_reminder_eligible(campaign):
+        return 0
+    window = await deployment_day_bounds(db)
+    return await _send_campaign_reminders(db, ses_client, campaign, kind=KIND_MANUAL, window=window)

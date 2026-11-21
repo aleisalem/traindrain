@@ -38,11 +38,26 @@ from app.content.uploads import UploadRejected, sniff_upload
 from app.core.config import get_settings
 from app.db import get_db
 from app.dependencies import get_module_or_404, get_s3_client, require_content_manager
-from app.models import Module, ModuleAsset, ModulePage, ModuleTranslationGroup, User
+from app.models import (
+    Module,
+    ModuleAsset,
+    ModulePage,
+    ModuleQuiz,
+    ModuleTranslationGroup,
+    User,
+)
+from app.quiz import add_question_rows, load_draft_quiz
 from app.routes.assets import asset_url, read_upload_within_cap
 from app.routes.content import module_response, validate_page_body
 from app.schemas.modules import AssetKind, ModuleLanguage, ModuleResponse
-from app.schemas.transfer import EXPORT_FORMAT, ExportedAsset, ExportedPage, ModuleExportDocument
+from app.schemas.quiz import QuestionCreateRequest
+from app.schemas.transfer import (
+    EXPORT_FORMAT,
+    ExportedAsset,
+    ExportedPage,
+    ExportedQuiz,
+    ModuleExportDocument,
+)
 from app.security.audit import record_audit_log
 from app.storage import S3Client, delete_asset, get_asset_bytes, object_key, put_asset
 
@@ -128,6 +143,30 @@ async def export_module(
     for asset in assets:
         asset_bytes[asset.id] = await get_asset_bytes(s3_client, key=asset.object_key)
 
+    loaded_quiz = await load_draft_quiz(db, module.id)
+    exported_quiz: ExportedQuiz | None = None
+    if loaded_quiz is not None:
+        quiz_row, quiz_questions = loaded_quiz
+        exported_quiz = ExportedQuiz(
+            pass_mark_percent=quiz_row.pass_mark_percent,
+            max_attempts=quiz_row.max_attempts,
+            shuffle=quiz_row.shuffle,
+            reveal_after_pass=quiz_row.reveal_after_pass,
+            questions=[
+                QuestionCreateRequest(
+                    type=question.type,  # type: ignore[arg-type]
+                    schema_version=question.schema_version,
+                    prompt=question.prompt,
+                    explanation=question.explanation,
+                    options=[
+                        {"text": option.text, "is_correct": option.is_correct}  # type: ignore[misc]
+                        for option in options
+                    ],
+                )
+                for question, options in quiz_questions
+            ],
+        )
+
     document = ModuleExportDocument(
         format=EXPORT_FORMAT,
         title=module.title,
@@ -138,6 +177,7 @@ async def export_module(
             ExportedPage(title=page.title, schema_version=page.schema_version, body=page.body)
             for page in pages
         ],
+        quiz=exported_quiz,
         assets=[
             ExportedAsset(
                 id=asset.id,
@@ -160,6 +200,7 @@ async def export_module(
             "title": module.title,
             "page_count": len(pages),
             "asset_count": len(assets),
+            "has_quiz": exported_quiz is not None,
         },
     )
     await db.commit()
@@ -240,6 +281,21 @@ async def import_module(
     for page in document.pages:
         body, _search_text = validate_page_body(page.body, page.schema_version)
         validated_pages.append((page.title, body))
+
+    # The quiz goes through the same validators as an authored one: field
+    # limits were enforced when the manifest was parsed (it is built from the
+    # authoring request models), and every prompt and explanation is checked
+    # here by the page-body validator — rejected, never stripped.
+    validated_questions: list[tuple[QuestionCreateRequest, dict[str, Any], dict[str, Any] | None]] = []
+    if document.quiz is not None:
+        for question in document.quiz.questions:
+            prompt, _ = validate_page_body(question.prompt, question.schema_version)
+            explanation = (
+                validate_page_body(question.explanation, question.schema_version)[0]
+                if question.explanation is not None
+                else None
+            )
+            validated_questions.append((question, prompt, explanation))
 
     # Every asset re-sniffed from its bytes and re-checked against the same
     # caps a fresh upload faces — the manifest's own claims about content
@@ -374,6 +430,34 @@ async def import_module(
             )
         )
 
+    if document.quiz is not None:
+        quiz = ModuleQuiz(
+            module_id=module.id,
+            pass_mark_percent=document.quiz.pass_mark_percent,
+            max_attempts=document.quiz.max_attempts,
+            shuffle=document.quiz.shuffle,
+            reveal_after_pass=document.quiz.reveal_after_pass,
+        )
+        db.add(quiz)
+        await db.flush()
+        for position, (question, prompt, explanation) in enumerate(validated_questions):
+            await add_question_rows(
+                db,
+                quiz,
+                position=position,
+                type=question.type,
+                schema_version=question.schema_version,
+                # Repointed at this import's own assets, like page bodies, then
+                # re-validated so what is stored is the validator's canonical form.
+                prompt=validate_document(_rewrite_asset_references_by_id(prompt, urls_by_old_id)),
+                explanation=(
+                    validate_document(_rewrite_asset_references_by_id(explanation, urls_by_old_id))
+                    if explanation is not None
+                    else None
+                ),
+                options=[(option.text.strip(), option.is_correct) for option in question.options],
+            )
+
     await record_audit_log(
         db,
         actor_user_id=author.id,
@@ -383,6 +467,8 @@ async def import_module(
             "title": module.title,
             "page_count": len(validated_pages),
             "asset_count": len(sniffed_assets),
+            "has_quiz": document.quiz is not None,
+            "question_count": len(validated_questions),
         },
     )
     await db.commit()

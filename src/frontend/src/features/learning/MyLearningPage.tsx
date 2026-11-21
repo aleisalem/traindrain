@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
-import type { LearnerModuleSummary } from "./types";
+import { CampaignCard } from "./CampaignCard";
+import type { LearnerCampaign, LearnerModuleSummary } from "./types";
 import { useLearnerList } from "./useLearnerList";
 
 /**
@@ -14,6 +15,7 @@ import { useLearnerList } from "./useLearnerList";
 export function MyLearningPage() {
   const { t } = useTranslation();
   const state = useLearnerList<LearnerModuleSummary>("/api/me/modules");
+  const campaignState = useLearnerList<LearnerCampaign>("/api/me/campaigns");
 
   if (state.status === "error") {
     return (
@@ -26,8 +28,15 @@ export function MyLearningPage() {
     );
   }
 
-  if (state.status === "loading") return null;
-  const rows = state.items;
+  if (state.status === "loading" || campaignState.status === "loading") return null;
+  // The campaign list is an enhancement over the module list: if only it
+  // fails, the learner still sees their modules rather than an error page.
+  const campaigns = campaignState.status === "ready" ? campaignState.items : [];
+  // A module shown inside a campaign is not listed a second time below.
+  const inCampaign = new Set(
+    campaigns.flatMap((campaign) => campaign.modules.map((row) => row.translation_group_id)),
+  );
+  const rows = state.items.filter((row) => !inCampaign.has(row.translation_group_id));
 
   return (
     <section className="flex flex-col gap-6">
@@ -36,7 +45,24 @@ export function MyLearningPage() {
         <p className="text-sm text-fg-muted">{t("learning.mine_description")}</p>
       </div>
 
-      {rows.length === 0 ? (
+      {campaigns.length > 0 && (
+        <section aria-labelledby="my-campaigns-heading" className="flex flex-col gap-3">
+          <h3 id="my-campaigns-heading" className="text-lg font-semibold">
+            {t("learning.campaigns_heading")}
+          </h3>
+          <ul className="flex flex-col gap-4">
+            {campaigns.map((campaign) => (
+              <CampaignCard key={campaign.id} campaign={campaign} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {campaigns.length > 0 && rows.length > 0 && (
+        <h3 className="text-lg font-semibold">{t("learning.other_modules_heading")}</h3>
+      )}
+
+      {rows.length === 0 && campaigns.length > 0 ? null : rows.length === 0 ? (
         <div className="flex flex-col items-start gap-3">
           <p className="text-sm text-fg-muted">{t("learning.mine_empty")}</p>
           <Link

@@ -330,6 +330,25 @@ describe("ModuleViewerPage", () => {
     );
   });
 
+  it("explains a locked module and links to what unlocks it", async () => {
+    mockBackend({
+      "GET /api/me/modules/group-1": {
+        status: 403,
+        body: {
+          detail: { code: "module_locked", prerequisite_translation_group_id: "group-0" },
+        },
+      },
+    });
+    renderViewer();
+
+    expect(await screen.findByRole("heading", { name: "This module is locked" })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Complete the previous module");
+    expect(screen.getByRole("link", { name: "Go to the previous module" })).toHaveAttribute(
+      "href",
+      "/modules/group-0",
+    );
+  });
+
   // --- Switching language --------------------------------------------------
 
   const EN_VARIANT: LearnerModule = {

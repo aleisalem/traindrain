@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { CampaignReportsSection } from "./CampaignReportsSection";
 import { ModuleReportPanel } from "./ModuleReportPanel";
 import type { ModuleBody } from "./types";
 import { useModuleReport } from "./useModuleReport";
@@ -32,6 +33,7 @@ export function ModuleReportsPage({ isAdministrator }: Props) {
   const [loadError, setLoadError] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedModuleId, setSelectedModuleId] = useState<string | undefined>(undefined);
+  const [tab, setTab] = useState<"modules" | "campaigns">("modules");
 
   const load = useCallback(async () => {
     const response = await fetch("/api/content/modules");
@@ -81,6 +83,26 @@ export function ModuleReportsPage({ isAdministrator }: Props) {
         <p className="text-sm text-fg-muted">{t("contentReports.description")}</p>
       </div>
 
+      <div role="group" aria-label={t("contentReports.heading")} className="flex gap-2">
+        {(["modules", "campaigns"] as const).map((name) => (
+          <button
+            key={name}
+            type="button"
+            aria-pressed={tab === name}
+            onClick={() => setTab(name)}
+            className={`rounded-full border px-4 py-1.5 text-sm font-medium ${
+              tab === name ? "border-primary text-primary" : "border-border"
+            }`}
+          >
+            {t(`campaignReport.tab_${name}`)}
+          </button>
+        ))}
+      </div>
+
+      {tab === "campaigns" ? (
+        <CampaignReportsSection isAdministrator={isAdministrator} />
+      ) : (
+        <>
       <label className="flex flex-col gap-1 text-sm">
         {t("contentReports.search_label")}
         <input
@@ -135,6 +157,8 @@ export function ModuleReportsPage({ isAdministrator }: Props) {
             isAdministrator={isAdministrator}
           />
         </div>
+      )}
+        </>
       )}
     </section>
   );

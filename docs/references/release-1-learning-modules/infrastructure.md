@@ -88,3 +88,10 @@ So the "dedicated origin" here is the bucket's own regional S3 endpoint
 locally, with no change to how the backend signs or serves a URL. Revisiting
 this for CloudFront (caching, a custom domain, WAF in front of asset
 delivery) is a reasonable future ticket, not this one.
+
+## Release 2 (campaigns and grading)
+
+Release 2 adds **no new Terraform and no new AWS infrastructure**. Campaign reminders and start-date
+activation run inside the existing daily `python -m app.jobs.send_reminders` task; quiz data lives in
+the existing Postgres; campaign and quiz emails go through the same mailer and SES setup. Nothing under
+`.deploy/` changed in this release.
